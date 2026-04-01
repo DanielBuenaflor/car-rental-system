@@ -1,0 +1,303 @@
+from flask import Blueprint, jsonify, render_template, request, session, redirect, url_for, flash, current_app
+from MyFlaskApp import get_db_connection
+
+# Create blueprint for base/public routes
+base_bp = Blueprint('base_bp', __name__, 
+                    template_folder='templates', 
+                    static_folder='static',
+                    static_url_path='/base_static')
+
+
+# ========== PUBLIC ROUTES ==========
+
+@base_bp.route('/')
+def index():
+    """Home page - Redirect admin to dashboard"""
+    if session.get('loggedin') and session.get('role') == 'admin':
+        return redirect(url_for('admin_bp.admin_dashboard'))
+    
+    conn = get_db_connection()
+    if not conn:
+        return render_template('base/templates/base.html', all_vehicles=[], testimonials=[], session=session)
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Get ALL available vehicles
+        cursor.execute("""
+            SELECT v.*, vb.name as brand_name 
+            FROM vehicles v
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE v.status = 'available'
+            ORDER BY vb.name, v.model
+        """)
+        all_vehicles = cursor.fetchall()
+        
+        # Get approved testimonials
+        cursor.execute("""
+            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name
+            FROM testimonials t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.status = 'approved'
+            ORDER BY t.created_at DESC
+            LIMIT 3
+        """)
+        testimonials = cursor.fetchall()
+        
+        return render_template('base/templates/base.html', 
+                               all_vehicles=all_vehicles,
+                               testimonials=testimonials,
+                               session=session)
+    except Exception as e:
+        current_app.logger.error(f"Home page error: {e}")
+        return render_template('base/templates/base.html', all_vehicles=[], testimonials=[], session=session)
+    finally:
+        cursor.close()
+        conn.close()
+
+@base_bp.route('/fleet')
+def browse_fleet():
+    """Browse available vehicles - Admin cannot access"""
+    # If admin is logged in, redirect to admin dashboard
+    if session.get('loggedin') and session.get('role') == 'admin':
+        flash('Admin accounts cannot browse vehicles', 'info')
+        return redirect(url_for('admin_bp.admin_dashboard'))
+    
+    conn = get_db_connection()
+    if not conn:
+        flash('Database connection error', 'error')
+        return render_template('base/templates/fleet.html', vehicles=[], brands=[], session=session)
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Get all available vehicles with brand info
+        cursor.execute("""
+            SELECT v.*, vb.name as brand_name
+            FROM vehicles v
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE v.status = 'available'
+            ORDER BY vb.name, v.model
+        """)
+        vehicles = cursor.fetchall()
+        
+        # Get all brands for filter
+        cursor.execute("SELECT * FROM vehicle_brands ORDER BY name")
+        brands = cursor.fetchall()
+        
+        return render_template('base/templates/fleet.html', 
+                               vehicles=vehicles, 
+                               brands=brands,
+                               session=session)
+    except Exception as e:
+        current_app.logger.error(f"Fleet page error: {e}")
+        flash('Error loading vehicles', 'error')
+        return render_template('base/templates/fleet.html', vehicles=[], brands=[], session=session)
+    finally:
+        cursor.close()
+        conn.close()
+
+@base_bp.route('/testimonials')
+def testimonials():
+    """View testimonials - Admin cannot access"""
+    # If admin is logged in, redirect to admin dashboard
+    if session.get('loggedin') and session.get('role') == 'admin':
+        flash('Admin accounts cannot view testimonials', 'info')
+        return redirect(url_for('admin_bp.admin_dashboard'))
+    
+    # Get page number for pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = 6
+    
+    conn = get_db_connection()
+    if not conn:
+        return render_template('base/templates/testimonials.html', testimonials=[], session=session)
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Get total count of approved testimonials
+        cursor.execute("SELECT COUNT(*) as total FROM testimonials WHERE status = 'approved'")
+        total_result = cursor.fetchone()
+        total_testimonials = total_result['total'] if total_result else 0
+        
+        # Calculate pagination
+        total_pages = (total_testimonials + per_page - 1) // per_page
+        offset = (page - 1) * per_page
+        
+        # Get paginated testimonials
+        cursor.execute("""
+            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name
+            FROM testimonials t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.status = 'approved'
+            ORDER BY t.created_at DESC
+            LIMIT %s OFFSET %s
+        """, (per_page, offset))
+        testimonials_list = cursor.fetchall()
+        
+        # Get user's testimonial count (if logged in and not admin)
+        user_testimonial_count = 0
+        if session.get('loggedin') and session.get('role') != 'admin':
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM testimonials 
+                WHERE user_id = %s AND status != 'rejected'
+            """, (session['user_id'],))
+            count_result = cursor.fetchone()
+            user_testimonial_count = count_result['count'] if count_result else 0
+        
+        return render_template('base/templates/testimonials.html', 
+                               testimonials=testimonials_list,
+                               total_pages=total_pages,
+                               current_page=page,
+                               user_testimonial_count=user_testimonial_count,
+                               session=session)
+    except Exception as e:
+        current_app.logger.error(f"Testimonials error: {e}")
+        return render_template('base/templates/testimonials.html', testimonials=[], session=session)
+    finally:
+        cursor.close()
+        conn.close()
+
+        
+
+@base_bp.route('/api/vehicles/filter', methods=['POST'])
+def filter_vehicles():
+    """API endpoint for filtering vehicles"""
+    data = request.get_json()
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'error': 'Database error'}), 500
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Build query with filters
+        query = """
+            SELECT v.*, vb.name as brand_name
+            FROM vehicles v
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE v.status = 'available'
+        """
+        params = []
+        
+        # Search by brand/model
+        if data.get('search'):
+            query += " AND (vb.name LIKE %s OR v.model LIKE %s)"
+            search_term = f"%{data['search']}%"
+            params.extend([search_term, search_term])
+        
+        # Filter by transmission
+        if data.get('transmission'):
+            query += " AND v.transmission = %s"
+            params.append(data['transmission'])
+        
+        # Filter by fuel type
+        if data.get('fuel_type'):
+            query += " AND v.fuel_type = %s"
+            params.append(data['fuel_type'])
+        
+        # Filter by seating capacity
+        if data.get('seating_capacity'):
+            seats = int(data['seating_capacity'])
+            if seats >= 7:
+                query += " AND v.seating_capacity >= %s"
+            else:
+                query += " AND v.seating_capacity = %s"
+            params.append(seats)
+        
+        # Filter by price range
+        if data.get('min_price'):
+            query += " AND v.daily_rate >= %s"
+            params.append(float(data['min_price']))
+        
+        if data.get('max_price'):
+            query += " AND v.daily_rate <= %s"
+            params.append(float(data['max_price']))
+        
+        # Filter by date availability
+        if data.get('start_date') and data.get('end_date'):
+            query += """ AND v.id NOT IN (
+                SELECT vehicle_id FROM bookings 
+                WHERE status IN ('confirmed', 'active')
+                AND (
+                    (start_date BETWEEN %s AND %s)
+                    OR (end_date BETWEEN %s AND %s)
+                    OR (%s BETWEEN start_date AND end_date)
+                    OR (%s BETWEEN start_date AND end_date)
+                )
+            )"""
+            params.extend([
+                data['start_date'], data['end_date'],
+                data['start_date'], data['end_date'],
+                data['start_date'], data['end_date']
+            ])
+        
+        query += " ORDER BY vb.name, v.model"
+        
+        cursor.execute(query, params)
+        vehicles = cursor.fetchall()
+        
+        return jsonify({'vehicles': vehicles})
+        
+    except Exception as e:
+        print(f"Filter error: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+# ============================================================================
+# VEHICLE DETAILS ROUTE
+# ============================================================================
+@base_bp.route('/api/vehicle/<int:vehicle_id>')
+def api_vehicle_detail(vehicle_id):
+    """API endpoint for vehicle details"""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database error'}), 500
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Get vehicle details
+        cursor.execute("""
+            SELECT v.*, vb.name as brand_name
+            FROM vehicles v
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE v.id = %s AND v.status = 'available'
+        """, (vehicle_id,))
+        vehicle = cursor.fetchone()
+        
+        if not vehicle:
+            return jsonify({'success': False, 'error': 'Vehicle not found'}), 404
+        
+        # Get vehicle images
+        cursor.execute("""
+            SELECT * FROM vehicle_images 
+            WHERE vehicle_id = %s 
+            ORDER BY is_primary DESC, sort_order ASC
+        """, (vehicle_id,))
+        images = cursor.fetchall()
+        
+        # Get similar vehicles
+        cursor.execute("""
+            SELECT v.*, vb.name as brand_name
+            FROM vehicles v
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE v.id != %s AND v.status = 'available'
+            AND (v.brand_id = %s OR v.fuel_type = %s)
+            LIMIT 4
+        """, (vehicle_id, vehicle['brand_id'], vehicle['fuel_type']))
+        similar_vehicles = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'vehicle': vehicle,
+            'images': images,
+            'similar_vehicles': similar_vehicles
+        })
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+

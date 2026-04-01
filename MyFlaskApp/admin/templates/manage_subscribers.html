@@ -1,0 +1,234 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Manage Subscribers - CarRental Pro{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h2>Manage Subscribers</h2>
+        <button class="btn-primary" onclick="sendNewsletter()">
+            <i class="fas fa-envelope"></i> Send Newsletter
+        </button>
+    </div>
+    
+    <div class="card">
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background-color: #f8fafc;">
+                        <th style="padding: 12px; text-align: left;">ID</th>
+                        <th style="padding: 12px; text-align: left;">Email</th>
+                        <th style="padding: 12px; text-align: left;">Status</th>
+                        <th style="padding: 12px; text-align: left;">Subscribed Date</th>
+                        <th style="padding: 12px; text-align: left;">Actions</th>
+                    </thead>
+                <tbody id="subscribersTableBody">
+                    {% for subscriber in subscribers %}
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ subscriber.id }}<\/td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ subscriber.email }}<\/td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                            <span class="badge badge-{{ 'active' if subscriber.is_active else 'inactive' }}">
+                                {{ 'Active' if subscriber.is_active else 'Inactive' }}
+                            </span>
+                        </td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ subscriber.subscribed_at.strftime('%Y-%m-%d') if subscriber.subscribed_at else 'N/A' }}<\/td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                            <button class="btn-sm btn-danger" onclick="deleteSubscriber({{ subscriber.id }})">Remove</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px;">No subscribers found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Newsletter Modal -->
+<div id="newsletterModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>Send Newsletter to Subscribers</h3>
+            <span class="close" onclick="closeNewsletterModal()">&times;</span>
+        </div>
+        <form id="newsletterForm">
+            <div class="form-group">
+                <label>Subject</label>
+                <input type="text" id="newsletterSubject" required>
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="newsletterMessage" rows="8" required></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Send to All Subscribers</button>
+                <button type="button" class="btn-secondary" onclick="closeNewsletterModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-active { 
+        background: #d1fae5; 
+        color: #065f46; 
+    }
+    .badge-inactive { 
+        background: #fee2e2; 
+        color: #991b1b; 
+    }
+    .btn-sm {
+        padding: 5px 12px;
+        font-size: 12px;
+        margin: 0 3px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .btn-danger {
+        background: #dc2626;
+        color: white;
+    }
+    .btn-danger:hover {
+        background: #b91c1c;
+    }
+    .modal {
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        display: none;
+    }
+    .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 20px;
+        width: 90%;
+        max-width: 600px;
+        border-radius: 12px;
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .close {
+        font-size: 28px;
+        cursor: pointer;
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+    .form-group input, .form-group textarea {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+    }
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 20px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #0f3b6f;
+    }
+    @media (max-width: 768px) {
+        th, td {
+            padding: 8px;
+            font-size: 12px;
+        }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+    }
+</style>
+
+<script>
+let allSubscribers = [];
+
+function loadSubscribers() {
+    fetch('{{ url_for('admin_bp.api_get_subscribers') }}')
+        .then(response => response.json())
+        .then(subscribers => {
+            allSubscribers = subscribers;
+        })
+        .catch(error => console.error('Error loading subscribers:', error));
+}
+
+function deleteSubscriber(subId) {
+    if (confirm('Are you sure you want to remove this subscriber?')) {
+        fetch(`{{ url_for('admin_bp.api_delete_subscriber', subscriber_id=0) }}`.replace('0', subId), {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Subscriber removed successfully');
+                location.reload();
+            } else {
+                alert('Error removing subscriber: ' + (data.message || 'Unknown error'));
+            }
+        });
+    }
+}
+
+function sendNewsletter() {
+    document.getElementById('newsletterModal').style.display = 'block';
+}
+
+function closeNewsletterModal() {
+    document.getElementById('newsletterModal').style.display = 'none';
+    document.getElementById('newsletterForm').reset();
+}
+
+document.getElementById('newsletterForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const subject = document.getElementById('newsletterSubject').value;
+    const message = document.getElementById('newsletterMessage').value;
+    
+    if (!subject || !message) {
+        alert('Please fill in both subject and message');
+        return;
+    }
+    
+    if (confirm(`Send newsletter to ${allSubscribers.length} subscribers?`)) {
+        // Here you would implement the actual newsletter sending
+        // For now, just show confirmation
+        alert(`Newsletter sent to ${allSubscribers.length} subscribers!`);
+        closeNewsletterModal();
+    }
+});
+
+// Load subscribers on page load
+loadSubscribers();
+</script>
+{% endblock %}

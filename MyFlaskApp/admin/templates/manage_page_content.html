@@ -1,0 +1,567 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Manage Page Content - CarRental Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 15px;
+    }
+    
+    .page-tab {
+        padding: 10px 24px;
+        background: #f1f5f9;
+        border: none;
+        border-radius: 40px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .page-tab:hover {
+        background: #e2e8f0;
+    }
+    
+    .page-tab.active {
+        background: #0f3b6f;
+        color: white;
+    }
+    
+    .sections-container {
+        margin-top: 20px;
+    }
+    
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #0f3b6f;
+        text-transform: capitalize;
+    }
+    
+    .section-badge {
+        background: #e2e8f0;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+    }
+    
+    .form-row {
+        margin-bottom: 15px;
+    }
+    
+    .form-row label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #1f3a5f;
+    }
+    
+    .form-row input, .form-row textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-family: inherit;
+    }
+    
+    .form-row textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+    
+    .section-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        justify-content: flex-end;
+    }
+    
+    .btn-save {
+        background: #10b981;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 40px;
+        cursor: pointer;
+    }
+    
+    .btn-delete {
+        background: #ef4444;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 40px;
+        cursor: pointer;
+    }
+    
+    .add-section {
+        background: #f8fafc;
+        border: 2px dashed #cbd5e1;
+        border-radius: 16px;
+        padding: 30px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-top: 20px;
+    }
+    
+    .add-section:hover {
+        border-color: #0f3b6f;
+        background: #f1f5f9;
+    }
+    
+    .add-section i {
+        font-size: 32px;
+        color: #0f3b6f;
+        margin-bottom: 10px;
+    }
+    
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        display: none;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal-content {
+        background: white;
+        width: 90%;
+        max-width: 500px;
+        border-radius: 16px;
+        padding: 24px;
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .modal-close {
+        font-size: 24px;
+        cursor: pointer;
+    }
+    
+    .btn-sm {
+        padding: 5px 10px;
+        font-size: 12px;
+        margin: 0 2px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    .btn-sm:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h2>Manage Page Content</h2>
+        <button class="btn-primary" onclick="openAddSectionModal()">
+            <i class="fas fa-plus"></i> Add New Section
+        </button>
+    </div>
+    
+    <!-- Page Tabs -->
+    <div class="page-tabs">
+        <button class="page-tab active" data-page="home" onclick="loadPageContent('home')">Home Page</button>
+        <button class="page-tab" data-page="about" onclick="loadPageContent('about')">About Page</button>
+        <button class="page-tab" data-page="fleet" onclick="loadPageContent('fleet')">Fleet Page</button>
+        <button class="page-tab" data-page="testimonials" onclick="loadPageContent('testimonials')">Testimonials Page</button>
+    </div>
+    
+    <!-- Sections Container -->
+    <div id="sectionsContainer" class="sections-container">
+        {% if content_by_page %}
+            {% for page_name, sections in content_by_page.items() %}
+                {% if page_name == 'home' %}
+                    {% for section in sections %}
+                    <div class="section-card" data-id="{{ section.id }}">
+                        <div class="section-header">
+                            <div>
+                                <span class="section-title">{{ section.section_key }}</span>
+                                <span class="section-badge">{{ section.page_name }}</span>
+                            </div>
+                            <div>
+                                <button class="btn-sm btn-secondary" onclick="moveUp({{ section.id }})" {% if loop.first %}disabled{% endif %}>
+                                    <i class="fas fa-arrow-up"></i>
+                                </button>
+                                <button class="btn-sm btn-secondary" onclick="moveDown({{ section.id }})" {% if loop.last %}disabled{% endif %}>
+                                    <i class="fas fa-arrow-down"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <form onsubmit="saveSection(event, {{ section.id }})">
+                            <div class="form-row">
+                                <label>Title</label>
+                                <input type="text" name="title" value="{{ section.title or '' }}" placeholder="Section title">
+                            </div>
+                            <div class="form-row">
+                                <label>Content</label>
+                                <textarea name="content" rows="4" placeholder="Section content...">{{ section.content or '' }}</textarea>
+                            </div>
+                            <div class="form-row">
+                                <label>Image URL</label>
+                                <input type="text" name="image_url" value="{{ section.image_url or '' }}" placeholder="https://example.com/image.jpg">
+                            </div>
+                            <div class="section-actions">
+                                <button type="submit" class="btn-save">Save Changes</button>
+                                <button type="button" class="btn-delete" onclick="deleteSection({{ section.id }})">Delete Section</button>
+                            </div>
+                        </form>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="add-section" onclick="openAddSectionModal()">
+                <i class="fas fa-plus-circle"></i>
+                <p>No sections found for Home page</p>
+                <p style="font-size: 12px; color: #666;">Click here to add your first section</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Section Modal -->
+<div id="addSectionModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New Section</h3>
+            <span class="modal-close" onclick="closeAddSectionModal()">&times;</span>
+        </div>
+        <form id="addSectionForm">
+            <div class="form-row">
+                <label>Section Key *</label>
+                <input type="text" id="sectionKey" required placeholder="e.g., hero, features, about, mission">
+                <small>Use lowercase letters and underscores only</small>
+            </div>
+            <div class="form-row">
+                <label>Title</label>
+                <input type="text" id="sectionTitle" placeholder="Section title">
+            </div>
+            <div class="form-row">
+                <label>Content *</label>
+                <textarea id="sectionContent" rows="4" required placeholder="Section content..."></textarea>
+            </div>
+            <div class="form-row">
+                <label>Image URL (optional)</label>
+                <input type="text" id="sectionImage" placeholder="https://example.com/image.jpg">
+            </div>
+            <div class="form-row">
+                <label>Order Position</label>
+                <input type="number" id="sectionOrder" value="0" placeholder="0">
+            </div>
+            <div class="form-actions" style="margin-top: 20px;">
+                <button type="submit" class="btn-primary">Add Section</button>
+                <button type="button" class="btn-secondary" onclick="closeAddSectionModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let currentPage = 'home';
+let allContent = [];
+
+function loadPageContent(pageName) {
+    currentPage = pageName;
+    
+    // Update active tab
+    document.querySelectorAll('.page-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.getAttribute('data-page') === pageName) {
+            tab.classList.add('active');
+        }
+    });
+    
+    fetch('{{ url_for('admin_bp.api_get_page_content') }}')
+        .then(response => response.json())
+        .then(content => {
+            allContent = content;
+            displayPageContent(pageName);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('sectionsContainer').innerHTML = '<div style="text-align: center; padding: 40px; color: red;">Error loading content</div>';
+        });
+}
+
+function displayPageContent(pageName) {
+    const sections = allContent.filter(c => c.page_name === pageName);
+    const container = document.getElementById('sectionsContainer');
+    
+    if (sections.length === 0) {
+        container.innerHTML = `
+            <div class="add-section" onclick="openAddSectionModal()">
+                <i class="fas fa-plus-circle"></i>
+                <p>No sections found for ${pageName} page</p>
+                <p style="font-size: 12px; color: #666;">Click here to add your first section</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort by order_position
+    sections.sort((a, b) => (a.order_position || 0) - (b.order_position || 0));
+    
+    let html = '';
+    sections.forEach((section, index) => {
+        html += `
+            <div class="section-card" data-id="${section.id}">
+                <div class="section-header">
+                    <div>
+                        <span class="section-title">${escapeHtml(section.section_key)}</span>
+                        <span class="section-badge">${escapeHtml(section.page_name)}</span>
+                    </div>
+                    <div>
+                        <button class="btn-sm btn-secondary" onclick="moveUp(${section.id})" ${index === 0 ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                        <button class="btn-sm btn-secondary" onclick="moveDown(${section.id})" ${index === sections.length - 1 ? 'disabled' : ''}>
+                            <i class="fas fa-arrow-down"></i>
+                        </button>
+                    </div>
+                </div>
+                <form onsubmit="saveSection(event, ${section.id})">
+                    <div class="form-row">
+                        <label>Title</label>
+                        <input type="text" name="title" value="${escapeHtml(section.title || '')}" placeholder="Section title">
+                    </div>
+                    <div class="form-row">
+                        <label>Content</label>
+                        <textarea name="content" rows="4" placeholder="Section content...">${escapeHtml(section.content || '')}</textarea>
+                    </div>
+                    <div class="form-row">
+                        <label>Image URL</label>
+                        <input type="text" name="image_url" value="${escapeHtml(section.image_url || '')}" placeholder="https://example.com/image.jpg">
+                    </div>
+                    <div class="section-actions">
+                        <button type="submit" class="btn-save">Save Changes</button>
+                        <button type="button" class="btn-delete" onclick="deleteSection(${section.id})">Delete Section</button>
+                    </div>
+                </form>
+            </div>
+        `;
+    });
+    
+    // Add "Add Section" button at the bottom
+    html += `
+        <div class="add-section" onclick="openAddSectionModal()">
+            <i class="fas fa-plus-circle"></i>
+            <p>Add New Section</p>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function saveSection(event, sectionId) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    const data = {
+        title: formData.get('title'),
+        content: formData.get('content'),
+        image_url: formData.get('image_url')
+    };
+    
+    fetch(`{{ url_for('admin_bp.api_update_page_content', content_id=0) }}`.replace('0', sectionId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', 'Section saved successfully');
+            loadPageContent(currentPage);
+        } else {
+            showAlert('error', 'Error saving section: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', 'Error saving section');
+    });
+}
+
+function deleteSection(sectionId) {
+    if (confirm('Are you sure you want to delete this section?')) {
+        fetch(`{{ url_for('admin_bp.api_delete_page_content', content_id=0) }}`.replace('0', sectionId), {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', 'Section deleted successfully');
+                loadPageContent(currentPage);
+            } else {
+                showAlert('error', 'Error deleting section: ' + (data.message || 'Unknown error'));
+            }
+        });
+    }
+}
+
+function moveUp(sectionId) {
+    const currentSection = allContent.find(c => c.id === sectionId);
+    if (!currentSection) return;
+    
+    const siblings = allContent.filter(c => c.page_name === currentSection.page_name);
+    siblings.sort((a, b) => (a.order_position || 0) - (b.order_position || 0));
+    
+    const currentIndex = siblings.findIndex(s => s.id === sectionId);
+    if (currentIndex <= 0) return;
+    
+    const prevSection = siblings[currentIndex - 1];
+    const currentOrder = currentSection.order_position || 0;
+    const prevOrder = prevSection.order_position || 0;
+    
+    // Swap order positions
+    updateSectionOrder(sectionId, prevOrder);
+    updateSectionOrder(prevSection.id, currentOrder);
+}
+
+function moveDown(sectionId) {
+    const currentSection = allContent.find(c => c.id === sectionId);
+    if (!currentSection) return;
+    
+    const siblings = allContent.filter(c => c.page_name === currentSection.page_name);
+    siblings.sort((a, b) => (a.order_position || 0) - (b.order_position || 0));
+    
+    const currentIndex = siblings.findIndex(s => s.id === sectionId);
+    if (currentIndex >= siblings.length - 1) return;
+    
+    const nextSection = siblings[currentIndex + 1];
+    const currentOrder = currentSection.order_position || 0;
+    const nextOrder = nextSection.order_position || 0;
+    
+    // Swap order positions
+    updateSectionOrder(sectionId, nextOrder);
+    updateSectionOrder(nextSection.id, currentOrder);
+}
+
+function updateSectionOrder(sectionId, newOrder) {
+    fetch(`{{ url_for('admin_bp.api_update_section_order', section_id=0) }}`.replace('0', sectionId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_position: newOrder })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadPageContent(currentPage);
+        }
+    });
+}
+
+function openAddSectionModal() {
+    document.getElementById('addSectionModal').style.display = 'flex';
+}
+
+function closeAddSectionModal() {
+    document.getElementById('addSectionModal').style.display = 'none';
+    document.getElementById('addSectionForm').reset();
+}
+
+document.getElementById('addSectionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const data = {
+        page_name: currentPage,
+        section_key: document.getElementById('sectionKey').value,
+        title: document.getElementById('sectionTitle').value,
+        content: document.getElementById('sectionContent').value,
+        image_url: document.getElementById('sectionImage').value,
+        order_position: parseInt(document.getElementById('sectionOrder').value) || 0
+    };
+    
+    if (!data.section_key) {
+        alert('Section key is required');
+        return;
+    }
+    
+    if (!data.content) {
+        alert('Content is required');
+        return;
+    }
+    
+    fetch('{{ url_for('admin_bp.api_create_page_content') }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', 'Section added successfully');
+            closeAddSectionModal();
+            loadPageContent(currentPage);
+        } else {
+            showAlert('error', data.message || 'Error adding section');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', 'Error adding section');
+    });
+});
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+// Load default page on load
+loadPageContent('home');
+</script>
+{% endblock %}

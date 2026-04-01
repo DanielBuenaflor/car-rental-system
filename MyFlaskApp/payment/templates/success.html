@@ -1,0 +1,39 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Payment {% if verified %}Successful{% else %}Status{% endif %} - CarRental Pro{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 80px auto; text-align: center;">
+    <div class="card" style="padding: 40px;">
+        {% if verified %}
+            <i class="fas fa-check-circle" style="font-size: 80px; color: #10b981; margin-bottom: 20px;"></i>
+            <h2 style="margin-bottom: 15px;">Payment Successful!</h2>
+            <p style="margin-bottom: 30px; color: #666;">
+                Your booking has been confirmed. A confirmation email has been sent to your email address.
+            </p>
+        {% else %}
+            <i class="fas fa-clock" style="font-size: 80px; color: #f59e0b; margin-bottom: 20px;"></i>
+            <h2 style="margin-bottom: 15px;">Payment Pending</h2>
+            <p style="margin-bottom: 30px; color: #666;">
+                {% if error %}
+                    {{ error }}
+                {% else %}
+                    Your payment is being processed. Please check your email for confirmation.
+                {% endif %}
+            </p>
+        {% endif %}
+        
+        <div style="display: flex; gap: 15px; justify-content: center;">
+            <a href="{{ url_for('user_bp.my_bookings') }}" class="btn-primary">View My Bookings</a>
+            <a href="{{ url_for('base_bp.index') }}" class="btn-secondary">Back to Home</a>
+        </div>
+        
+        {% if not verified %}
+        <p style="margin-top: 20px; font-size: 12px; color: #666;">
+            <i class="fas fa-info-circle"></i> 
+            If you've completed the payment but don't see confirmation, please check your email or contact support.
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

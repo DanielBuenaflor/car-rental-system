@@ -1,0 +1,318 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Manage Contact Queries - CarRental Pro{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <h2 style="margin-bottom: 30px;">Manage Contact Queries</h2>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="filterQueries('all')">All</button>
+        <button class="tab-btn" onclick="filterQueries('new')">New</button>
+        <button class="tab-btn" onclick="filterQueries('read')">Read</button>
+        <button class="tab-btn" onclick="filterQueries('replied')">Replied</button>
+        <button class="tab-btn" onclick="filterQueries('resolved')">Resolved</button>
+    </div>
+    
+    <div class="card">
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background-color: #f8fafc;">
+                        <th style="padding: 12px; text-align: left;">ID</th>
+                        <th style="padding: 12px; text-align: left;">Name</th>
+                        <th style="padding: 12px; text-align: left;">Email</th>
+                        <th style="padding: 12px; text-align: left;">Subject</th>
+                        <th style="padding: 12px; text-align: left;">Status</th>
+                        <th style="padding: 12px; text-align: left;">Date</th>
+                        <th style="padding: 12px; text-align: left;">Actions</th>
+                    </thead>
+                <tbody id="queriesTableBody">
+                    {% for query in queries %}
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ query.id }}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                            <strong>{{ query.name }}</strong><br>
+                            <small>{{ query.user_name or 'Guest' }}</small>
+                        </td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ query.email }}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ query.subject }}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                            <span class="badge badge-{{ query.status }}">{{ query.status }}</span>
+                        </td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ query.created_at.strftime('%Y-%m-%d %H:%M') if query.created_at else 'N/A' }}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                            <button class="btn-sm btn-primary" onclick="viewQuery({{ query.id }})">View & Reply</button>
+                            <button class="btn-sm btn-danger" onclick="deleteQuery({{ query.id }})">Delete</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px;">No queries found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- View/Reply Query Modal -->
+<div id="queryModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>Query Details</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <div id="queryDetails"></div>
+        <div id="replySection" style="margin-top: 20px;">
+            <h4>Reply to Query</h4>
+            <textarea id="replyMessage" rows="4" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;"></textarea>
+            <div class="form-actions" style="margin-top: 10px;">
+                <button class="btn-primary" onclick="sendReply()">Send Reply</button>
+                <button class="btn-secondary" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .tab-btn {
+        padding: 8px 20px;
+        background: #e2e8f0;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 600;
+    }
+    .tab-btn.active {
+        background: #0f3b6f;
+        color: white;
+    }
+    .badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-new { background: #ef4444; color: white; }
+    .badge-read { background: #f59e0b; color: white; }
+    .badge-replied { background: #10b981; color: white; }
+    .badge-resolved { background: #3b82f6; color: white; }
+    .btn-sm {
+        padding: 5px 12px;
+        font-size: 12px;
+        margin: 0 3px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .btn-primary {
+        background: #0f3b6f;
+        color: white;
+    }
+    .btn-danger {
+        background: #dc2626;
+        color: white;
+    }
+    .modal {
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        display: none;
+    }
+    .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 20px;
+        width: 90%;
+        max-width: 600px;
+        border-radius: 12px;
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .close {
+        font-size: 28px;
+        cursor: pointer;
+    }
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 10px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #0f3b6f;
+    }
+    @media (max-width: 768px) {
+        th, td {
+            padding: 8px;
+            font-size: 12px;
+        }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+    }
+</style>
+
+<script>
+let allQueries = [];
+
+function loadQueries() {
+    fetch('{{ url_for('admin_bp.api_get_queries') }}')
+        .then(response => response.json())
+        .then(queries => {
+            allQueries = queries;
+        })
+        .catch(error => console.error('Error loading queries:', error));
+}
+
+function filterQueries(status) {
+    // Update active tab
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.toLowerCase() === status || (status === 'all' && btn.textContent === 'All')) {
+            btn.classList.add('active');
+        }
+    });
+    
+    let filtered = allQueries;
+    if (status !== 'all') {
+        filtered = allQueries.filter(q => q.status === status);
+    }
+    displayQueries(filtered);
+}
+
+function displayQueries(queries) {
+    const tbody = document.getElementById('queriesTableBody');
+    if (queries.length === 0) {
+        tbody.innerHTML = ' <td colspan="7" style="text-align: center; padding: 40px;">No queries found<\/td>';
+        return;
+    }
+    
+    tbody.innerHTML = queries.map(query => `
+        <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${query.id}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                <strong>${escapeHtml(query.name)}</strong><br>
+                <small>${escapeHtml(query.user_name || 'Guest')}</small>
+            </td>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(query.email)}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(query.subject)}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                <span class="badge badge-${query.status}">${query.status}</span>
+            </td>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${new Date(query.created_at).toLocaleString()}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                <button class="btn-sm btn-primary" onclick="viewQuery(${query.id})">View & Reply</button>
+                <button class="btn-sm btn-danger" onclick="deleteQuery(${query.id})">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+let currentQueryId = null;
+
+function viewQuery(queryId) {
+    const query = allQueries.find(q => q.id === queryId);
+    if (query) {
+        currentQueryId = queryId;
+        document.getElementById('queryDetails').innerHTML = `
+            <div><strong>From:</strong> ${escapeHtml(query.name)} (${escapeHtml(query.email)})</div>
+            <div><strong>Phone:</strong> ${escapeHtml(query.phone || 'N/A')}</div>
+            <div><strong>Subject:</strong> ${escapeHtml(query.subject)}</div>
+            <div><strong>Date:</strong> ${new Date(query.created_at).toLocaleString()}</div>
+            <div style="margin-top: 15px;"><strong>Message:</strong></div>
+            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 5px;">${escapeHtml(query.message)}</div>
+            ${query.reply_message ? `
+                <div style="margin-top: 15px;"><strong>Your Reply:</strong></div>
+                <div style="background: #e0f2fe; padding: 15px; border-radius: 8px; margin-top: 5px;">${escapeHtml(query.reply_message)}</div>
+                <div><small>Replied on: ${new Date(query.replied_at).toLocaleString()}</small></div>
+            ` : ''}
+        `;
+        document.getElementById('replyMessage').value = '';
+        document.getElementById('queryModal').style.display = 'block';
+    }
+}
+
+function sendReply() {
+    const reply = document.getElementById('replyMessage').value;
+    if (!reply.trim()) {
+        alert('Please enter a reply message');
+        return;
+    }
+    
+    fetch(`{{ url_for('admin_bp.api_reply_query', query_id=0) }}`.replace('0', currentQueryId), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({reply_message: reply})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Reply sent successfully');
+            closeModal();
+            loadQueries();
+            filterQueries('all');
+        } else {
+            alert('Error sending reply: ' + (data.message || 'Unknown error'));
+        }
+    });
+}
+
+function deleteQuery(queryId) {
+    if (confirm('Are you sure you want to delete this query?')) {
+        fetch(`{{ url_for('admin_bp.api_delete_query', query_id=0) }}`.replace('0', queryId), {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Query deleted successfully');
+                loadQueries();
+                filterQueries('all');
+            } else {
+                alert('Error deleting query: ' + (data.message || 'Unknown error'));
+            }
+        });
+    }
+}
+
+function closeModal() {
+    document.getElementById('queryModal').style.display = 'none';
+}
+
+// Load queries on page load
+loadQueries();
+</script>
+{% endblock %}

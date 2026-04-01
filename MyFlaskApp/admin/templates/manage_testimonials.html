@@ -1,0 +1,346 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Manage Testimonials - CarRental Pro{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <h2 style="margin-bottom: 30px;">Manage Testimonials</h2>
+        <!-- Search and Filter Section -->
+    <div style="background: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 30px;">
+        <form method="GET" action="{{ url_for('admin_bp.manage_testimonials') }}" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input type="text" name="search" placeholder="Search by user name or comment..." 
+                value="{{ search }}" style="flex: 1; min-width: 250px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px;">
+            <select name="status" style="padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; min-width: 150px;">
+                <option value="">All Status</option>
+                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+            </select>
+            <button type="submit" class="btn-primary" style="padding: 12px 24px;">
+                <i class="fas fa-search"></i> Search
+            </button>
+            {% if search or status_filter %}
+            <a href="{{ url_for('admin_bp.manage_testimonials') }}" class="btn-secondary" style="padding: 12px 24px;">
+                <i class="fas fa-times"></i> Clear
+            </a>
+            {% endif %}
+        </form>
+        {% if search or status_filter %}
+        <div style="margin-top: 10px; color: #666;">
+            Found {{ testimonials|length }} testimonial(s)
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="filterTestimonials('pending')">Pending (<span id="pendingCount">{{ pending_count }}</span>)</button>
+        <button class="tab-btn" onclick="filterTestimonials('approved')">Approved</button>
+        <button class="tab-btn" onclick="filterTestimonials('rejected')">Rejected</button>
+        <button class="tab-btn" onclick="filterTestimonials('all')">All</button>
+    </div>
+    
+    <div class="card">
+        <div id="testimonialsList">
+            {% for testimonial in testimonials %}
+            <div class="testimonial-card" data-status="{{ testimonial.status }}">
+                <div class="testimonial-header">
+                    <div>
+                        <span class="testimonial-user">{{ testimonial.user_name }}</span>
+                        <div class="testimonial-date">{{ testimonial.created_at.strftime('%B %d, %Y') if testimonial.created_at else 'Recent' }}</div>
+                    </div>
+                    <div class="testimonial-rating">
+                        {% for i in range(testimonial.rating) %}★{% endfor %}{% for i in range(5 - testimonial.rating) %}☆{% endfor %}
+                    </div>
+                </div>
+                <div class="testimonial-comment">
+                    "{{ testimonial.comment }}"
+                </div>
+                {% if testimonial.status == 'pending' %}
+                <div class="testimonial-actions">
+                    <button class="btn-sm btn-success" onclick="approveTestimonial({{ testimonial.id }})">
+                        <i class="fas fa-check"></i> Approve
+                    </button>
+                    <button class="btn-sm btn-warning" onclick="rejectTestimonial({{ testimonial.id }})">
+                        <i class="fas fa-times"></i> Reject
+                    </button>
+                    <button class="btn-sm btn-danger" onclick="deleteTestimonial({{ testimonial.id }})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+                {% else %}
+                <div class="testimonial-actions">
+                    <button class="btn-sm btn-danger" onclick="deleteTestimonial({{ testimonial.id }})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+                {% endif %}
+                {% if testimonial.approved_at %}
+                <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                    <i class="fas fa-check-circle" style="color: #10b981;"></i> 
+                    Approved on {{ testimonial.approved_at.strftime('%B %d, %Y') if testimonial.approved_at else 'N/A' }}
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 40px;">No testimonials found</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .tab-btn {
+        padding: 10px 20px;
+        background: #e2e8f0;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 600;
+    }
+    .tab-btn.active {
+        background: #0f3b6f;
+        color: white;
+    }
+    .testimonial-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s;
+    }
+    .testimonial-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .testimonial-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .testimonial-user {
+        font-weight: bold;
+        color: #0f3b6f;
+        font-size: 16px;
+    }
+    .testimonial-rating {
+        color: #f59e0b;
+        font-size: 18px;
+        letter-spacing: 2px;
+    }
+    .testimonial-date {
+        color: #666;
+        font-size: 12px;
+        margin-top: 4px;
+    }
+    .testimonial-comment {
+        margin: 15px 0;
+        line-height: 1.6;
+        color: #1f3a5f;
+        font-style: italic;
+    }
+    .testimonial-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+    }
+    .btn-sm {
+        padding: 6px 14px;
+        font-size: 12px;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    .btn-success { 
+        background: #10b981; 
+        color: white; 
+    }
+    .btn-success:hover {
+        background: #059669;
+    }
+    .btn-warning { 
+        background: #f59e0b; 
+        color: white; 
+    }
+    .btn-warning:hover {
+        background: #d97706;
+    }
+    .btn-danger { 
+        background: #ef4444; 
+        color: white; 
+    }
+    .btn-danger:hover {
+        background: #dc2626;
+    }
+    @media (max-width: 768px) {
+        .testimonial-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 11px;
+        }
+    }
+</style>
+
+<script>
+let allTestimonials = [];
+
+function loadTestimonials() {
+    fetch('{{ url_for('admin_bp.api_get_testimonials') }}')
+        .then(response => response.json())
+        .then(testimonials => {
+            allTestimonials = testimonials;
+            updateCounts();
+        })
+        .catch(error => console.error('Error loading testimonials:', error));
+}
+
+function updateCounts() {
+    const pending = allTestimonials.filter(t => t.status === 'pending').length;
+    document.getElementById('pendingCount').textContent = pending;
+}
+
+function filterTestimonials(status) {
+    // Update active tab
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.toLowerCase().includes(status) || 
+            (status === 'all' && btn.textContent === 'All')) {
+            btn.classList.add('active');
+        }
+    });
+    
+    let filtered = allTestimonials;
+    if (status !== 'all') {
+        filtered = allTestimonials.filter(t => t.status === status);
+    }
+    displayTestimonials(filtered);
+}
+
+function displayTestimonials(testimonials) {
+    const container = document.getElementById('testimonialsList');
+    if (testimonials.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px;">No testimonials found</div>';
+        return;
+    }
+    
+    container.innerHTML = testimonials.map(testimonial => `
+        <div class="testimonial-card">
+            <div class="testimonial-header">
+                <div>
+                    <span class="testimonial-user">${escapeHtml(testimonial.user_name)}</span>
+                    <div class="testimonial-date">${new Date(testimonial.created_at).toLocaleDateString()}</div>
+                </div>
+                <div class="testimonial-rating">
+                    ${'★'.repeat(testimonial.rating)}${'☆'.repeat(5 - testimonial.rating)}
+                </div>
+            </div>
+            <div class="testimonial-comment">
+                "${escapeHtml(testimonial.comment)}"
+            </div>
+            ${testimonial.status === 'pending' ? `
+                <div class="testimonial-actions">
+                    <button class="btn-sm btn-success" onclick="approveTestimonial(${testimonial.id})">
+                        <i class="fas fa-check"></i> Approve
+                    </button>
+                    <button class="btn-sm btn-warning" onclick="rejectTestimonial(${testimonial.id})">
+                        <i class="fas fa-times"></i> Reject
+                    </button>
+                    <button class="btn-sm btn-danger" onclick="deleteTestimonial(${testimonial.id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            ` : `
+                <div class="testimonial-actions">
+                    <button class="btn-sm btn-danger" onclick="deleteTestimonial(${testimonial.id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            `}
+            ${testimonial.approved_at ? `
+                <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                    <i class="fas fa-check-circle" style="color: #10b981;"></i> 
+                    Approved on ${new Date(testimonial.approved_at).toLocaleString()}
+                </div>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function approveTestimonial(testimonialId) {
+    fetch(`{{ url_for('admin_bp.api_approve_testimonial', testimonial_id=0) }}`.replace('0', testimonialId), {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Testimonial approved successfully');
+            loadTestimonials();
+            filterTestimonials('pending');
+        } else {
+            alert('Error approving testimonial: ' + (data.message || 'Unknown error'));
+        }
+    });
+}
+
+function rejectTestimonial(testimonialId) {
+    if (confirm('Are you sure you want to reject this testimonial?')) {
+        fetch(`{{ url_for('admin_bp.api_reject_testimonial', testimonial_id=0) }}`.replace('0', testimonialId), {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Testimonial rejected successfully');
+                loadTestimonials();
+                filterTestimonials('pending');
+            } else {
+                alert('Error rejecting testimonial: ' + (data.message || 'Unknown error'));
+            }
+        });
+    }
+}
+
+function deleteTestimonial(testimonialId) {
+    if (confirm('Are you sure you want to delete this testimonial? This action cannot be undone.')) {
+        fetch(`{{ url_for('admin_bp.api_delete_testimonial', testimonial_id=0) }}`.replace('0', testimonialId), {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Testimonial deleted successfully');
+                loadTestimonials();
+                filterTestimonials('pending');
+            } else {
+                alert('Error deleting testimonial: ' + (data.message || 'Unknown error'));
+            }
+        });
+    }
+}
+
+// Load testimonials on page load
+loadTestimonials();
+</script>
+{% endblock %}  

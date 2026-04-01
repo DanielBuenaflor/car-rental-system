@@ -1,0 +1,260 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Manage Vehicle Brands - CarRental Pro{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h2>Manage Vehicle Brands</h2>
+        <button class="btn-primary" onclick="showAddBrandModal()">
+            <i class="fas fa-plus"></i> Create New Brand
+        </button>
+    </div>
+    
+    <div class="card">
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background-color: #f8fafc;">
+                        <th style="padding: 12px; text-align: left;">ID</th>
+                        <th style="padding: 12px; text-align: left;">Brand Name</th>
+                        <th style="padding: 12px; text-align: left;">Description</th>
+                        <th style="padding: 12px; text-align: left;">Created Date</th>
+                        <th style="padding: 12px; text-align: left;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for brand in brands %}
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ brand.id }}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;"><strong>{{ brand.name }}</strong></td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ brand.description or '-' }}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ brand.created_at.strftime('%Y-%m-%d') if brand.created_at else 'N/A' }}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                            <button class="btn-sm btn-primary" onclick="editBrand({{ brand.id }})">Edit</button>
+                            <button class="btn-sm btn-danger" onclick="deleteBrand({{ brand.id }})">Delete</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px;">No brands found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Brand Modal -->
+<div id="brandModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="modalTitle">Create New Brand</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="brandForm">
+            <input type="hidden" id="brandId">
+            <div class="form-group">
+                <label>Brand Name *</label>
+                <input type="text" id="brandName" required placeholder="e.g., Toyota, BMW, Mercedes">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="brandDescription" rows="3" placeholder="Brand description..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Save Brand</button>
+                <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .btn-sm {
+        padding: 5px 12px;
+        font-size: 12px;
+        margin: 0 3px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    
+    .btn-primary {
+        background: #0f3b6f;
+        color: white;
+    }
+    
+    .btn-danger {
+        background: #dc2626;
+        color: white;
+    }
+    
+    .modal {
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        display: none;
+    }
+    
+    .modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 20px;
+        width: 90%;
+        max-width: 500px;
+        border-radius: 12px;
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .close {
+        font-size: 28px;
+        cursor: pointer;
+        color: #666;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+        color: #1f3a5f;
+    }
+    
+    .form-group input, .form-group textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-family: inherit;
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 20px;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #0f3b6f;
+    }
+    
+    @media (max-width: 768px) {
+        th, td {
+            padding: 8px;
+            font-size: 12px;
+        }
+    }
+</style>
+
+<script>
+let allBrands = [];
+
+function loadBrands() {
+    fetch('{{ url_for('admin_bp.api_get_brands') }}')
+        .then(response => response.json())
+        .then(brands => {
+            allBrands = brands;
+        })
+        .catch(error => console.error('Error loading brands:', error));
+}
+
+function editBrand(brandId) {
+    const brand = allBrands.find(b => b.id === brandId);
+    if (brand) {
+        document.getElementById('modalTitle').textContent = 'Edit Brand';
+        document.getElementById('brandId').value = brand.id;
+        document.getElementById('brandName').value = brand.name;
+        document.getElementById('brandDescription').value = brand.description || '';
+        document.getElementById('brandModal').style.display = 'block';
+    }
+}
+
+function deleteBrand(brandId) {
+    if (confirm('Are you sure you want to delete this brand? This will affect all vehicles under this brand.')) {
+        fetch(`{{ url_for('admin_bp.api_delete_brand', brand_id=0) }}`.replace('0', brandId), {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Brand deleted successfully');
+                location.reload();
+            } else {
+                alert('Error deleting brand: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting brand');
+        });
+    }
+}
+
+function showAddBrandModal() {
+    document.getElementById('modalTitle').textContent = 'Create New Brand';
+    document.getElementById('brandForm').reset();
+    document.getElementById('brandId').value = '';
+    document.getElementById('brandModal').style.display = 'block';
+}
+
+document.getElementById('brandForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const brandId = document.getElementById('brandId').value;
+    const data = {
+        name: document.getElementById('brandName').value,
+        description: document.getElementById('brandDescription').value
+    };
+    
+    const url = brandId ? `{{ url_for('admin_bp.api_update_brand', brand_id=0) }}`.replace('0', brandId) : '{{ url_for('admin_bp.api_create_brand') }}';
+    const method = brandId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(brandId ? 'Brand updated successfully' : 'Brand created successfully');
+            closeModal();
+            location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'Unknown error'));
+        }
+    });
+});
+
+function closeModal() {
+    document.getElementById('brandModal').style.display = 'none';
+}
+
+// Load brands for edit operations
+loadBrands();
+</script>
+{% endblock %}

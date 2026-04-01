@@ -1,0 +1,2005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>CarRental Pro | Complete Car Rental System</title>
+    <!-- Google Fonts & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        /* ============================================
+           RESET & GLOBAL STYLES
+        ============================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: #1e293b;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ============================================
+           TYPOGRAPHY
+        ============================================ */
+        h1, h2, h3 {
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        h2 {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            position: relative;
+            display: inline-block;
+            background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        h2:after {
+            content: '';
+            position: absolute;
+            bottom: -12px;
+            left: 0;
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
+            border-radius: 4px;
+        }
+
+        /* ============================================
+           NAVIGATION
+        ============================================ */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            border-bottom: 1px solid rgba(15, 59, 111, 0.1);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.3s;
+        }
+
+        .logo:hover {
+            transform: scale(1.05);
+        }
+
+        .logo i {
+            background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-size: 32px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #334155;
+            font-weight: 500;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .nav-links a:before {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
+            transition: width 0.3s;
+        }
+
+        .nav-links a:hover:before {
+            width: 100%;
+        }
+
+        .nav-links a:hover {
+            color: #0f3b6f;
+        }
+
+        /* ============================================
+           BUTTONS
+        ============================================ */
+        .login-btn, .logout-btn {
+            background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+            color: white !important;
+            padding: 10px 28px;
+            border-radius: 40px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(15, 59, 111, 0.2);
+        }
+
+        .login-btn:hover, .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(15, 59, 111, 0.3);
+        }
+
+        .login-btn:before, .logout-btn:before {
+            display: none;
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(15, 59, 111, 0.2);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(15, 59, 111, 0.3);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #0f3b6f;
+            border: 2px solid #0f3b6f;
+            padding: 12px 28px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #0f3b6f;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* ============================================
+           SEARCH SECTION
+        ============================================ */
+        .search-section {
+            background: white;
+            border-radius: 80px;
+            padding: 8px;
+            margin: 40px auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            max-width: 650px;
+            transition: all 0.3s;
+        }
+        
+        .search-section:hover {
+            box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+            transform: translateY(-2px);
+        }
+        
+        .search-input-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: #f8fafc;
+            border-radius: 60px;
+            padding: 8px 20px;
+            transition: all 0.3s;
+        }
+        
+        .search-input-wrapper:focus-within {
+            background: white;
+            box-shadow: 0 0 0 2px #0f3b6f;
+        }
+        
+        .search-input-wrapper i {
+            color: #94a3b8;
+            font-size: 18px;
+        }
+        
+        .search-input-wrapper input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 16px 12px;
+            font-size: 16px;
+            outline: none;
+            font-family: inherit;
+        }
+        
+        .filter-btn {
+            background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 60px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+        }
+        
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(15, 59, 111, 0.3);
+        }
+
+        /* ============================================
+           FILTER MODAL
+        ============================================ */
+        .filter-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .filter-modal-content {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 32px;
+            padding: 32px;
+            max-height: 85vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .filter-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .filter-modal-header h3 {
+            margin: 0;
+            font-size: 24px;
+            color: #0f3b6f;
+        }
+        
+        .close-modal {
+            font-size: 28px;
+            cursor: pointer;
+            color: #94a3b8;
+            transition: all 0.3s;
+        }
+        
+        .close-modal:hover {
+            color: #ef4444;
+            transform: rotate(90deg);
+        }
+        
+        .filter-group {
+            margin-bottom: 24px;
+        }
+        
+        .filter-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #1f3a5f;
+        }
+        
+        .filter-group select, .filter-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        
+        .filter-group select:focus, .filter-group input:focus {
+            outline: none;
+            border-color: #0f3b6f;
+            box-shadow: 0 0 0 3px rgba(15, 59, 111, 0.1);
+        }
+        
+        .price-range {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .price-range input {
+            width: 50%;
+        }
+        
+        .filter-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 32px;
+        }
+        
+        .apply-filters {
+            background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 40px;
+            cursor: pointer;
+            flex: 1;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .apply-filters:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(15, 59, 111, 0.3);
+        }
+        
+        .reset-filters {
+            background: #f1f5f9;
+            color: #1f3a5f;
+            border: none;
+            padding: 14px;
+            border-radius: 40px;
+            cursor: pointer;
+            flex: 1;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .reset-filters:hover {
+            background: #e2e8f0;
+        }
+
+        /* ============================================
+           ACTIVE FILTERS
+        ============================================ */
+        .active-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        
+        .filter-tag {
+            background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            color: #0f3b6f;
+            transition: all 0.2s;
+        }
+        
+        .filter-tag i {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-tag i:hover {
+            color: #ef4444;
+            transform: scale(1.1);
+        }
+
+        /* ============================================
+           HERO SECTION
+        ============================================ */
+        .hero {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 60px;
+            margin: 60px 0 80px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .hero h1 {
+            font-size: 56px;
+            line-height: 1.2;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #0f3b6f, #2c5a8c, #3b6e9e);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: #475569;
+            margin-bottom: 32px;
+        }
+
+        /* ============================================
+           VEHICLE CARDS
+        ============================================ */
+        .fleet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 32px;
+            margin: 40px 0;
+        }
+        
+        .fleet-card {
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .fleet-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+        }
+        
+        .fleet-image {
+            background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+            height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0f3b6f;
+            font-size: 70px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .fleet-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s;
+        }
+        
+        .fleet-card:hover .fleet-image img {
+            transform: scale(1.05);
+        }
+        
+        .fleet-info {
+            padding: 24px;
+        }
+        
+        .fleet-info h3 {
+            margin-bottom: 12px;
+            font-size: 22px;
+            color: #1e293b;
+        }
+        
+        .fleet-price {
+            font-size: 28px;
+            font-weight: 800;
+            color: #0f3b6f;
+            margin: 12px 0;
+        }
+        
+        .fleet-price small {
+            font-size: 14px;
+            font-weight: normal;
+            color: #64748b;
+        }
+        
+        .fleet-features {
+            list-style: none;
+            margin: 16px 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .fleet-features li {
+            padding: 6px 0;
+            color: #475569;
+            font-size: 14px;
+        }
+        
+        .fleet-features i {
+            color: #0f3b6f;
+            margin-right: 8px;
+            width: 20px;
+        }
+
+        /* ============================================
+           CARDS & GRIDS
+        ============================================ */
+        .card {
+            background: white;
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
+            transition: all 0.3s;
+            border: 1px solid rgba(15, 59, 111, 0.1);
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+        }
+
+        .grid-2, .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+            margin: 40px 0;
+        }
+
+        /* ============================================
+           TESTIMONIALS
+        ============================================ */
+        .testimonial-item {
+            border-left: 4px solid #0f3b6f;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            background: #f8fafc;
+            border-radius: 16px;
+        }
+
+        .testimonial-item:hover {
+            transform: translateX(5px);
+            background: #f1f5f9;
+        }
+
+        .testimonial-item strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #f59e0b;
+        }
+
+        /* ============================================
+           VEHICLE DETAIL MODAL
+        ============================================ */
+        .vehicle-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .vehicle-modal-content {
+            background: white;
+            width: 95%;
+            max-width: 1200px;
+            max-height: 90vh;
+            border-radius: 32px;
+            overflow-y: auto;
+            position: relative;
+            animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .vehicle-modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .vehicle-modal-content::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        
+        .vehicle-modal-content::-webkit-scrollbar-thumb {
+            background: #0f3b6f;
+            border-radius: 10px;
+        }
+        
+        .modal-header {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 24px 32px;
+            border-bottom: 2px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            font-size: 28px;
+            background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .modal-header h2:after {
+            display: none;
+        }
+        
+        .close-vehicle-modal {
+            font-size: 36px;
+            cursor: pointer;
+            color: #94a3b8;
+            transition: all 0.3s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+        
+        .close-vehicle-modal:hover {
+            color: #ef4444;
+            background: #fef2f2;
+            transform: rotate(90deg);
+        }
+        
+        .modal-body {
+            padding: 32px;
+        }
+        
+        .vehicle-gallery {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .main-image {
+            background: #f8fafc;
+            border-radius: 20px;
+            overflow: hidden;
+            height: 420px;
+            position: relative;
+        }
+        
+        .main-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s;
+        }
+        
+        .main-image:hover img {
+            transform: scale(1.02);
+        }
+        
+        .thumbnail-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        
+        .thumbnail-item {
+            background: #f8fafc;
+            border-radius: 16px;
+            overflow: hidden;
+            height: 198px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+            position: relative;
+        }
+        
+        .thumbnail-item::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 59, 111, 0.1);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .thumbnail-item:hover::after {
+            opacity: 1;
+        }
+        
+        .thumbnail-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+        
+        .thumbnail-item.active {
+            border-color: #0f3b6f;
+            box-shadow: 0 4px 12px rgba(15, 59, 111, 0.2);
+        }
+        
+        .thumbnail-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .vehicle-info-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 32px;
+            margin: 32px 0;
+        }
+        
+        .vehicle-specs {
+            background: linear-gradient(135deg, #f8fafc, #ffffff);
+            padding: 24px;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .vehicle-specs h3 {
+            margin-bottom: 20px;
+            color: #0f3b6f;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .specs-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+        
+        .spec-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 14px;
+            transition: all 0.3s;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .spec-item:hover {
+            transform: translateX(5px);
+            border-color: #0f3b6f;
+        }
+        
+        .spec-item i {
+            font-size: 22px;
+            color: #0f3b6f;
+        }
+        
+        .spec-item strong {
+            display: block;
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .spec-item span {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 15px;
+        }
+        
+        .booking-card {
+            background: linear-gradient(135deg, #f8fafc, #ffffff);
+            padding: 24px;
+            border-radius: 20px;
+            position: sticky;
+            top: 100px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+        }
+        
+        .modal-price {
+            font-size: 36px;
+            font-weight: 800;
+            color: #0f3b6f;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .date-input-modal {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            margin: 10px 0;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+        
+        .date-input-modal:focus {
+            outline: none;
+            border-color: #0f3b6f;
+            box-shadow: 0 0 0 3px rgba(15, 59, 111, 0.1);
+        }
+        
+        .total-price-modal {
+            background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+            padding: 16px;
+            border-radius: 14px;
+            margin: 16px 0;
+            text-align: center;
+        }
+        
+        .total-price-modal strong {
+            font-size: 24px;
+            color: #0f3b6f;
+        }
+        
+        .book-now-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+            color: white;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 16px;
+        }
+        
+        .book-now-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(15, 59, 111, 0.3);
+        }
+        
+        .book-now-btn:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .description-section {
+            margin-top: 32px;
+            padding: 24px;
+            background: linear-gradient(135deg, #f8fafc, #ffffff);
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .similar-vehicles-modal {
+            margin-top: 48px;
+        }
+        
+        .similar-vehicles-modal h3 {
+            margin-bottom: 24px;
+            color: #0f3b6f;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .similar-grid-modal {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+            margin-top: 20px;
+        }
+        
+        .similar-card-modal {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 1px solid #e2e8f0;
+        }
+        
+        .similar-card-modal:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+            border-color: #0f3b6f;
+        }
+        
+        .similar-card-modal img {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+        }
+        
+        .similar-card-modal .info {
+            padding: 16px;
+        }
+        
+        .similar-card-modal h4 {
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: #1e293b;
+        }
+        
+        .similar-card-modal .price {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0f3b6f;
+        }
+
+        /* ============================================
+           LOADING & EMPTY STATES
+        ============================================ */
+        .loading-spinner {
+            text-align: center;
+            padding: 60px;
+            display: none;
+        }
+        
+        .loading-spinner i {
+            font-size: 48px;
+            color: #0f3b6f;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 80px;
+            background: white;
+            border-radius: 24px;
+            margin: 40px 0;
+        }
+        
+        .no-results i {
+            font-size: 80px;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+        
+        .no-results h3 {
+            margin-bottom: 12px;
+            color: #1e293b;
+        }
+
+        /* ============================================
+           FOOTER
+        ============================================ */
+        footer {
+            text-align: center;
+            padding: 48px 0 32px;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 60px;
+            color: #64748b;
+            background: white;
+        }
+
+        /* ============================================
+           RESPONSIVE DESIGN
+        ============================================ */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 20px;
+            }
+            
+            .navbar {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+            
+            .nav-links {
+                justify-content: center;
+            }
+            
+            .hero h1 {
+                font-size: 36px;
+            }
+            
+            .hero {
+                flex-direction: column;
+                text-align: center;
+                gap: 40px;
+            }
+            
+            .search-section {
+                flex-direction: column;
+                border-radius: 32px;
+                padding: 16px;
+            }
+            
+            .search-input-wrapper {
+                width: 100%;
+            }
+            
+            .filter-btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .vehicle-gallery {
+                grid-template-columns: 1fr;
+            }
+            
+            .vehicle-info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .modal-body {
+                padding: 20px;
+            }
+            
+            .fleet-grid {
+                gap: 20px;
+            }
+            
+            h2 {
+                font-size: 28px;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="container">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category if category != 'message' else 'info' }}">
+                    <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'error' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="logo" onclick="window.location.href='{{ url_for('base_bp.index') }}'">
+            <i class="fas fa-car"></i>
+            <span>CarRental Pro</span>
+        </div>
+        <div class="nav-links" id="navLinks">
+            <a href="{{ url_for('base_bp.index') }}"><i class="fas fa-home"></i> Home</a>
+            
+            {% if not session.get('loggedin') or session.get('role') != 'admin' %}
+                <a href="{{ url_for('base_bp.browse_fleet') }}"><i class="fas fa-car-side"></i> Browse Fleet</a>
+                <a href="{{ url_for('base_bp.testimonials') }}"><i class="fas fa-star"></i> Testimonials</a>
+            {% endif %}
+            
+            {% if session.get('loggedin') %}
+                <div class="user-menu">
+                    <div class="user-name">
+                        <i class="fas fa-user-circle"></i> {{ session.get('username', 'User') }}
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="dropdown-content">
+                        {% if session.get('role') == 'admin' %}
+                            <a href="{{ url_for('admin_bp.admin_dashboard') }}">
+                                <i class="fas fa-tachometer-alt"></i> Admin Dashboard
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('user_bp.user_dashboard') }}">
+                                <i class="fas fa-tachometer-alt"></i> My Dashboard
+                            </a>
+                            <a href="{{ url_for('user_bp.profile') }}">
+                                <i class="fas fa-user"></i> My Profile
+                            </a>
+                            <a href="{{ url_for('user_bp.my_bookings') }}">
+                                <i class="fas fa-calendar-alt"></i> My Bookings
+                            </a>
+                        {% endif %}
+                        <hr>
+                        <a href="#" onclick="logoutUser(); return false;" style="color: #dc2626;">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </div>
+            {% else %}
+                <a href="{{ url_for('auth_bp.login') }}" class="login-btn"><i class="fas fa-sign-in-alt"></i> Login</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    {% block content %}
+    <div id="homeSection">
+        <!-- Hero Section -->
+        <div class="hero">
+            <div>
+                <h1>Drive Your Dreams<br>Today</h1>
+                <p style="font-size: 1.2rem; margin: 16px 0;">Premium car rental with unbeatable prices. Luxury, SUV, Economy.</p>
+                <a href="{{ url_for('base_bp.browse_fleet') }}" class="btn-primary">
+                    <i class="fas fa-car"></i> Browse Fleet
+                </a>
+            </div>
+            <div>
+                <i class="fas fa-car-side" style="font-size:120px; color:#0f3b6f;"></i>
+            </div>
+        </div>
+
+        <!-- Search Bar with Filter Icon -->
+        <div class="search-section">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search by brand or model..." autocomplete="off">
+            </div>
+            <button class="filter-btn" onclick="openFilterModal()">
+                <i class="fas fa-sliders-h"></i> Filters
+            </button>
+        </div>
+
+        <!-- Active Filters Display -->
+        <div id="activeFilters" class="active-filters"></div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+            <i class="fas fa-spinner fa-spin fa-3x"></i>
+            <p>Loading vehicles...</p>
+        </div>
+
+        <!-- Vehicles Container -->
+        <div id="vehiclesContainer">
+            {% if all_vehicles %}
+            <div class="fleet-grid">
+                {% for vehicle in all_vehicles %}
+                <div class="fleet-card" onclick="openVehicleModal({{ vehicle.id }})">
+                    <div class="fleet-image">
+                        {% if vehicle.primary_image %}
+                            <img src="{{ vehicle.primary_image }}" alt="{{ vehicle.brand_name }} {{ vehicle.model }}">
+                        {% else %}
+                            <i class="fas fa-car"></i>
+                        {% endif %}
+                    </div>
+                    <div class="fleet-info">
+                        <h3>{{ vehicle.brand_name }} {{ vehicle.model }}</h3>
+                        <div class="fleet-price">₱{{ vehicle.daily_rate }}/day <small>+ tax</small></div>
+                        <ul class="fleet-features">
+                            <li><i class="fas fa-calendar-alt"></i> {{ vehicle.year }}</li>
+                            <li><i class="fas fa-cog"></i> {{ vehicle.transmission }}</li>
+                            <li><i class="fas fa-gas-pump"></i> {{ vehicle.fuel_type }}</li>
+                            <li><i class="fas fa-users"></i> {{ vehicle.seating_capacity }} seats</li>
+                        </ul>
+                        <button class="btn-primary" style="width:100%; text-align:center;" onclick="event.stopPropagation(); openVehicleModal({{ vehicle.id }})">
+                            View Details
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Why Choose Us Section -->
+        <h2 style="text-align:center; display:block;">Why Choose Us</h2>
+        <div class="grid-2">
+            <div class="card">
+                <i class="fas fa-gem" style="font-size: 42px; color:#0f3b6f; margin-bottom: 16px;"></i>
+                <h3>Premium Fleet</h3>
+                <p>Luxury & sports cars, well-maintained fleet with the latest models.</p>
+            </div>
+            <div class="card">
+                <i class="fas fa-tags" style="font-size: 42px; color:#0f3b6f; margin-bottom: 16px;"></i>
+                <h3>Best Prices</h3>
+                <p>No hidden fees, transparent pricing with exclusive deals.</p>
+            </div>
+            <div class="card">
+                <i class="fas fa-headset" style="font-size: 42px; color:#0f3b6f; margin-bottom: 16px;"></i>
+                <h3>24/7 Support</h3>
+                <p>Always ready to assist you on the road with dedicated support.</p>
+            </div>
+        </div>
+
+        <!-- Testimonials Preview -->
+        <div class="card">
+            <h3><i class="fas fa-star" style="color: #f59e0b;"></i> What Our Customers Say</h3>
+            {% if testimonials %}
+                {% for testimonial in testimonials %}
+                <div class="testimonial-item">
+                    <strong>{{ '★' * testimonial.rating }}{{ '☆' * (5 - testimonial.rating) }}</strong>
+                    "{{ testimonial.comment }}" - {{ testimonial.name }}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="testimonial-item">
+                    <strong>★★★★★</strong> "Absolutely flawless experience, car was spotless." - Sarah W.
+                </div>
+                <div class="testimonial-item">
+                    <strong>★★★★★</strong> "Best rental service, smooth process and great support." - Mark T.
+                </div>
+                <div class="testimonial-item">
+                    <strong>★★★★☆</strong> "Good car, but pickup was a bit slow." - Anna K.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endblock %}
+</div>
+
+<!-- Filter Modal -->
+<div id="filterModal" class="filter-modal">
+    <div class="filter-modal-content">
+        <div class="filter-modal-header">
+            <h3><i class="fas fa-filter"></i> Filter Vehicles</h3>
+            <span class="close-modal" onclick="closeFilterModal()">&times;</span>
+        </div>
+        
+        <div class="filter-group">
+            <label>Transmission</label>
+            <select id="filterTransmission">
+                <option value="">All</option>
+                <option value="manual">Manual</option>
+                <option value="automatic">Automatic</option>
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label>Fuel Type</label>
+            <select id="filterFuelType">
+                <option value="">All</option>
+                <option value="petrol">Petrol</option>
+                <option value="diesel">Diesel</option>
+                <option value="electric">Electric</option>
+                <option value="hybrid">Hybrid</option>
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label>Seating Capacity</label>
+            <select id="filterSeats">
+                <option value="">Any</option>
+                <option value="2">2 seats</option>
+                <option value="4">4 seats</option>
+                <option value="5">5 seats</option>
+                <option value="7">7+ seats</option>
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label>Price Range (₱/day)</label>
+            <div class="price-range">
+                <input type="number" id="filterMinPrice" placeholder="Min">
+                <input type="number" id="filterMaxPrice" placeholder="Max">
+            </div>
+        </div>
+        
+        <div class="filter-actions">
+            <button class="apply-filters" onclick="applyFiltersFromModal()">Apply Filters</button>
+            <button class="reset-filters" onclick="resetAllFilters()">Reset All</button>
+        </div>
+    </div>
+</div>
+
+<!-- Vehicle Detail Modal -->
+<div id="vehicleModal" class="vehicle-modal">
+    <div class="vehicle-modal-content">
+        <div class="modal-header">
+            <h2 id="modalVehicleTitle">Vehicle Details</h2>
+            <span class="close-vehicle-modal" onclick="closeVehicleModal()">&times;</span>
+        </div>
+        <div class="modal-body" id="modalBody">
+            <div class="loading-spinner" style="display: block;">
+                <i class="fas fa-spinner fa-spin fa-3x"></i>
+                <p>Loading vehicle details...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer>
+    <p style="margin-bottom: 16px;">© 2025 CarRental Pro | Premium Car Rental Experience</p>
+    <div style="display: flex; justify-content: center; gap: 24px; flex-wrap: wrap;">
+        <span><i class="fas fa-envelope"></i> support@carrentalpro.com</span>
+        <span><i class="fas fa-phone-alt"></i> +1 800 555 0199</span>
+        <span><i class="fas fa-map-marker-alt"></i> 123 Auto Ave</span>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+// All your JavaScript functions remain exactly the same as in your original code
+// (openVehicleModal, displayVehicleModal, loadSimilarVehicle, etc.)
+
+let currentFilters = {
+    search: '',
+    transmission: '',
+    fuel_type: '',
+    seating_capacity: '',
+    min_price: '',
+    max_price: ''
+};
+
+let currentVehicleData = null;
+
+function openVehicleModal(vehicleId) {
+    const modal = document.getElementById('vehicleModal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    fetch(`/api/vehicle/${vehicleId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentVehicleData = data.vehicle;
+                displayVehicleModal(data.vehicle, data.images, data.similar_vehicles);
+            } else {
+                showError('Failed to load vehicle details');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError('Error loading vehicle details');
+        });
+}
+
+function displayVehicleModal(vehicle, images, similarVehicles) {
+    const container = document.getElementById('modalBody');
+    
+    let imagesHtml = '';
+    let mainImage = vehicle.primary_image || '/static/images/placeholder-car.jpg';
+    
+    // Check if we have images from the API
+    if (images && images.length > 0) {
+        // Find primary image or use first as main
+        const primaryImg = images.find(img => img.is_primary === 1 || img.is_primary === true);
+        if (primaryImg) {
+            mainImage = primaryImg.image_path;
+        } else {
+            mainImage = images[0].image_path;
+        }
+        
+        // Create thumbnail gallery - THIS IS WHAT YOU NEED
+        imagesHtml = `
+            <div class="thumbnail-list">
+                ${images.map((img, idx) => `
+                    <div class="thumbnail-item ${img.image_path === mainImage ? 'active' : ''}" onclick="changeModalImage('${img.image_path}', this)">
+                        <img src="${img.image_path}" alt="Thumbnail ${idx + 1}">
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } else if (vehicle.primary_image) {
+        mainImage = vehicle.primary_image;
+        imagesHtml = `
+            <div class="thumbnail-list">
+                <div class="thumbnail-item active" onclick="changeModalImage('${mainImage}', this)">
+                    <img src="${mainImage}" alt="Vehicle">
+                </div>
+            </div>
+        `;
+    } else {
+        imagesHtml = `
+            <div class="thumbnail-list">
+                <div class="thumbnail-item active" onclick="changeModalImage('${mainImage}', this)">
+                    <img src="${mainImage}" alt="Vehicle">
+                </div>
+            </div>
+        `;
+    }
+    
+    const html = `
+        <div class="vehicle-gallery">
+            <div class="main-image">
+                <img id="modalMainImage" src="${mainImage}" alt="${vehicle.brand_name} ${vehicle.model}">
+            </div>
+            ${imagesHtml}
+        </div>
+        
+        <div class="vehicle-info-grid">
+            <div>
+                <div class="vehicle-specs">
+                    <h3><i class="fas fa-info-circle"></i> Vehicle Specifications</h3>
+                    <div class="specs-grid">
+                        <div class="spec-item">
+                            <i class="fas fa-calendar-alt"></i>
+                            <div><strong>Year</strong><br><span>${vehicle.year}</span></div>
+                        </div>
+                        <div class="spec-item">
+                            <i class="fas fa-cog"></i>
+                            <div><strong>Transmission</strong><br><span>${vehicle.transmission}</span></div>
+                        </div>
+                        <div class="spec-item">
+                            <i class="fas fa-gas-pump"></i>
+                            <div><strong>Fuel Type</strong><br><span>${vehicle.fuel_type}</span></div>
+                        </div>
+                        <div class="spec-item">
+                            <i class="fas fa-users"></i>
+                            <div><strong>Seats</strong><br><span>${vehicle.seating_capacity}</span></div>
+                        </div>
+                        <div class="spec-item">
+                            <i class="fas fa-palette"></i>
+                            <div><strong>Color</strong><br><span>${vehicle.color || 'Not specified'}</span></div>
+                        </div>
+                        <div class="spec-item">
+                            <i class="fas fa-road"></i>
+                            <div><strong>Mileage Limit</strong><br><span>${vehicle.mileage_limit_km || 'Unlimited'} km/day</span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="description-section">
+                    <h3><i class="fas fa-file-alt"></i> Description</h3>
+                    <p>${vehicle.description || 'Experience the perfect blend of comfort, style, and performance with this premium vehicle. Perfect for both city driving and long journeys.'}</p>
+                    
+                    <h3 style="margin-top: 20px;"><i class="fas fa-check-circle"></i> What's Included</h3>
+                    <ul style="margin-top: 10px; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        <li><i class="fas fa-check" style="color: #10b981;"></i> Free cancellation up to 24h</li>
+                        <li><i class="fas fa-check" style="color: #10b981;"></i> 24/7 roadside assistance</li>
+                        <li><i class="fas fa-check" style="color: #10b981;"></i> Insurance included</li>
+                        <li><i class="fas fa-check" style="color: #10b981;"></i> GPS navigation available</li>
+                        <li><i class="fas fa-check" style="color: #10b981;"></i> Child seat on request</li>
+                        <li><i class="fas fa-check" style="color: #10b981;"></i> Additional driver option</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div>
+                <div class="booking-card">
+                    <div class="modal-price">₱${vehicle.daily_rate}/day</div>
+                    <a href="/user/book/${vehicle.id}" class="book-now-btn" style="text-align: center; display: block; text-decoration: none;">
+                        <i class="fas fa-calendar-check"></i> Book Now
+                    </a>
+                    <p style="text-align: center; margin-top: 15px; font-size: 12px; color: #64748b;">
+                        <i class="fas fa-shield-alt"></i> Free cancellation up to 24 hours before pickup
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        ${similarVehicles && similarVehicles.length > 0 ? `
+        <div class="similar-vehicles-modal">
+            <h3><i class="fas fa-car"></i> Similar Vehicles You Might Like</h3>
+            <div class="similar-grid-modal">
+                ${similarVehicles.map(similar => `
+                    <div class="similar-card-modal" onclick="openVehicleModal(${similar.id})">
+                        ${similar.primary_image ? 
+                            `<img src="${similar.primary_image}" alt="${similar.brand_name} ${similar.model}">` : 
+                            '<div style="height: 140px; background: linear-gradient(135deg, #e0f2fe, #bae6fd); display: flex; align-items: center; justify-content: center;"><i class="fas fa-car" style="font-size: 50px; color: #0f3b6f;"></i></div>'}
+                        <div class="info">
+                            <h4>${similar.brand_name} ${similar.model}</h4>
+                            <div class="price">₱${similar.daily_rate}/day</div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
+    `;
+    
+    container.innerHTML = html;
+}
+
+
+
+function loadSimilarVehicle(vehicleId) {
+    const container = document.getElementById('modalBody');
+    container.innerHTML = `
+        <div class="loading-spinner" style="display: block;">
+            <i class="fas fa-spinner fa-spin fa-3x"></i>
+            <p>Loading vehicle details...</p>
+        </div>
+    `;
+    
+    const modalContent = document.querySelector('.vehicle-modal-content');
+    if (modalContent) {
+        modalContent.scrollTop = 0;
+    }
+    
+    fetch(`/api/vehicle/${vehicleId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentVehicleData = data.vehicle;
+                displayVehicleModal(data.vehicle, data.images, data.similar_vehicles);
+            } else {
+                showError('Failed to load vehicle details');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError('Error loading vehicle details');
+        });
+}
+
+// Make sure changeModalImage function exists and works
+function changeModalImage(imagePath, element) {
+    const mainImage = document.getElementById('modalMainImage');
+    if (mainImage) {
+        mainImage.src = imagePath;
+    }
+    
+    // Update active class on thumbnails
+    document.querySelectorAll('.thumbnail-item').forEach(thumb => {
+        thumb.classList.remove('active');
+    });
+    
+    if (element) {
+        element.classList.add('active');
+    }
+}
+
+
+function calculateModalTotal(dailyRate) {
+    const startDate = document.getElementById('modalStartDate').value;
+    const endDate = document.getElementById('modalEndDate').value;
+    
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        
+        if (days > 0) {
+            const total = days * dailyRate;
+            document.getElementById('modalTotalAmount').innerText = '₱' + total.toLocaleString();
+            document.getElementById('modalTotalPrice').style.display = 'block';
+            document.getElementById('modalBookBtn').disabled = false;
+        } else {
+            document.getElementById('modalTotalPrice').style.display = 'none';
+            document.getElementById('modalBookBtn').disabled = true;
+        }
+    } else {
+        document.getElementById('modalTotalPrice').style.display = 'none';
+        document.getElementById('modalBookBtn').disabled = true;
+    }
+}
+
+function closeVehicleModal() {
+    const modal = document.getElementById('vehicleModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+function showError(message) {
+    const container = document.getElementById('modalBody');
+    container.innerHTML = `
+        <div style="text-align: center; padding: 60px;">
+            <i class="fas fa-exclamation-circle" style="font-size: 48px; color: #ef4444;"></i>
+            <p style="margin-top: 20px;">${message}</p>
+            <button class="btn-secondary" onclick="closeVehicleModal()" style="margin-top: 20px;">Close</button>
+        </div>
+    `;
+}
+
+function openFilterModal() {
+    document.getElementById('filterModal').style.display = 'flex';
+}
+
+function closeFilterModal() {
+    document.getElementById('filterModal').style.display = 'none';
+}
+
+function applyFiltersFromModal() {
+    currentFilters.transmission = document.getElementById('filterTransmission').value;
+    currentFilters.fuel_type = document.getElementById('filterFuelType').value;
+    currentFilters.seating_capacity = document.getElementById('filterSeats').value;
+    currentFilters.min_price = document.getElementById('filterMinPrice').value;
+    currentFilters.max_price = document.getElementById('filterMaxPrice').value;
+    
+    closeFilterModal();
+    applyFilters();
+}
+
+function resetAllFilters() {
+    document.getElementById('filterTransmission').value = '';
+    document.getElementById('filterFuelType').value = '';
+    document.getElementById('filterSeats').value = '';
+    document.getElementById('filterMinPrice').value = '';
+    document.getElementById('filterMaxPrice').value = '';
+    document.getElementById('searchInput').value = '';
+    
+    currentFilters = {
+        search: '',
+        transmission: '',
+        fuel_type: '',
+        seating_capacity: '',
+        min_price: '',
+        max_price: ''
+    };
+    
+    applyFilters();
+}
+
+function updateActiveFiltersDisplay() {
+    const container = document.getElementById('activeFilters');
+    let filtersHtml = '';
+    
+    if (currentFilters.search) {
+        filtersHtml += `<div class="filter-tag">Search: ${currentFilters.search} <i class="fas fa-times" onclick="removeFilter('search')"></i></div>`;
+    }
+    if (currentFilters.transmission) {
+        filtersHtml += `<div class="filter-tag">Transmission: ${currentFilters.transmission} <i class="fas fa-times" onclick="removeFilter('transmission')"></i></div>`;
+    }
+    if (currentFilters.fuel_type) {
+        filtersHtml += `<div class="filter-tag">Fuel: ${currentFilters.fuel_type} <i class="fas fa-times" onclick="removeFilter('fuel_type')"></i></div>`;
+    }
+    if (currentFilters.seating_capacity) {
+        let seats = currentFilters.seating_capacity;
+        filtersHtml += `<div class="filter-tag">Seats: ${seats === '7' ? '7+' : seats} <i class="fas fa-times" onclick="removeFilter('seating_capacity')"></i></div>`;
+    }
+    if (currentFilters.min_price) {
+        filtersHtml += `<div class="filter-tag">Min: ₱${currentFilters.min_price} <i class="fas fa-times" onclick="removeFilter('min_price')"></i></div>`;
+    }
+    if (currentFilters.max_price) {
+        filtersHtml += `<div class="filter-tag">Max: ₱${currentFilters.max_price} <i class="fas fa-times" onclick="removeFilter('max_price')"></i></div>`;
+    }
+    
+    container.innerHTML = filtersHtml;  
+}
+
+function removeFilter(filterKey) {
+    if (filterKey === 'search') {
+        currentFilters.search = '';
+        document.getElementById('searchInput').value = '';
+    } else {
+        currentFilters[filterKey] = '';
+        
+        if (filterKey === 'transmission') document.getElementById('filterTransmission').value = '';
+        if (filterKey === 'fuel_type') document.getElementById('filterFuelType').value = '';
+        if (filterKey === 'seating_capacity') document.getElementById('filterSeats').value = '';
+        if (filterKey === 'min_price') document.getElementById('filterMinPrice').value = '';
+        if (filterKey === 'max_price') document.getElementById('filterMaxPrice').value = '';
+    }
+    
+    applyFilters();
+}
+
+function applyFilters() {
+    currentFilters.search = document.getElementById('searchInput').value;
+    
+    const filters = {
+        search: currentFilters.search,
+        transmission: currentFilters.transmission,
+        fuel_type: currentFilters.fuel_type,
+        seating_capacity: currentFilters.seating_capacity,
+        min_price: currentFilters.min_price,
+        max_price: currentFilters.max_price
+    };
+    
+    updateActiveFiltersDisplay();
+    
+    document.getElementById('loadingSpinner').style.display = 'block';
+    document.getElementById('vehiclesContainer').innerHTML = '';
+    
+    fetch('/api/vehicles/filter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(filters)
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayVehicles(data.vehicles);
+        document.getElementById('loadingSpinner').style.display = 'none';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('loadingSpinner').style.display = 'none';
+        document.getElementById('vehiclesContainer').innerHTML = '<div class="no-results"><i class="fas fa-exclamation-circle fa-3x"></i><p>Error loading vehicles. Please try again.</p></div>';
+    });
+}
+
+function displayVehicles(vehicles) {
+    const container = document.getElementById('vehiclesContainer');
+    
+    if (!vehicles || vehicles.length === 0) {
+        container.innerHTML = `
+            <div class="no-results">
+                <i class="fas fa-search fa-3x" style="color: #cbd5e1;"></i>
+                <h3>No vehicles found</h3>
+                <p>Try adjusting your search filters to find more vehicles.</p>
+                <button class="btn-secondary" onclick="resetAllFilters()">Reset Filters</button>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="fleet-grid">';
+    vehicles.forEach(vehicle => {
+        html += `
+            <div class="fleet-card" onclick="openVehicleModal(${vehicle.id})">
+                <div class="fleet-image">
+                    ${vehicle.primary_image ? 
+                        `<img src="${vehicle.primary_image}" alt="${vehicle.brand_name} ${vehicle.model}">` : 
+                        '<i class="fas fa-car"></i>'}
+                </div>
+                <div class="fleet-info">
+                    <h3>${vehicle.brand_name} ${vehicle.model}</h3>
+                    <div class="fleet-price">₱${vehicle.daily_rate}/day <small>+ tax</small></div>
+                    <ul class="fleet-features">
+                        <li><i class="fas fa-calendar-alt"></i> ${vehicle.year}</li>
+                        <li><i class="fas fa-cog"></i> ${vehicle.transmission}</li>
+                        <li><i class="fas fa-gas-pump"></i> ${vehicle.fuel_type}</li>
+                        <li><i class="fas fa-users"></i> ${vehicle.seating_capacity} seats</li>
+                    </ul>
+                    <button class="btn-primary" style="width:100%; text-align:center;" onclick="event.stopPropagation(); openVehicleModal(${vehicle.id})">
+                        View Details
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        applyFilters();
+    }, 500);
+});
+
+window.onclick = function(event) {
+    const filterModal = document.getElementById('filterModal');
+    if (event.target === filterModal) {
+        closeFilterModal();
+    }
+    const vehicleModal = document.getElementById('vehicleModal');
+    if (event.target === vehicleModal) {
+        closeVehicleModal();
+    }
+}
+
+function logoutUser() {
+    fetch('{{ url_for('auth_bp.logout') }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = data.redirect_url || '/';
+        } else {
+            alert(data.message || 'Logout failed');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        window.location.href = '/';
+    });
+}
+</script>
+
+<style>
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        background-color: white;
+        min-width: 220px;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+        border-radius: 16px;
+        z-index: 1;
+        overflow: hidden;
+        animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .user-menu {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .user-name {
+        background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+        color: white;
+        padding: 10px 24px;
+        border-radius: 40px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.3s;
+    }
+    
+    .user-name:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(15, 59, 111, 0.3);
+    }
+    
+    .user-menu:hover .dropdown-content {
+        display: block;
+    }
+    
+    .dropdown-content a {
+        color: #1f3a5f;
+        padding: 12px 20px;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.2s;
+    }
+    
+    .dropdown-content a:hover {
+        background-color: #f1f5f9;
+        padding-left: 28px;
+    }
+    
+    .dropdown-content hr {
+        margin: 8px 0;
+        border-color: #e2e8f0;
+    }
+    
+    .alert {
+        padding: 16px 24px;
+        border-radius: 16px;
+        margin-bottom: 24px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        animation: slideDown 0.3s ease;
+    }
+    
+    .alert-success {
+        background: #d1fae5;
+        color: #065f46;
+        border-left: 4px solid #10b981;
+    }
+    
+    .alert-error {
+        background: #fee2e2;
+        color: #991b1b;
+        border-left: 4px solid #ef4444;
+    }
+    
+    .alert-info {
+        background: #e0f2fe;
+        color: #0f3b6f;
+        border-left: 4px solid #0f3b6f;
+    }
+
+    /* Thumbnail Gallery Styles */
+.vehicle-gallery {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.main-image {
+    background: #f8fafc;
+    border-radius: 20px;
+    overflow: hidden;
+    height: 420px;
+}
+
+.main-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thumbnail-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.thumbnail-item {
+    background: #f8fafc;
+    border-radius: 16px;
+    overflow: hidden;
+    height: 198px;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+}
+
+.thumbnail-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.thumbnail-item.active {
+    border-color: #0f3b6f;
+    box-shadow: 0 4px 12px rgba(15, 59, 111, 0.2);
+}
+
+.thumbnail-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+</style>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
