@@ -490,13 +490,16 @@ def handle_signup(data):
             VALUES (%s, %s, %s, %s)
         """, (user_id, email, otp_code, expires_at))
         
-        conn.commit()
-        
-        # Send verification email
+        # Send verification email BEFORE committing to database
         email_sent = send_otp_email(email, otp_code, first_name)
         
         if not email_sent:
+            conn.rollback()
             current_app.logger.error(f"Failed to send OTP email to {email}")
+            return jsonify(success=False, message='Failed to send verification email. Please check your email and try again.')
+        
+        # Only commit if email was sent successfully
+        conn.commit()
         
         # Store temporary session data
         session['temp_user_id'] = user_id
