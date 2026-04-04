@@ -16,7 +16,10 @@
             
             <div style="margin-bottom: 24px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1f3a5f;">Password</label>
-                <input type="password" id="password" name="password" required placeholder="Enter your password" style="width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 16px;">
+                <div style="position: relative;">
+                    <input type="password" id="password" name="password" required placeholder="Enter your password" style="width: 100%; padding: 12px 44px 12px 16px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 16px;">
+                    <i class="fas fa-eye" id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666; font-size: 18px;"></i>
+                </div>
             </div>
             
             <div style="display: flex; justify-content: center;">
@@ -87,5 +90,19 @@ function showAlert(type, message) {
         alertDiv.remove();
     }, 5000);
 }
+
+// Toggle password visibility
+document.getElementById('togglePassword').addEventListener('click', function() {
+    const passwordInput = document.getElementById('password');
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        this.classList.remove('fa-eye');
+        this.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        this.classList.remove('fa-eye-slash');
+        this.classList.add('fa-eye');
+    }
+});
 </script>
 {% endblock %}
