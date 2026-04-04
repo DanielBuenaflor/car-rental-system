@@ -186,11 +186,15 @@ document.getElementById('registerForm').addEventListener('submit', function(e) {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
+        if (data.success || data.needs_verification) {
             document.getElementById('otpEmail').textContent = email;
             document.getElementById('otpModal').style.display = 'flex';
             startTimer();
-            showAlert('success', 'Verification code sent to your email');
+            if (data.existing_unverified) {
+                showAlert('info', 'This email has a pending verification. Please enter the code sent to your email.');
+            } else {
+                showAlert('success', 'Verification code sent to your email');
+            }
         } else {
             showAlert('error', data.message);
         }
