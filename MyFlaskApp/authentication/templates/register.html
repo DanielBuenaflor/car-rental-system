@@ -289,14 +289,27 @@ function closeOTPModal() {
 }
 
 function showAlert(type, message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type}`;
-    alertDiv.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
-    const container = document.querySelector('.container');
-    container.insertBefore(alertDiv, container.firstChild);
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container';
+        document.body.appendChild(toastContainer);
+    }
     
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+    
+    // Add to container
+    toastContainer.appendChild(toast);
+    
+    // Auto remove after 5 seconds
     setTimeout(() => {
-        alertDiv.remove();
+        toast.style.animation = 'slideInToast 0.3s ease reverse';
+        setTimeout(() => toast.remove(), 300);
     }, 5000);
 }
 
