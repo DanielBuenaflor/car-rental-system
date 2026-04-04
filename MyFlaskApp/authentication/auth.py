@@ -468,8 +468,21 @@ def handle_signup(data):
 
     try:
         # Check if email already exists
-        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
-        if cursor.fetchone():
+        cursor.execute("SELECT id, first_name, is_email_verified FROM users WHERE email = %s", (email,))
+        existing_user = cursor.fetchone()
+        
+        if existing_user:
+            # If email exists but not verified, allow to resend verification
+            if not existing_user.get('is_email_verified', False):
+                session['temp_user_id'] = existing_user['id']
+                session['temp_email'] = email
+                session['temp_username'] = existing_user['first_name']
+                return jsonify(
+                    success=False,
+                    message='This email has a pending verification. Please verify your email.',
+                    needs_verification=True,
+                    existing_unverified=True
+                )
             return jsonify(success=False, message='Email is already registered.')
 
         # Create user
