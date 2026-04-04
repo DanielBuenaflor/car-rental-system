@@ -8,10 +8,10 @@ mail = Mail()
 load_dotenv()  # Load environment variables from .env file
 
 dbConfig = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '',
-    'database': 'car_rental_system'
+    'host': os.environ.get('DB_HOST', 'localhost'),
+    'user': os.environ.get('DB_USER', 'root'),
+    'password': os.environ.get('DB_PASSWORD', ''),
+    'database': os.environ.get('DB_NAME', 'car_rental_system')
 }
 
 def create_app():
@@ -19,14 +19,14 @@ def create_app():
                 template_folder='.',           # Look in current directory for templates
                 static_folder='static')
     
-    app.config['SECRET_KEY'] = 'secret'
-    app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-    app.config['MAIL_PORT'] = 587
-    app.config['MAIL_USE_TLS'] = True
-    app.config['MAIL_USERNAME'] = 'buenaflordaniel371@gmail.com'
-    app.config['MAIL_PASSWORD'] = 'poxvxetcvollxcwp'
-    app.config['MAIL_DEFAULT_SENDER'] = 'buenaflordaniel371@gmail.com'
-    app.config['BASE_URL'] = 'http://localhost:5000'
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
+    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+    app.config['BASE_URL'] = os.environ.get('BASE_URL', 'http://localhost:5000')
     
     # Change this - uploads folder is now inside base
     app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'base', 'uploads')
