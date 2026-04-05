@@ -102,7 +102,7 @@ const emailCheck = document.getElementById('emailCheck');
 emailInput.addEventListener('blur', function() {
     const email = this.value;
     if (email && email.includes('@')) {
-        fetch('{{ url_for('auth_bp.check_email', email='') }}' + encodeURIComponent(email))
+        fetch("{{ url_for('auth_bp.check_email', email='') }}" + encodeURIComponent(email))
             .then(response => response.json())
             .then(data => {
                 if (data.available) {
@@ -179,7 +179,7 @@ document.getElementById('registerForm').addEventListener('submit', function(e) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
     
-    fetch('{{ url_for('auth_bp.register') }}', {
+    fetch("{{ url_for('auth_bp.register') }}", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(registerData)
@@ -245,7 +245,7 @@ function verifyOTP() {
         return;
     }
     
-    fetch('{{ url_for('auth_bp.verify_otp') }}', {
+    fetch("{{ url_for('auth_bp.verify_otp') }}", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ otp_code: otpCode })
@@ -268,7 +268,7 @@ function resendOTP() {
     resendBtn.disabled = true;
     resendBtn.style.opacity = '0.5';
     
-    fetch('{{ url_for('auth_bp.resend_otp') }}', {
+    fetch("{{ url_for('auth_bp.resend_otp') }}", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: registerData.email })
