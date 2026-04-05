@@ -2155,12 +2155,18 @@ def api_approve_verification(verification_id):
     if not conn:
         return jsonify({'success': False, 'message': 'Database error'}), 500
     
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     try:
-        # Get user_id from verification
-        cursor.execute("SELECT user_id FROM verifications WHERE id = %s", (verification_id,))
+        # Get user details from verification
+        cursor.execute("""
+            SELECT v.user_id, u.email, u.first_name 
+            FROM verifications v 
+            JOIN users u ON v.user_id = u.id 
+            WHERE v.id = %s
+        """, (verification_id,))
         result = cursor.fetchone()
-        user_id = result[0] if result else None
+        user_id = result['user_id'] if result else None
+        user = result if result else None
         
         # Update verification status
         cursor.execute("""
@@ -2178,6 +2184,15 @@ def api_approve_verification(verification_id):
         """, (user_id,))
         
         conn.commit()
+        
+        # Send approval email
+        if user:
+            try:
+                EmailService.send_verification_approved(user)
+                print(f"📧 Verification approved email sent to {user['email']}")
+            except Exception as e:
+                print(f"⚠️ Failed to send verification email: {e}")
+        
         return jsonify({'success': True})
     except Exception as e:
         conn.rollback()
@@ -2198,12 +2213,18 @@ def api_reject_verification(verification_id):
     if not conn:
         return jsonify({'success': False, 'message': 'Database error'}), 500
     
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     try:
-        # Get user_id from verification
-        cursor.execute("SELECT user_id FROM verifications WHERE id = %s", (verification_id,))
+        # Get user details from verification
+        cursor.execute("""
+            SELECT v.user_id, u.email, u.first_name 
+            FROM verifications v 
+            JOIN users u ON v.user_id = u.id 
+            WHERE v.id = %s
+        """, (verification_id,))
         result = cursor.fetchone()
-        user_id = result[0] if result else None
+        user_id = result['user_id'] if result else None
+        user = result if result else None
         
         # Update verification status
         cursor.execute("""
@@ -2221,6 +2242,15 @@ def api_reject_verification(verification_id):
         """, (user_id, reason))
         
         conn.commit()
+        
+        # Send rejection email
+        if user:
+            try:
+                EmailService.send_verification_rejected(user, reason)
+                print(f"📧 Verification rejected email sent to {user['email']}")
+            except Exception as e:
+                print(f"⚠️ Failed to send verification email: {e}")
+        
         return jsonify({'success': True})
     except Exception as e:
         conn.rollback()
