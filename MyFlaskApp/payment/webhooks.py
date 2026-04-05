@@ -195,19 +195,40 @@ def handle_checkout_session_paid(event_data):
                     """, (invoice['invoice_id'],))
                     print(f"✅ Invoice {invoice['invoice_id']} marked as paid")
                 
-                # Send confirmation email (optional)
+                # Send confirmation email
                 try:
-                    # Get user email
-                    cursor.execute("SELECT email, first_name FROM users WHERE id = %s", 
-                                 (session.get('user_id') or booking_id,))
-                    user = cursor.fetchone()
+                    # Get user and booking details
+                    cursor.execute("""
+                        SELECT u.email, u.first_name, b.id as booking_id, 
+                               b.booking_reference, b.start_date, b.end_date,
+                               v.model, vb.name as brand_name
+                        FROM bookings b
+                        JOIN users u ON b.user_id = u.id
+                        JOIN vehicles v ON b.vehicle_id = v.id
+                        JOIN vehicle_brands vb ON v.brand_id = vb.id
+                        WHERE b.id = %s
+                    """, (booking_id,))
+                    result = cursor.fetchone()
                     
-                    if user:
+                    if result:
+                        user = {'email': result[0], 'first_name': result[1]}
+                        booking = {
+                            'booking_reference': result[3],
+                            'start_date': result[4],
+                            'end_date': result[5]
+                        }
+                        vehicle = {'brand_name': result[7], 'model': result[6]}
+                        
                         from MyFlaskApp.email.service import EmailService
-                        # EmailService.send_booking_confirmation(user, booking, vehicle)
-                        print(f"📧 Would send email to {user['email']}")
+                        email_sent = EmailService.send_booking_confirmation(user, booking, vehicle)
+                        if email_sent:
+                            print(f"📧 Booking confirmation email sent to {user['email']}")
+                        else:
+                            print(f"⚠️ Failed to send email to {user['email']}")
                 except Exception as e:
                     print(f"Email error: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             conn.commit()
             print(f"✅ Successfully processed payment for booking {booking_id}")
