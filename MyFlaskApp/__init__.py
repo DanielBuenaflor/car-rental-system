@@ -33,6 +33,20 @@ def create_app():
     
     mail.init_app(app)
     
+    # Validate email configuration on startup
+    if not app.config.get('MAIL_USERNAME') or not app.config.get('MAIL_PASSWORD'):
+        print("="*60)
+        print("EMAIL CONFIGURATION MISSING!")
+        print(f"MAIL_USERNAME: {'SET' if app.config.get('MAIL_USERNAME') else 'NOT SET'}")
+        print(f"MAIL_PASSWORD: {'SET' if app.config.get('MAIL_PASSWORD') else 'NOT SET'}")
+        print("Verification emails will NOT be sent!")
+        print("="*60)
+    else:
+        print("Email configuration loaded successfully")
+        print(f"MAIL_SERVER: {app.config.get('MAIL_SERVER')}:{app.config.get('MAIL_PORT')}")
+        print(f"MAIL_USERNAME: {app.config.get('MAIL_USERNAME')}")
+        print(f"MAIL_DEFAULT_SENDER: {app.config.get('MAIL_DEFAULT_SENDER')}")
+    
     # Route to serve uploaded files from base/uploads
     @app.route('/uploads/<path:filename>')
     def uploaded_file(filename):

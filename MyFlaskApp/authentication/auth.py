@@ -59,7 +59,20 @@ def generate_otp():
 
 def send_otp_email(email, otp_code, username):
     """Send verification email with OTP code"""
+    print(f"[DEBUG] send_otp_email() called with email: {email}")
     try:
+        # Check if mail is configured
+        if not current_app.config.get('MAIL_USERNAME') or not current_app.config.get('MAIL_PASSWORD'):
+            print("="*60)
+            print("EMAIL SEND FAILED - Configuration missing!")
+            print(f"MAIL_USERNAME: {current_app.config.get('MAIL_USERNAME') or 'NOT SET'}")
+            print(f"MAIL_PASSWORD: {'SET' if current_app.config.get('MAIL_PASSWORD') else 'NOT SET'}")
+            print("="*60)
+            return False
+        
+        print(f"Attempting to send OTP email to: {email}")
+        print(f"Using SMTP server: {current_app.config.get('MAIL_SERVER')}:{current_app.config.get('MAIL_PORT')}")
+
         msg = Message(
             subject="Your Verification Code - CarRental Pro",
             recipients=[email],
@@ -83,12 +96,25 @@ def send_otp_email(email, otp_code, username):
     </div>
 </body>
 </html>
-            """
+            """,
+            sender=current_app.config.get('MAIL_DEFAULT_SENDER', 'noreply@carrentalpro.com')
         )
         mail.send(msg)
+        print(f"OTP email sent successfully to: {email}")
         return True
     except Exception as e:
-        current_app.logger.error(f"Failed to send OTP email to {email}: {str(e)}")
+        print("="*60)
+        print(f"FAILED TO SEND OTP EMAIL to {email}")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
+        
+        # Print SMTP-specific details if available
+        if hasattr(e, 'smtp_error'):
+            print(f"SMTP Error: {e.smtp_error}")
+        if hasattr(e, 'smtp_code'):
+            print(f"SMTP Code: {e.smtp_code}")
+        
+        print("="*60)
         return False
 
 
@@ -429,6 +455,7 @@ def handle_login(email, password):
 
 def handle_signup(data):
     """Handle registration form submission with OTP"""
+    print(f"[DEBUG] handle_signup() called with data: {dict(data)}")
     # Extract data
     first_name = data.get('firstname', '').strip()
     last_name = data.get('lastname', '').strip()
@@ -466,25 +493,59 @@ def handle_signup(data):
     
     cursor = conn.cursor(dictionary=True)
 
+    print(f"[DEBUG] Got DB connection: {conn is not None}")
+
     try:
         # Check if email already exists
+        print(f"[DEBUG] Checking if email exists: {email}")
         cursor.execute("SELECT id, first_name, is_email_verified FROM users WHERE email = %s", (email,))
         existing_user = cursor.fetchone()
+        print(f"[DEBUG] existing_user: {existing_user}")
         
         if existing_user:
             # If email exists but not verified, allow to resend verification
             if not existing_user.get('is_email_verified', False):
+                print(f"[DEBUG] User exists but not verified. Generating new OTP and sending email...")
+                
+                # Generate new OTP for existing user
+                otp_code = generate_otp()
+                expires_at = datetime.now() + timedelta(minutes=10)
+                
+                # Save OTP to database
+                cursor.execute("""
+                    INSERT INTO otp_verification (user_id, email, otp_code, expires_at)
+                    VALUES (%s, %s, %s, %s)
+                """, (existing_user['id'], email, otp_code, expires_at))
+                conn.commit()
+                print(f"[DEBUG] Generated and saved new OTP: {otp_code}")
+                
+                # Send verification email
+                email_sent = send_otp_email(email, otp_code, existing_user['first_name'])
+                print(f"[DEBUG] send_otp_email returned: {email_sent}")
+                
+                if not email_sent:
+                    print(f"[DEBUG] Email failed to send for existing user.")
+                    return jsonify(
+                        success=False,
+                        message='Failed to send verification email. Please check your email configuration and try again.',
+                        needs_verification=True,
+                        existing_unverified=True
+                    )
+                
+                # Set session data
                 session['temp_user_id'] = existing_user['id']
                 session['temp_email'] = email
                 session['temp_username'] = existing_user['first_name']
+                
                 return jsonify(
-                    success=False,
-                    message='This email has a pending verification. Please verify your email.',
+                    success=True,
+                    message='New verification code sent to your email.',
                     needs_verification=True,
                     existing_unverified=True
                 )
             return jsonify(success=False, message='Email is already registered.')
 
+        print(f"[DEBUG] Creating new user...")
         # Create user
         hashed_pw = generate_password_hash(password)
         cursor.execute("""
@@ -493,23 +554,30 @@ def handle_signup(data):
         """, (first_name, last_name, email, hashed_pw, phone))
         
         user_id = cursor.lastrowid
+        print(f"[DEBUG] Created user with ID: {user_id}")
         
         # Create OTP
         otp_code = generate_otp()
         expires_at = datetime.now() + timedelta(minutes=10)
+        print(f"[DEBUG] Generated OTP: {otp_code}")
         
         cursor.execute("""
             INSERT INTO otp_verification (user_id, email, otp_code, expires_at)
             VALUES (%s, %s, %s, %s)
         """, (user_id, email, otp_code, expires_at))
+        print(f"[DEBUG] Saved OTP to database")
+        
+        print(f"[DEBUG] About to call send_otp_email for: {email}")
         
         # Send verification email BEFORE committing to database
         email_sent = send_otp_email(email, otp_code, first_name)
         
+        print(f"[DEBUG] send_otp_email returned: {email_sent}")
+        
         if not email_sent:
             conn.rollback()
-            current_app.logger.error(f"Failed to send OTP email to {email}")
-            return jsonify(success=False, message='Failed to send verification email. Please check your email and try again.')
+            print(f"[DEBUG] Email failed, rolling back. Returning error to frontend.")
+            return jsonify(success=False, message='Failed to send verification email. Please check your email configuration and try again.')
         
         # Only commit if email was sent successfully
         conn.commit()
