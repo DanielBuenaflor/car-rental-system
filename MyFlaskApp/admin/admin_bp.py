@@ -1403,7 +1403,10 @@ def api_create_user():
         if cursor.fetchone():
             return jsonify({'success': False, 'message': 'Email already exists'}), 400
         
-        hashed_password = generate_password_hash(data.get('password', 'password123'))
+        password = data.get('password')
+        if not password:
+            return jsonify({'success': False, 'message': 'Password is required'}), 400
+        hashed_password = generate_password_hash(password)
         cursor.execute("""
             INSERT INTO users (first_name, last_name, email, password, phone, address, city, state,
                               postal_code, country, role, is_active, created_at)

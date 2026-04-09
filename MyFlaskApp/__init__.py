@@ -19,7 +19,14 @@ def create_app():
                 template_folder='.',           # Look in current directory for templates
                 static_folder='static')
     
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    secret_key = os.environ.get('SECRET_KEY')
+    debug = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true', '1', 'yes')
+    if not secret_key and not debug:
+        raise RuntimeError(
+            "SECRET_KEY environment variable is required in production. "
+            "Set SECRET_KEY or run with FLASK_DEBUG=True for development."
+        )
+    app.config['SECRET_KEY'] = secret_key or 'dev-secret-key-change-in-production'
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
     app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
     app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'

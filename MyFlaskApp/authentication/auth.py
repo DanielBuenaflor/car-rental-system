@@ -13,8 +13,38 @@ import mysql.connector
 import random
 import string
 import re
+import logging
+
+# Configure logger for defensive logging
+logger = logging.getLogger(__name__)
 
 from MyFlaskApp import get_db_connection, mail
+
+# ============================================================================
+# STANDARDIZED ERROR MESSAGES (Single Source of Truth)
+# ============================================================================
+ERROR_MESSAGES = {
+    'DB_CONNECTION_ERROR': 'Database connection error. Please try again.',
+    'DB_OPERATION_ERROR': 'Database error. Please try again.',
+    'INVALID_CREDENTIALS': 'Invalid email or password.',
+    'ACCOUNT_DEACTIVATED': 'Account is deactivated. Please contact support.',
+    'EMAIL_NOT_VERIFIED': 'Email not verified. Please verify your email first.',
+    'EMAIL_EXISTS': 'Email is already registered.',
+    'EMAIL_INVALID_FORMAT': 'Invalid email format.',
+    'OTP_INVALID': 'Invalid OTP code.',
+    'OTP_EXPIRED': 'OTP code has expired. Please resend.',
+    'OTP_NOT_FOUND': 'No pending verification found.',
+    'OTP_SEND_FAILED': 'Failed to send verification email. Please check your email configuration and try again.',
+    'RATE_LIMIT_EXCEEDED': 'Too many attempts. Please try again later.',
+    'RATE_LIMIT_WAIT': 'Please wait 60 seconds before requesting another code.',
+    'MISSING_REQUIRED_FIELDS': 'All required fields must be filled.',
+    'PASSWORD_MISMATCH': 'Passwords do not match.',
+    'PASSWORD_TOO_SHORT': 'Password must be at least 8 characters.',
+    'PASSWORD_COMPLEXITY': 'Password must contain at least one uppercase letter, one lowercase letter, and one number.',
+    'USER_NOT_FOUND': 'User not found.',
+    'VERIFICATION_FAILED': 'Verification failed. Please try again.',
+    'SERVER_ERROR': 'An unexpected error occurred. Please try again.',
+}
 
 
 # ============================================================================
@@ -47,35 +77,71 @@ def login_required(f):
 # HELPER FUNCTIONS
 # ============================================================================
 def is_valid_email(email):
-    """Validate email format using regex"""
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(pattern, email) is not None
+    """
+    Validate email format using regex pattern matching.
+    
+    Input:
+        email (str): Email address string to validate
+        
+    Process:
+        1. Apply RFC-compliant email regex pattern
+        2. Check for valid characters, @ symbol, and domain format
+        
+    Output:
+        bool: True if email format is valid, False otherwise
+    """
+    email_validation_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    is_valid = re.match(email_validation_pattern, email) is not None
+    logger.debug(f"[AUTH] Email validation for '{email}': {is_valid}")
+    return is_valid
 
 
 def generate_otp():
-    """Generate a 6-digit OTP code"""
-    return ''.join(random.choices(string.digits, k=6))
+    """
+    Generate a cryptographically secure 6-digit OTP code.
+    
+    Output:
+        str: 6-digit numeric OTP code (e.g., '123456')
+    """
+    generated_otp = ''.join(random.choices(string.digits, k=6))
+    logger.debug(f"[AUTH] Generated new OTP: {generated_otp[:2]}****{generated_otp[-1]} (masked)")
+    return generated_otp
 
 
-def send_otp_email(email, otp_code, username):
-    """Send verification email with OTP code"""
-    print(f"[DEBUG] send_otp_email() called with email: {email}")
+def send_otp_email(recipient_email, otp_code, recipient_name):
+    """
+    Send verification email with OTP code to user.
+    
+    Input:
+        recipient_email (str): Email address of the recipient
+        otp_code (str): 6-digit OTP code to send
+        recipient_name (str): First name of the recipient for personalization
+        
+    Output:
+        bool: True if email sent successfully, False otherwise
+    """
+    logger.info(f"[AUTH] Starting OTP email send process for: {recipient_email}")
     try:
-        # Check if mail is configured
-        if not current_app.config.get('MAIL_USERNAME') or not current_app.config.get('MAIL_PASSWORD'):
-            print("="*60)
-            print("EMAIL SEND FAILED - Configuration missing!")
-            print(f"MAIL_USERNAME: {current_app.config.get('MAIL_USERNAME') or 'NOT SET'}")
-            print(f"MAIL_PASSWORD: {'SET' if current_app.config.get('MAIL_PASSWORD') else 'NOT SET'}")
-            print("="*60)
+        # Verify mail server configuration is present before attempting send
+        mail_username = current_app.config.get('MAIL_USERNAME')
+        mail_password = current_app.config.get('MAIL_PASSWORD')
+        
+        if not mail_username or not mail_password:
+            logger.error(
+                f"[AUTH] EMAIL SEND FAILED - Configuration missing! "
+                f"MAIL_USERNAME: {'SET' if mail_username else 'NOT SET'}, "
+                f"MAIL_PASSWORD: {'SET' if mail_password else 'NOT SET'}"
+            )
             return False
         
-        print(f"Attempting to send OTP email to: {email}")
-        print(f"Using SMTP server: {current_app.config.get('MAIL_SERVER')}:{current_app.config.get('MAIL_PORT')}")
+        smtp_server = current_app.config.get('MAIL_SERVER', 'smtp.gmail.com')
+        smtp_port = current_app.config.get('MAIL_PORT', 587)
+        logger.info(f"[AUTH] Sending OTP email via SMTP: {smtp_server}:{smtp_port}")
+        print(f"[AUTH] Attempting to send OTP email to: {recipient_email}")
 
-        msg = Message(
+        email_message = Message(
             subject="Your Verification Code - CarRental Pro",
-            recipients=[email],
+            recipients=[recipient_email],
             html=f"""
 <!DOCTYPE html>
 <html>
@@ -86,7 +152,7 @@ def send_otp_email(email, otp_code, username):
 <body style="margin: 0; padding: 0; font-family: Arial, sans-serif;">
     <div style="max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd;">
         <h2>CarRental Pro - Account Verification</h2>
-        <p>Hello <strong>{username}</strong>,</p>
+        <p>Hello <strong>{recipient_name}</strong>,</p>
         <p>Your verification code is:</p>
         <div style="padding: 15px; background-color: #f0f0f0; font-size: 24px; font-weight: bold; text-align: center;">
             {otp_code}
@@ -99,23 +165,152 @@ def send_otp_email(email, otp_code, username):
             """,
             sender=current_app.config.get('MAIL_DEFAULT_SENDER', 'noreply@carrentalpro.com')
         )
-        mail.send(msg)
-        print(f"OTP email sent successfully to: {email}")
-        return True
-    except Exception as e:
-        print("="*60)
-        print(f"FAILED TO SEND OTP EMAIL to {email}")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
         
-        # Print SMTP-specific details if available
-        if hasattr(e, 'smtp_error'):
-            print(f"SMTP Error: {e.smtp_error}")
-        if hasattr(e, 'smtp_code'):
-            print(f"SMTP Code: {e.smtp_code}")
+        mail.send(email_message)
+        logger.info(f"[AUTH] OTP email sent successfully to: {recipient_email}")
+        print(f"[AUTH] OTP email sent successfully to: {recipient_email}")
+        return True
+        
+    except Exception as email_error:
+        error_details = f"[{type(email_error).__name__}] {str(email_error)}"
+        logger.error(f"[AUTH] FAILED TO SEND OTP EMAIL to {recipient_email}: {error_details}")
+        
+        print("="*60)
+        print(f"[AUTH] FAILED TO SEND OTP EMAIL to {recipient_email}")
+        print(f"[AUTH] Error type: {type(email_error).__name__}")
+        print(f"[AUTH] Error message: {str(email_error)}")
+        
+        # Log SMTP-specific details if available
+        if hasattr(email_error, 'smtp_error'):
+            smtp_error_detail = email_error.smtp_error
+            logger.error(f"[AUTH] SMTP Error Detail: {smtp_error_detail}")
+            print(f"[AUTH] SMTP Error: {smtp_error_detail}")
+        if hasattr(email_error, 'smtp_code'):
+            smtp_code = email_error.smtp_code
+            logger.error(f"[AUTH] SMTP Code: {smtp_code}")
+            print(f"[AUTH] SMTP Code: {smtp_code}")
         
         print("="*60)
         return False
+
+
+# ============================================================================
+# HELPER FUNCTIONS - AUTHENTICATION
+# ============================================================================
+def handle_login(email, password):
+    """
+    Handle user login authentication.
+    
+    Input:
+        email (str): User's email address
+        password (str): User's password
+        
+    Process:
+        1. Validate input parameters
+        2. Query user from database
+        3. Verify password hash
+        4. Check account status (active, email verified)
+        5. Create user session
+        6. Return appropriate response
+        
+    Output:
+        JSON response with login result and redirect URL
+    """
+    logger.info(f"[AUTH] Processing login handler for: {email}")
+    
+    # Validate input
+    if not email or not password:
+        logger.warning("[AUTH] Login failed: Missing email or password")
+        return jsonify(success=False, message=ERROR_MESSAGES['MISSING_REQUIRED_FIELDS'])
+    
+    # Get database connection
+    database_connection = get_db_connection()
+    if not database_connection:
+        logger.error("[AUTH] Login failed: Database connection error")
+        return jsonify(success=False, message=ERROR_MESSAGES['DB_CONNECTION_ERROR'])
+    
+    database_cursor = database_connection.cursor(dictionary=True)
+    
+    try:
+        logger.info(f"[AUTH] Querying user from database: {email}")
+        
+        # Retrieve user by email
+        database_cursor.execute("""
+            SELECT id, first_name, last_name, email, password, role, 
+                   is_active, is_email_verified
+            FROM users 
+            WHERE email = %s
+        """, (email,))
+        user_record = database_cursor.fetchone()
+        
+        # Verify user exists
+        if not user_record:
+            logger.warning(f"[AUTH] Login failed: User not found - {email}")
+            return jsonify(success=False, message=ERROR_MESSAGES['INVALID_CREDENTIALS'])
+        
+        logger.debug(f"[AUTH] User found: ID {user_record['id']}")
+        
+        # Verify password
+        stored_password_hash = user_record['password']
+        if not check_password_hash(stored_password_hash, password):
+            logger.warning(f"[AUTH] Login failed: Invalid password for user {email}")
+            return jsonify(success=False, message=ERROR_MESSAGES['INVALID_CREDENTIALS'])
+        
+        logger.info(f"[AUTH] Password verified for user: {email}")
+        
+        # Check if account is active
+        if not user_record.get('is_active', 0):
+            logger.warning(f"[AUTH] Login failed: Account deactivated - {email}")
+            return jsonify(success=False, message=ERROR_MESSAGES['ACCOUNT_DEACTIVATED'])
+        
+        # Check if email is verified
+        if not user_record.get('is_email_verified', False):
+            logger.warning(f"[AUTH] Login failed: Email not verified - {email}")
+            
+            # Store temp user ID for verification flow
+            session['temp_user_id'] = user_record['id']
+            session['temp_email'] = user_record['email']
+            session['temp_username'] = user_record['first_name']
+            
+            return jsonify(
+                success=False, 
+                message=ERROR_MESSAGES['EMAIL_NOT_VERIFIED'],
+                needs_verification=True
+            )
+        
+        # Create user session
+        session.clear()
+        session.update({
+            'loggedin': True,
+            'user_id': user_record['id'],
+            'username': user_record['first_name'],
+            'email': user_record['email'],
+            'role': user_record['role'],
+            'is_email_verified': True
+        })
+        logger.info(f"[AUTH] Session created for user: {email} (Role: {user_record['role']})")
+        
+        # Determine redirect URL based on role
+        if user_record['role'] == 'admin':
+            redirect_url = url_for('admin_bp.admin_dashboard')
+        else:
+            redirect_url = url_for('user_bp.user_dashboard')
+        
+        logger.info(f"[AUTH] Login successful. Redirecting to: {redirect_url}")
+        return jsonify(success=True, message='Login successful!', redirect=redirect_url)
+        
+    except mysql.connector.Error as database_error:
+        logger.error(f"[AUTH] Database error during login: {database_error}")
+        current_app.logger.error(f"[AUTH] DB error during login: {database_error}")
+        return jsonify(success=False, message=ERROR_MESSAGES['DB_OPERATION_ERROR'])
+    except Exception as error:
+        logger.error(f"[AUTH] Unexpected error during login: {error}")
+        current_app.logger.error(f"[AUTH] Unexpected error during login: {error}")
+        return jsonify(success=False, message=ERROR_MESSAGES['SERVER_ERROR'])
+    finally:
+        database_cursor.close()
+        database_connection.close()
+        logger.debug("[AUTH] Database connection closed after login attempt")
 
 
 # ============================================================================
@@ -123,157 +318,289 @@ def send_otp_email(email, otp_code, username):
 # ============================================================================
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """User login page"""
-    # Get all vehicles for the base template
-    conn = get_db_connection()
-    all_vehicles = []
-    if conn:
-        cursor = conn.cursor(dictionary=True)
+    """
+    User login page - handles GET (display form) and POST (process login).
+    
+    Input (GET):
+        None - Renders login form with available vehicles
+        
+    Input (POST):
+        JSON or Form Data:
+            - email (str): User's email address
+            - password (str): User's password
+            
+    Process:
+        1. Load available vehicles for display on login page
+        2. If POST: Extract email and password from request
+        3. Call handle_login() for authentication logic
+        4. Return appropriate response based on authentication result
+        
+    Output:
+        GET: Rendered login.html template with vehicle data
+        POST: JSON response with authentication result and redirect URL
+    """
+    logger.info(f"[AUTH] Login route accessed. Method: {request.method}")
+    
+    # Load available vehicles for the base template display
+    database_connection = get_db_connection()
+    available_vehicles = []
+    
+    if database_connection:
         try:
-            cursor.execute("""
+            database_cursor = database_connection.cursor(dictionary=True)
+            database_cursor.execute("""
                 SELECT v.*, vb.name as brand_name 
                 FROM vehicles v
                 JOIN vehicle_brands vb ON v.brand_id = vb.id
                 WHERE v.status = 'available'
             """)
-            all_vehicles = cursor.fetchall()
-        except Exception as e:
-            print(f"Error loading vehicles: {e}")
+            available_vehicles = database_cursor.fetchall()
+            logger.debug(f"[AUTH] Loaded {len(available_vehicles)} available vehicles for login page")
+        except Exception as vehicle_load_error:
+            logger.error(f"[AUTH] Error loading vehicles for login page: {vehicle_load_error}")
+            print(f"[AUTH] Error loading vehicles: {vehicle_load_error}")
         finally:
-            cursor.close()
-            conn.close()
+            database_cursor.close()
+            database_connection.close()
+    else:
+        logger.warning("[AUTH] No database connection available for loading vehicles")
     
     if request.method == 'POST':
-        # Check if it's JSON request or form data
+        logger.info("[AUTH] Processing login POST request")
+        
+        # Extract credentials from JSON or form data
         if request.is_json:
-            data = request.get_json()
-            email = data.get('email', '').strip()
-            password = data.get('password', '')
+            request_data = request.get_json()
+            user_email = request_data.get('email', '').strip()
+            user_password = request_data.get('password', '')
+            logger.debug("[AUTH] Login credentials extracted from JSON payload")
         else:
-            email = request.form.get('email', '').strip()
-            password = request.form.get('password', '')
-            
-        return handle_login(email, password)
-    return render_template('login.html', session=session, all_vehicles=all_vehicles)
+            user_email = request.form.get('email', '').strip()
+            user_password = request.form.get('password', '')
+            logger.debug("[AUTH] Login credentials extracted from form data")
+        
+        logger.info(f"[AUTH] Attempting login for email: {user_email}")
+        return handle_login(user_email, user_password)
+    
+    # GET request - render login form
+    logger.debug("[AUTH] Rendering login form (GET request)")
+    return render_template('login.html', session=session, all_vehicles=available_vehicles)
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    """User registration page"""
-    # Get all vehicles for the base template
-    conn = get_db_connection()
-    all_vehicles = []
-    if conn:
-        cursor = conn.cursor(dictionary=True)
+    """
+    User registration page - handles GET (display form) and POST (process registration).
+    
+    Input (GET):
+        None - Renders registration form with available vehicles
+        
+    Input (POST):
+        JSON or Form Data:
+            - firstname (str): User's first name
+            - lastname (str): User's last name
+            - email (str): User's email address
+            - contact_number (str): User's phone number
+            - password (str): User's password
+            - confirm_password (str): Password confirmation
+            
+    Process:
+        1. Load available vehicles for display on registration page
+        2. If POST: Extract registration data from request
+        3. Call handle_signup() for registration logic
+        4. Return appropriate response based on registration result
+        
+    Output:
+        GET: Rendered register.html template with vehicle data
+        POST: JSON response with registration result
+    """
+    logger.info(f"[AUTH] Register route accessed. Method: {request.method}")
+    
+    # Load available vehicles for the base template display
+    database_connection = get_db_connection()
+    available_vehicles = []
+    
+    if database_connection:
         try:
-            cursor.execute("""
+            database_cursor = database_connection.cursor(dictionary=True)
+            database_cursor.execute("""
                 SELECT v.*, vb.name as brand_name 
                 FROM vehicles v
                 JOIN vehicle_brands vb ON v.brand_id = vb.id
                 WHERE v.status = 'available'
             """)
-            all_vehicles = cursor.fetchall()
-        except Exception as e:
-            print(f"Error loading vehicles: {e}")
+            available_vehicles = database_cursor.fetchall()
+            logger.debug(f"[AUTH] Loaded {len(available_vehicles)} available vehicles for registration page")
+        except Exception as vehicle_load_error:
+            logger.error(f"[AUTH] Error loading vehicles for registration page: {vehicle_load_error}")
+            print(f"[AUTH] Error loading vehicles: {vehicle_load_error}")
         finally:
-            cursor.close()
-            conn.close()
+            database_cursor.close()
+            database_connection.close()
+    else:
+        logger.warning("[AUTH] No database connection available for loading vehicles")
     
     if request.method == 'POST':
-        if request.is_json:
-            data = request.get_json()
-        else:
-            data = request.form
+        logger.info("[AUTH] Processing registration POST request")
         
-        return handle_signup(data)
-    return render_template('register.html', session=session, all_vehicles=all_vehicles)
+        # Extract registration data from JSON or form data
+        if request.is_json:
+            registration_data = request.get_json()
+            logger.debug("[AUTH] Registration data extracted from JSON payload")
+        else:
+            registration_data = request.form
+            logger.debug("[AUTH] Registration data extracted from form data")
+        
+        return handle_signup(registration_data)
+    
+    # GET request - render registration form
+    logger.debug("[AUTH] Rendering registration form (GET request)")
+    return render_template('register.html', session=session, all_vehicles=available_vehicles)
 
 
 @auth_bp.route('/verify-otp', methods=['POST'])
 def verify_otp():
-    """Verify OTP code"""
-    data = request.get_json()
-    otp_code = data.get('otp_code', '').strip()
-    user_id = session.get('temp_user_id')
+    """
+    Verify OTP code submitted by user and activate account if valid.
     
-    if not otp_code or not user_id:
+    Input:
+        JSON payload:
+            - otp_code (str): 6-digit OTP code entered by user
+            
+    Process:
+        1. Extract OTP code from request and user_id from session
+        2. Validate input parameters
+        3. Retrieve latest unverified OTP record for user from database
+        4. Check if OTP has expired
+        5. Verify submitted code matches stored code
+        6. Mark OTP as verified in database
+        7. Activate user account (is_email_verified = TRUE, is_active = 1)
+        8. Create user session
+        9. Return success response with redirect URL
+        
+    Output:
+        JSON response:
+            - success (bool): True if verification successful
+            - message (str): Status message
+            - redirect (str, optional): URL to redirect on success
+    """
+    logger.info("[AUTH] OTP verification route accessed")
+    
+    request_data = request.get_json()
+    submitted_otp_code = request_data.get('otp_code', '').strip()
+    temp_user_id = session.get('temp_user_id')
+    
+    logger.debug(f"[AUTH] OTP verification attempt. User ID from session: {temp_user_id}")
+    
+    # Validate input parameters
+    if not submitted_otp_code or not temp_user_id:
+        logger.warning("[AUTH] OTP verification failed: Missing OTP code or user ID")
         return jsonify(success=False, message='Invalid verification request')
     
-    conn = get_db_connection()
-    if not conn:
-        return jsonify(success=False, message='Database error')
+    # Establish database connection
+    database_connection = get_db_connection()
+    if not database_connection:
+        logger.error("[AUTH] OTP verification failed: Database connection error")
+        return jsonify(success=False, message=ERROR_MESSAGES['DB_CONNECTION_ERROR'])
     
-    cursor = conn.cursor(dictionary=True)
+    database_cursor = database_connection.cursor(dictionary=True)
     
     try:
-        # Get OTP record
-        cursor.execute("""
+        logger.info(f"[AUTH] Verifying OTP for user ID: {temp_user_id}")
+        
+        # Retrieve latest unverified OTP record for user
+        database_cursor.execute("""
             SELECT id, otp_code, expires_at, is_verified
             FROM otp_verification
             WHERE user_id = %s AND is_verified = FALSE
             ORDER BY created_at DESC LIMIT 1
-        """, (user_id,))
-        otp_record = cursor.fetchone()
+        """, (temp_user_id,))
+        otp_record = database_cursor.fetchone()
         
         if not otp_record:
-            return jsonify(success=False, message='No pending verification found')
+            logger.warning(f"[AUTH] No pending OTP verification found for user ID: {temp_user_id}")
+            return jsonify(success=False, message=ERROR_MESSAGES['OTP_NOT_FOUND'])
         
-        # Check expiration
-        if datetime.now() > otp_record['expires_at']:
-            return jsonify(success=False, message='OTP code has expired. Please resend.')
+        logger.debug(f"[AUTH] Found OTP record ID: {otp_record['id']}")
         
-        # Verify OTP
-        if otp_record['otp_code'] != otp_code:
-            return jsonify(success=False, message='Invalid OTP code')
+        # Check if OTP has expired
+        current_time = datetime.now()
+        expiration_time = otp_record['expires_at']
         
-        # Mark OTP as verified
-        cursor.execute("""
+        if current_time > expiration_time:
+            logger.warning(f"[AUTH] OTP expired. Current: {current_time}, Expires: {expiration_time}")
+            return jsonify(success=False, message=ERROR_MESSAGES['OTP_EXPIRED'])
+        
+        # Verify submitted code matches stored code
+        stored_otp_code = otp_record['otp_code']
+        if stored_otp_code != submitted_otp_code:
+            logger.warning(f"[AUTH] OTP mismatch. Submitted: {submitted_otp_code}, Expected: {stored_otp_code[:2]}****")
+            return jsonify(success=False, message=ERROR_MESSAGES['OTP_INVALID'])
+        
+        logger.info("[AUTH] OTP code verified successfully. Activating user account...")
+        
+        # Mark OTP as verified in database
+        database_cursor.execute("""
             UPDATE otp_verification 
             SET is_verified = TRUE 
             WHERE id = %s
         """, (otp_record['id'],))
+        logger.debug(f"[AUTH] OTP record {otp_record['id']} marked as verified")
         
         # Activate user account
-        cursor.execute("""
+        database_cursor.execute("""
             UPDATE users 
             SET is_email_verified = TRUE, is_active = 1
             WHERE id = %s
-        """, (user_id,))
+        """, (temp_user_id,))
+        logger.info(f"[AUTH] User account {temp_user_id} activated (email verified, is_active = 1)")
         
-        conn.commit()
+        # Commit all database changes
+        database_connection.commit()
+        logger.info("[AUTH] Database transaction committed successfully")
         
-        # Get updated user data
-        cursor.execute("""
+        # Retrieve updated user data for session creation
+        database_cursor.execute("""
             SELECT id, first_name, last_name, email, role, is_active
             FROM users 
             WHERE id = %s
-        """, (user_id,))
-        user = cursor.fetchone()
+        """, (temp_user_id,))
+        user_record = database_cursor.fetchone()
         
-        # Create session
+        # Create user session
         session.clear()
         session.update({
             'loggedin': True,
-            'user_id': user['id'],
-            'username': user['first_name'],
-            'email': user['email'],
-            'role': user['role'],
+            'user_id': user_record['id'],
+            'username': user_record['first_name'],
+            'email': user_record['email'],
+            'role': user_record['role'],
             'is_email_verified': True
         })
+        logger.info(f"[AUTH] Session created for user: {user_record['email']} (Role: {user_record['role']})")
         
-        redirect_url = url_for('user_bp.user_dashboard')
+        # Determine redirect URL based on user role
+        if user_record['role'] == 'admin':
+            redirect_url = url_for('admin_bp.admin_dashboard')
+        else:
+            redirect_url = url_for('user_bp.user_dashboard')
+        
+        logger.info(f"[AUTH] OTP verification completed successfully. Redirecting to: {redirect_url}")
         return jsonify(success=True, message='Email verified successfully!', redirect=redirect_url)
         
-    except Exception as e:
-        current_app.logger.error(f"OTP verification error: {e}")
-        return jsonify(success=False, message='Verification failed. Please try again.')
+    except Exception as verification_error:
+        logger.error(f"[AUTH] OTP verification error: {verification_error}")
+        current_app.logger.error(f"[AUTH] OTP verification error: {verification_error}")
+        return jsonify(success=False, message=ERROR_MESSAGES['VERIFICATION_FAILED'])
     finally:
-        cursor.close()
-        conn.close()
+        database_cursor.close()
+        database_connection.close()
+        logger.debug("[AUTH] Database connection closed after OTP verification")
 
 
 @auth_bp.route('/resend-otp', methods=['POST'])
 def resend_otp():
     """Resend OTP with rate limiting"""
+    # ... (rest of the code remains the same)
     data = request.get_json()
     email = data.get('email', '').strip().lower()
     user_id = session.get('temp_user_id')
@@ -380,82 +707,31 @@ def logout():
             return redirect(url_for('base_bp.index'))
 
 
-# ============================================================================
-# HANDLER FUNCTIONS
-# ============================================================================
-def handle_login(email, password):
-    """Handle login form submission"""
-    # Validation
-    if not email or not password:
-        return jsonify(success=False, message='Email and password are required.')
-
-    conn = get_db_connection()
-    if not conn:
-        return jsonify(success=False, message='Database connection error.')
-    
-    cursor = conn.cursor(dictionary=True)
-    
-    try:
-        # Get user by email
-        cursor.execute("""
-            SELECT id, first_name, last_name, email, password, role, is_active, is_email_verified
-            FROM users 
-            WHERE email = %s
-        """, (email,))
-        user = cursor.fetchone()
-
-        if not user:
-            return jsonify(success=False, message='Invalid email or password.')
-
-        # Check email verification
-        if not user.get('is_email_verified', False):
-            session['temp_user_id'] = user['id']
-            session['temp_email'] = user['email']
-            session['temp_username'] = user['first_name']
-            return jsonify(
-                success=False, 
-                message='Email not verified. Please verify your email first.', 
-                needs_verification=True
-            )
-
-        # Check account status
-        if not user['is_active']:
-            return jsonify(success=False, message='Account is deactivated. Please contact support.')
-
-        # Verify password
-        if not check_password_hash(user['password'], password):
-            return jsonify(success=False, message='Invalid email or password.')
-
-        # Create session
-        session.clear()
-        session.update({
-            'loggedin': True,
-            'user_id': user['id'],
-            'username': user['first_name'],
-            'email': user['email'],
-            'role': user['role'],
-            'is_email_verified': user['is_email_verified']
-        })
-
-        # Determine redirect URL based on role
-        if user['role'] == 'admin':
-            redirect_url = url_for('admin_bp.admin_dashboard')
-        else:
-            redirect_url = url_for('user_bp.user_dashboard')
-        
-        return jsonify(success=True, message='Login successful!', redirect=redirect_url)
-
-    except mysql.connector.Error as e:
-        current_app.logger.error(f"DB error during login: {e}")
-        return jsonify(success=False, message='Database error. Please try again.')
-    finally:
-        cursor.close()
-        conn.close()
-
-
 def handle_signup(data):
-    """Handle registration form submission with OTP"""
-    print(f"[DEBUG] handle_signup() called with data: {dict(data)}")
+    """
+    Handle registration form submission with OTP.
+    
+    Input:
+        data (dict): Registration form data
+        
+    Process:
+        1. Validate required fields
+        2. Validate password strength
+        3. Validate email format
+        4. Check if email already exists
+        5. Create new user record
+        6. Generate OTP and send verification email
+        7. Store temporary session data for verification flow
+        
+    Output:
+        JSON response:
+            - success (bool): True if registration successful
+            - message (str): Status message
+            - needs_verification (bool, optional): True if email not verified
+            - existing_unverified (bool, optional): True if email exists but not verified
+    """
+    logger.info("[AUTH] Processing signup handler")
+    
     # Extract data
     first_name = data.get('firstname', '').strip()
     last_name = data.get('lastname', '').strip()
