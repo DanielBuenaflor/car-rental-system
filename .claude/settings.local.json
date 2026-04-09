@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest MyFlaskApp/authentication/test_auth.py -v)"
+    ]
+  }
+}

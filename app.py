@@ -1,6 +1,8 @@
+import os
 from MyFlaskApp.__init__ import create_app
 
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    debug = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true', '1', 'yes')
+    app.run(debug=debug)

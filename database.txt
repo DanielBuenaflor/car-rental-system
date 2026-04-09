@@ -105,6 +105,11 @@ CREATE TABLE verifications (
     rejection_reason TEXT,
     verified_by INT,
     verified_at TIMESTAMP,
+    -- OCR extracted data for admin review
+    ocr_confidence_score DECIMAL(3,2) DEFAULT NULL,
+    ocr_extracted_license VARCHAR(50) DEFAULT NULL,
+    ocr_extracted_expiry DATE DEFAULT NULL,
+    ocr_raw_data JSON DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     

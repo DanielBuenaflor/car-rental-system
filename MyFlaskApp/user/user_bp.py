@@ -2,6 +2,7 @@
 # IMPORTS
 # ============================================================================
 import os
+import json
 from functools import wraps
 from datetime import datetime, timedelta
 
@@ -11,6 +12,7 @@ from werkzeug.utils import secure_filename
 
 from MyFlaskApp import get_db_connection
 from MyFlaskApp.payment.invoice_service import InvoiceService
+from MyFlaskApp.utils.ocr_service import LicenseOCRService
 
 
 # ============================================================================
@@ -892,7 +894,7 @@ def submit_testimonial():
 @user_bp.route('/submit-verification', methods=['POST'])
 @login_required
 def submit_verification():
-    """Submit verification documents"""
+    """Submit verification documents with OCR extraction for admin review"""
     
     # Check if already verified
     conn = get_db_connection()
@@ -928,6 +930,10 @@ def submit_verification():
     id_card_image = request.files.get('id_card_image')
     selfie_image = request.files.get('selfie_image')
     
+    # Validate file uploads
+    if not license_front or not allowed_file(license_front.filename):
+        return jsonify({'success': False, 'message': 'License front image is required'}), 400
+    
     # Create upload directory if not exists
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     
@@ -937,31 +943,57 @@ def submit_verification():
     id_card_path = None
     selfie_path = None
     
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    
     if license_front and allowed_file(license_front.filename):
         ext = license_front.filename.rsplit('.', 1)[1].lower()
-        filename = f"user_{session['user_id']}_license_front_{datetime.now().strftime('%Y%m%d%H%M%S')}.{ext}"
+        filename = f"user_{session['user_id']}_license_front_{timestamp}.{ext}"
         license_front.save(os.path.join(UPLOAD_FOLDER, filename))
         license_front_path = filename
     
     if license_back and allowed_file(license_back.filename):
         ext = license_back.filename.rsplit('.', 1)[1].lower()
-        filename = f"user_{session['user_id']}_license_back_{datetime.now().strftime('%Y%m%d%H%M%S')}.{ext}"
+        filename = f"user_{session['user_id']}_license_back_{timestamp}.{ext}"
         license_back.save(os.path.join(UPLOAD_FOLDER, filename))
         license_back_path = filename
     
     if id_card_image and allowed_file(id_card_image.filename):
         ext = id_card_image.filename.rsplit('.', 1)[1].lower()
-        filename = f"user_{session['user_id']}_id_{datetime.now().strftime('%Y%m%d%H%M%S')}.{ext}"
+        filename = f"user_{session['user_id']}_id_{timestamp}.{ext}"
         id_card_image.save(os.path.join(UPLOAD_FOLDER, filename))
         id_card_path = filename
     
     if selfie_image and allowed_file(selfie_image.filename):
         ext = selfie_image.filename.rsplit('.', 1)[1].lower()
-        filename = f"user_{session['user_id']}_selfie_{datetime.now().strftime('%Y%m%d%H%M%S')}.{ext}"
+        filename = f"user_{session['user_id']}_selfie_{timestamp}.{ext}"
         selfie_image.save(os.path.join(UPLOAD_FOLDER, filename))
         selfie_path = filename
     
-    # Insert into database
+    # ============================================================
+    # OCR VALIDATION - Extract data for admin review
+    # ============================================================
+    ocr_result = None
+    try:
+        front_full_path = os.path.join(UPLOAD_FOLDER, license_front_path) if license_front_path else None
+        back_full_path = os.path.join(UPLOAD_FOLDER, license_back_path) if license_back_path else None
+        
+        if front_full_path:
+            ocr_result = LicenseOCRService.validate_license(
+                front_image_path=front_full_path,
+                back_image_path=back_full_path,
+                expected_license_number=license_number,
+                expected_expiry=license_expiry
+            )
+            
+    except Exception as e:
+        print(f"OCR Error: {e}")
+        ocr_result = {
+            'success': False,
+            'confidence_score': 0,
+            'errors': [str(e)]
+        }
+    
+    # Insert into database with OCR results
     cursor = conn.cursor()
     try:
         # Check if user already has pending verification
@@ -974,16 +1006,37 @@ def submit_verification():
         if existing:
             return jsonify({'success': False, 'message': 'You already have a pending verification request'}), 400
         
+        # Build OCR data for storage
+        ocr_data = {
+            'confidence_score': ocr_result.get('confidence_score', 0) if ocr_result else 0,
+            'extracted_license_number': ocr_result.get('extracted_license_number') if ocr_result else None,
+            'extracted_expiry': ocr_result.get('extracted_expiry') if ocr_result else None,
+            'license_match': ocr_result.get('license_match') if ocr_result else None,
+            'expiry_match': ocr_result.get('expiry_match') if ocr_result else None,
+            'is_expired': ocr_result.get('is_expired') if ocr_result else None,
+            'errors': ocr_result.get('errors', []) if ocr_result else []
+        }
+        
+        # Convert to JSON string for database storage
+        ocr_json = json.dumps(ocr_data)
+        
         cursor.execute("""
             INSERT INTO verifications (
                 user_id, license_number, license_expiry_date, 
                 license_front_image, license_back_image,
                 id_card_type, id_card_number, id_card_image, selfie_image,
-                verification_status, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', NOW())
-        """, (session['user_id'], license_number, license_expiry,
-              license_front_path, license_back_path,
-              id_card_type, id_card_number, id_card_path, selfie_path))
+                verification_status, ocr_confidence_score, ocr_extracted_license, 
+                ocr_extracted_expiry, ocr_raw_data, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, NOW())
+        """, (
+            session['user_id'], license_number, license_expiry,
+            license_front_path, license_back_path,
+            id_card_type, id_card_number, id_card_path, selfie_path,
+            ocr_data['confidence_score'],
+            ocr_data['extracted_license_number'],
+            ocr_data['extracted_expiry'],
+            ocr_json
+        ))
         
         conn.commit()
         
@@ -996,10 +1049,25 @@ def submit_verification():
         
         conn.commit()
         
-        return jsonify({
+        # Prepare response with OCR feedback for user
+        response_data = {
             'success': True, 
-            'message': 'Verification documents submitted successfully! Admin will review your documents.'
-        })
+            'message': 'Verification documents submitted successfully! Admin will review your documents.',
+        }
+        
+        # Add OCR feedback if available
+        if ocr_result:
+            confidence = ocr_result.get('confidence_score', 0)
+            response_data['ocr_confidence'] = confidence
+            
+            if confidence < 0.5:
+                response_data['ocr_warning'] = 'Image quality is low. Admin may request clearer images.'
+            elif ocr_result.get('license_match') is False:
+                response_data['ocr_warning'] = 'Extracted license number does not match your input. Please verify.'
+            elif ocr_result.get('expiry_match') is False:
+                response_data['ocr_warning'] = 'Extracted expiry date does not match your input. Please verify.'
+        
+        return jsonify(response_data)
         
     except Exception as e:
         conn.rollback()

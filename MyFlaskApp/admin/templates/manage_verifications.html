@@ -120,6 +120,45 @@
         border-radius: 8px;
         margin-bottom: 10px;
     }
+    .ocr-section {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+        border-left: 4px solid #3b82f6;
+    }
+    .ocr-section h4 {
+        margin: 0 0 10px 0;
+        color: #0f3b6f;
+    }
+    .ocr-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 8px 0;
+        padding: 8px;
+        background: white;
+        border-radius: 4px;
+    }
+    .ocr-label {
+        font-weight: 600;
+        color: #64748b;
+    }
+    .ocr-value {
+        font-family: monospace;
+        font-weight: bold;
+    }
+    .ocr-match { color: #10b981; }
+    .ocr-mismatch { color: #ef4444; }
+    .ocr-missing { color: #f59e0b; }
+    .confidence-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .confidence-high { background: #d1fae5; color: #065f46; }
+    .confidence-medium { background: #fed7aa; color: #9b2c1d; }
+    .confidence-low { background: #fee2e2; color: #991b1b; }
 </style>
 {% endblock %}
 
@@ -146,6 +185,46 @@
                 <span class="status-badge status-{{ verification.verification_status }}">{{ verification.verification_status }}</span>
             </div>
             <div><strong>License:</strong> {{ verification.license_number }} (Expires: {{ verification.license_expiry_date }})</div>
+            
+            {# OCR Data Display for Admins #}
+            {% if verification.ocr_confidence_score is not none %}
+            <div class="ocr-section">
+                <h4><i class="fas fa-eye"></i> OCR Analysis</h4>
+                <div class="ocr-row">
+                    <span class="ocr-label">Confidence Score:</span>
+                    <span class="confidence-badge confidence-{% if verification.ocr_confidence_score >= 0.8 %}high{% elif verification.ocr_confidence_score >= 0.5 %}medium{% else %}low{% endif %}">
+                        {{ "%.0f"|format(verification.ocr_confidence_score * 100) }}%
+                    </span>
+                </div>
+                {% if verification.ocr_extracted_license %}
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted License #:</span>
+                    <span class="ocr-value {% if verification.ocr_extracted_license == verification.license_number %}ocr-match{% else %}ocr-mismatch{% endif %}">
+                        {{ verification.ocr_extracted_license }}
+                    </span>
+                </div>
+                {% else %}
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted License #:</span>
+                    <span class="ocr-value ocr-missing">Not detected</span>
+                </div>
+                {% endif %}
+                {% if verification.ocr_extracted_expiry %}
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted Expiry:</span>
+                    <span class="ocr-value {% if verification.ocr_extracted_expiry == verification.license_expiry_date %}ocr-match{% else %}ocr-mismatch{% endif %}">
+                        {{ verification.ocr_extracted_expiry }}
+                    </span>
+                </div>
+                {% else %}
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted Expiry:</span>
+                    <span class="ocr-value ocr-missing">Not detected</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
             <div><strong>ID Type:</strong> {{ verification.id_card_type }} - {{ verification.id_card_number }}</div>
             <div><strong>Submitted:</strong> {{ verification.created_at.strftime('%Y-%m-%d %H:%M') if verification.created_at else 'N/A' }}</div>
             {% if verification.rejection_reason %}
@@ -219,6 +298,29 @@ function filterVerifications(status) {
                 <span class="status-badge status-${v.verification_status}">${v.verification_status}</span>
             </div>
             <div><strong>License:</strong> ${escapeHtml(v.license_number)} (Expires: ${v.license_expiry_date})</div>
+            ${v.ocr_confidence_score !== null && v.ocr_confidence_score !== undefined ? `
+            <div class="ocr-section">
+                <h4><i class="fas fa-eye"></i> OCR Analysis</h4>
+                <div class="ocr-row">
+                    <span class="ocr-label">Confidence Score:</span>
+                    <span class="confidence-badge confidence-${v.ocr_confidence_score >= 0.8 ? 'high' : v.ocr_confidence_score >= 0.5 ? 'medium' : 'low'}">
+                        ${Math.round(v.ocr_confidence_score * 100)}%
+                    </span>
+                </div>
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted License #:</span>
+                    <span class="ocr-value ${v.ocr_extracted_license === v.license_number ? 'ocr-match' : v.ocr_extracted_license ? 'ocr-mismatch' : 'ocr-missing'}">
+                        ${v.ocr_extracted_license || 'Not detected'}
+                    </span>
+                </div>
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted Expiry:</span>
+                    <span class="ocr-value ${v.ocr_extracted_expiry === v.license_expiry_date ? 'ocr-match' : v.ocr_extracted_expiry ? 'ocr-mismatch' : 'ocr-missing'}">
+                        ${v.ocr_extracted_expiry || 'Not detected'}
+                    </span>
+                </div>
+            </div>
+            ` : ''}
             <div><strong>ID Type:</strong> ${escapeHtml(v.id_card_type)} - ${escapeHtml(v.id_card_number)}</div>
             <div><strong>Submitted:</strong> ${new Date(v.created_at).toLocaleString()}</div>
             ${v.rejection_reason ? `<div><strong>Rejection Reason:</strong> ${escapeHtml(v.rejection_reason)}</div>` : ''}

@@ -4,11 +4,12 @@ from datetime import datetime
 import base64
 import os
 
+from MyFlaskApp.payment.config import PAYMONGO_SECRET_KEY
+
 class GCashService:
-    
+
     def __init__(self):
-        # Load from environment
-        self.secret_key = os.environ.get('PAYMONGO_SECRET_KEY', 'sk_test_Xvm83dhAsmKC2ZBhUH4CcMoM')
+        self.secret_key = PAYMONGO_SECRET_KEY
         self.base_url = 'https://api.paymongo.com/v1'
         
     def get_auth_header(self):

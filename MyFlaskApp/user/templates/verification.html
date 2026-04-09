@@ -194,7 +194,7 @@ document.getElementById('verificationForm').addEventListener('submit', function(
     const formData = new FormData(this);
     const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning & Submitting...';
     
     fetch('{{ url_for('user_bp.submit_verification') }}', {
         method: 'POST',
@@ -204,9 +204,21 @@ document.getElementById('verificationForm').addEventListener('submit', function(
     .then(data => {
         if (data.success) {
             // Show success message
+            let messageHtml = '<i class="fas fa-check-circle"></i> ' + data.message;
+            
+            // Add OCR feedback if available
+            if (data.ocr_warning) {
+                messageHtml += '<br><small style="color: #f59e0b;"><i class="fas fa-exclamation-triangle"></i> ' + data.ocr_warning + '</small>';
+            }
+            if (data.ocr_confidence !== undefined) {
+                const confidencePercent = Math.round(data.ocr_confidence * 100);
+                let confidenceColor = confidencePercent >= 80 ? '#10b981' : confidencePercent >= 50 ? '#f59e0b' : '#ef4444';
+                messageHtml += `<br><small style="color: ${confidenceColor};">Image clarity: ${confidencePercent}%</small>`;
+            }
+            
             const alertDiv = document.createElement('div');
             alertDiv.className = 'alert alert-success';
-            alertDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+            alertDiv.innerHTML = messageHtml;
             document.querySelector('.card').insertBefore(alertDiv, document.querySelector('.card').firstChild);
             
             // Redirect after 3 seconds
