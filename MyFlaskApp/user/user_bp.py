@@ -3,6 +3,8 @@
 # ============================================================================
 import os
 import json
+import base64
+import re
 from functools import wraps
 from datetime import datetime, timedelta
 
@@ -28,6 +30,34 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+def save_base64_image(base64_data, filepath):
+    """
+    Decode base64 image data and save to file.
+    
+    Input:
+        base64_data (str): Base64 encoded image string (with or without data URI prefix)
+        filepath (str): Full path where image should be saved
+        
+    Output:
+        str: Filename of saved image, or None if save failed
+    """
+    try:
+        # Remove data URI prefix if present (e.g., "data:image/jpeg;base64,")
+        if ',' in base64_data:
+            base64_data = base64_data.split(',')[1]
+        
+        # Decode base64 to bytes
+        image_bytes = base64.b64decode(base64_data)
+        
+        # Write to file
+        with open(filepath, 'wb') as f:
+            f.write(image_bytes)
+        
+        return os.path.basename(filepath)
+    except Exception as e:
+        print(f"Error saving base64 image: {e}")
+        return None
+
 def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -924,49 +954,81 @@ def submit_verification():
     if not all([license_number, license_expiry, id_card_type, id_card_number]):
         return jsonify({'success': False, 'message': 'All fields are required'}), 400
     
-    # Handle file uploads
-    license_front = request.files.get('license_front')
-    license_back = request.files.get('license_back')
-    id_card_image = request.files.get('id_card_image')
-    selfie_image = request.files.get('selfie_image')
+    # Handle image uploads (base64 from camera OR file upload)
+    # Check for base64 camera data first, fall back to file upload
+    license_front_base64 = request.form.get('license_front_base64', '').strip()
+    license_back_base64 = request.form.get('license_back_base64', '').strip()
+    id_card_base64 = request.form.get('id_card_image_base64', '').strip()
+    selfie_base64 = request.form.get('selfie_image_base64', '').strip()
     
-    # Validate file uploads
-    if not license_front or not allowed_file(license_front.filename):
+    # Also check for file uploads as fallback
+    license_front_file = request.files.get('license_front')
+    license_back_file = request.files.get('license_back')
+    id_card_file = request.files.get('id_card_image')
+    selfie_file = request.files.get('selfie_image')
+    
+    # Validate that license front image is provided (required field)
+    has_license_front = bool(license_front_base64) or (license_front_file and allowed_file(license_front_file.filename))
+    if not has_license_front:
         return jsonify({'success': False, 'message': 'License front image is required'}), 400
     
     # Create upload directory if not exists
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     
-    # Save files
+    # Save images (base64 takes priority over file upload)
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    
     license_front_path = None
     license_back_path = None
     id_card_path = None
     selfie_path = None
     
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    
-    if license_front and allowed_file(license_front.filename):
-        ext = license_front.filename.rsplit('.', 1)[1].lower()
+    # License Front Image
+    if license_front_base64:
+        filename = f"user_{session['user_id']}_license_front_{timestamp}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        if save_base64_image(license_front_base64, filepath):
+            license_front_path = filename
+    elif license_front_file and allowed_file(license_front_file.filename):
+        ext = license_front_file.filename.rsplit('.', 1)[1].lower()
         filename = f"user_{session['user_id']}_license_front_{timestamp}.{ext}"
-        license_front.save(os.path.join(UPLOAD_FOLDER, filename))
+        license_front_file.save(os.path.join(UPLOAD_FOLDER, filename))
         license_front_path = filename
     
-    if license_back and allowed_file(license_back.filename):
-        ext = license_back.filename.rsplit('.', 1)[1].lower()
+    # License Back Image
+    if license_back_base64:
+        filename = f"user_{session['user_id']}_license_back_{timestamp}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        if save_base64_image(license_back_base64, filepath):
+            license_back_path = filename
+    elif license_back_file and allowed_file(license_back_file.filename):
+        ext = license_back_file.filename.rsplit('.', 1)[1].lower()
         filename = f"user_{session['user_id']}_license_back_{timestamp}.{ext}"
-        license_back.save(os.path.join(UPLOAD_FOLDER, filename))
+        license_back_file.save(os.path.join(UPLOAD_FOLDER, filename))
         license_back_path = filename
     
-    if id_card_image and allowed_file(id_card_image.filename):
-        ext = id_card_image.filename.rsplit('.', 1)[1].lower()
+    # ID Card Image
+    if id_card_base64:
+        filename = f"user_{session['user_id']}_id_{timestamp}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        if save_base64_image(id_card_base64, filepath):
+            id_card_path = filename
+    elif id_card_file and allowed_file(id_card_file.filename):
+        ext = id_card_file.filename.rsplit('.', 1)[1].lower()
         filename = f"user_{session['user_id']}_id_{timestamp}.{ext}"
-        id_card_image.save(os.path.join(UPLOAD_FOLDER, filename))
+        id_card_file.save(os.path.join(UPLOAD_FOLDER, filename))
         id_card_path = filename
     
-    if selfie_image and allowed_file(selfie_image.filename):
-        ext = selfie_image.filename.rsplit('.', 1)[1].lower()
+    # Selfie Image
+    if selfie_base64:
+        filename = f"user_{session['user_id']}_selfie_{timestamp}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        if save_base64_image(selfie_base64, filepath):
+            selfie_path = filename
+    elif selfie_file and allowed_file(selfie_file.filename):
+        ext = selfie_file.filename.rsplit('.', 1)[1].lower()
         filename = f"user_{session['user_id']}_selfie_{timestamp}.{ext}"
-        selfie_image.save(os.path.join(UPLOAD_FOLDER, filename))
+        selfie_file.save(os.path.join(UPLOAD_FOLDER, filename))
         selfie_path = filename
     
     # ============================================================

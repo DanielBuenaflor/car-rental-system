@@ -43,16 +43,78 @@
                     <input type="date" name="license_expiry" required>
                 </div>
                 
+                <!-- License Front Image -->
                 <div class="form-group">
                     <label>License Front Image *</label>
-                    <input type="file" name="license_front" accept="image/*" required>
-                    <small>Upload clear photo of front side of license</small>
+                    <div class="image-capture-widget" data-field="license_front" data-facing="environment">
+                        <div class="capture-toggle">
+                            <button type="button" class="toggle-btn active" data-mode="camera">
+                                <i class="fas fa-camera"></i> Use Camera
+                            </button>
+                            <button type="button" class="toggle-btn" data-mode="file">
+                                <i class="fas fa-upload"></i> Upload File
+                            </button>
+                        </div>
+                        <div class="camera-mode">
+                            <video class="camera-video" autoplay playsinline></video>
+                            <canvas class="camera-canvas" style="display:none;"></canvas>
+                            <img class="camera-preview" style="display:none;" />
+                            <div class="camera-controls">
+                                <button type="button" class="btn-secondary btn-start-cam">
+                                    <i class="fas fa-video"></i> Start Camera
+                                </button>
+                                <button type="button" class="btn-primary btn-capture" disabled>
+                                    <i class="fas fa-camera"></i> Capture
+                                </button>
+                                <button type="button" class="btn-secondary btn-retake" style="display:none;">
+                                    <i class="fas fa-redo"></i> Retake
+                                </button>
+                            </div>
+                            <p class="camera-hint">Position license within frame and ensure good lighting</p>
+                        </div>
+                        <div class="file-mode" style="display:none;">
+                            <input type="file" name="license_front" accept="image/*">
+                            <small>Upload clear photo of front side of license</small>
+                        </div>
+                        <input type="hidden" name="license_front_base64" class="base64-input">
+                    </div>
                 </div>
                 
+                <!-- License Back Image -->
                 <div class="form-group">
                     <label>License Back Image *</label>
-                    <input type="file" name="license_back" accept="image/*" required>
-                    <small>Upload clear photo of back side of license</small>
+                    <div class="image-capture-widget" data-field="license_back" data-facing="environment">
+                        <div class="capture-toggle">
+                            <button type="button" class="toggle-btn active" data-mode="camera">
+                                <i class="fas fa-camera"></i> Use Camera
+                            </button>
+                            <button type="button" class="toggle-btn" data-mode="file">
+                                <i class="fas fa-upload"></i> Upload File
+                            </button>
+                        </div>
+                        <div class="camera-mode">
+                            <video class="camera-video" autoplay playsinline></video>
+                            <canvas class="camera-canvas" style="display:none;"></canvas>
+                            <img class="camera-preview" style="display:none;" />
+                            <div class="camera-controls">
+                                <button type="button" class="btn-secondary btn-start-cam">
+                                    <i class="fas fa-video"></i> Start Camera
+                                </button>
+                                <button type="button" class="btn-primary btn-capture" disabled>
+                                    <i class="fas fa-camera"></i> Capture
+                                </button>
+                                <button type="button" class="btn-secondary btn-retake" style="display:none;">
+                                    <i class="fas fa-redo"></i> Retake
+                                </button>
+                            </div>
+                            <p class="camera-hint">Position back side of license within frame</p>
+                        </div>
+                        <div class="file-mode" style="display:none;">
+                            <input type="file" name="license_back" accept="image/*">
+                            <small>Upload clear photo of back side of license</small>
+                        </div>
+                        <input type="hidden" name="license_back_base64" class="base64-input">
+                    </div>
                 </div>
             </div>
             
@@ -73,20 +135,82 @@
                     <input type="text" name="id_card_number" required placeholder="Enter your ID number">
                 </div>
                 
+                <!-- ID Card Image -->
                 <div class="form-group">
                     <label>ID Card Image *</label>
-                    <input type="file" name="id_card_image" accept="image/*" required>
-                    <small>Upload clear photo of your ID</small>
+                    <div class="image-capture-widget" data-field="id_card_image" data-facing="environment">
+                        <div class="capture-toggle">
+                            <button type="button" class="toggle-btn active" data-mode="camera">
+                                <i class="fas fa-camera"></i> Use Camera
+                            </button>
+                            <button type="button" class="toggle-btn" data-mode="file">
+                                <i class="fas fa-upload"></i> Upload File
+                            </button>
+                        </div>
+                        <div class="camera-mode">
+                            <video class="camera-video" autoplay playsinline></video>
+                            <canvas class="camera-canvas" style="display:none;"></canvas>
+                            <img class="camera-preview" style="display:none;" />
+                            <div class="camera-controls">
+                                <button type="button" class="btn-secondary btn-start-cam">
+                                    <i class="fas fa-video"></i> Start Camera
+                                </button>
+                                <button type="button" class="btn-primary btn-capture" disabled>
+                                    <i class="fas fa-camera"></i> Capture
+                                </button>
+                                <button type="button" class="btn-secondary btn-retake" style="display:none;">
+                                    <i class="fas fa-redo"></i> Retake
+                                </button>
+                            </div>
+                            <p class="camera-hint">Position ID card within frame and ensure text is readable</p>
+                        </div>
+                        <div class="file-mode" style="display:none;">
+                            <input type="file" name="id_card_image" accept="image/*">
+                            <small>Upload clear photo of your ID</small>
+                        </div>
+                        <input type="hidden" name="id_card_image_base64" class="base64-input">
+                    </div>
                 </div>
             </div>
             
             <div class="form-section">
                 <h3><i class="fas fa-camera"></i> Selfie Verification</h3>
                 
+                <!-- Selfie Image -->
                 <div class="form-group">
                     <label>Selfie with ID *</label>
-                    <input type="file" name="selfie_image" accept="image/*" required>
-                    <small>Upload a selfie holding your ID card</small>
+                    <div class="image-capture-widget" data-field="selfie_image" data-facing="user">
+                        <div class="capture-toggle">
+                            <button type="button" class="toggle-btn active" data-mode="camera">
+                                <i class="fas fa-camera"></i> Use Camera
+                            </button>
+                            <button type="button" class="toggle-btn" data-mode="file">
+                                <i class="fas fa-upload"></i> Upload File
+                            </button>
+                        </div>
+                        <div class="camera-mode">
+                            <video class="camera-video" autoplay playsinline></video>
+                            <canvas class="camera-canvas" style="display:none;"></canvas>
+                            <img class="camera-preview" style="display:none;" />
+                            <div class="camera-controls">
+                                <button type="button" class="btn-secondary btn-start-cam">
+                                    <i class="fas fa-video"></i> Start Camera
+                                </button>
+                                <button type="button" class="btn-primary btn-capture" disabled>
+                                    <i class="fas fa-camera"></i> Capture
+                                </button>
+                                <button type="button" class="btn-secondary btn-retake" style="display:none;">
+                                    <i class="fas fa-redo"></i> Retake
+                                </button>
+                            </div>
+                            <p class="camera-hint">Hold your ID next to your face and look at the camera</p>
+                        </div>
+                        <div class="file-mode" style="display:none;">
+                            <input type="file" name="selfie_image" accept="image/*">
+                            <small>Upload a selfie holding your ID card</small>
+                        </div>
+                        <input type="hidden" name="selfie_image_base64" class="base64-input">
+                    </div>
                 </div>
             </div>
             
@@ -185,9 +309,222 @@
             padding: 15px;
         }
     }
+    
+    /* Camera Capture Widget Styles */
+    .image-capture-widget {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .capture-toggle {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 25px;
+    }
+    
+    .toggle-btn {
+        flex: 1;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 20px;
+        background: transparent;
+        color: #64748b;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .toggle-btn.active {
+        background: white;
+        color: #0f3b6f;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .toggle-btn:hover:not(.active) {
+        color: #334155;
+    }
+    
+    .camera-video, .camera-preview {
+        width: 100%;
+        max-width: 400px;
+        border-radius: 8px;
+        background: #1e293b;
+        aspect-ratio: 4/3;
+        object-fit: cover;
+    }
+    
+    .camera-controls {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .camera-controls button {
+        flex: 1;
+        min-width: 120px;
+    }
+    
+    .camera-hint {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #64748b;
+        text-align: center;
+    }
+    
+    .camera-error {
+        color: #ef4444;
+        font-size: 13px;
+        margin-top: 10px;
+        padding: 8px;
+        background: #fee2e2;
+        border-radius: 6px;
+    }
+    
+    @media (max-width: 768px) {
+        .camera-controls {
+            flex-direction: column;
+        }
+        
+        .camera-controls button {
+            width: 100%;
+        }
+        
+        .camera-video, .camera-preview {
+            max-width: 100%;
+        }
+    }
 </style>
 
 <script>
+// Camera Capture Widget JavaScript
+(function() {
+    const widgets = document.querySelectorAll('.image-capture-widget');
+    
+    widgets.forEach(widget => {
+        const facingMode = widget.dataset.facing || 'environment';
+        const video = widget.querySelector('.camera-video');
+        const canvas = widget.querySelector('.camera-canvas');
+        const preview = widget.querySelector('.camera-preview');
+        const base64Input = widget.querySelector('.base64-input');
+        const fileInput = widget.querySelector('.file-mode input[type="file"]');
+        const startBtn = widget.querySelector('.btn-start-cam');
+        const captureBtn = widget.querySelector('.btn-capture');
+        const retakeBtn = widget.querySelector('.btn-retake');
+        const cameraMode = widget.querySelector('.camera-mode');
+        const fileMode = widget.querySelector('.file-mode');
+        const toggleBtns = widget.querySelectorAll('.toggle-btn');
+        
+        let stream = null;
+        let isCaptured = false;
+        
+        // Toggle between camera and file modes
+        toggleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode;
+                
+                toggleBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                if (mode === 'camera') {
+                    cameraMode.style.display = 'block';
+                    fileMode.style.display = 'none';
+                    fileInput.value = '';
+                    fileInput.removeAttribute('required');
+                } else {
+                    cameraMode.style.display = 'none';
+                    fileMode.style.display = 'block';
+                    stopCamera();
+                    fileInput.setAttribute('required', 'required');
+                }
+            });
+        });
+        
+        // Start camera
+        startBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: facingMode,
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                video.srcObject = stream;
+                startBtn.style.display = 'none';
+                captureBtn.disabled = false;
+            } catch (err) {
+                console.error('Camera error:', err);
+                alert('Could not access camera. Please check permissions or use file upload instead.');
+                // Switch to file mode
+                toggleBtns[1].click();
+            }
+        });
+        
+        // Capture photo
+        captureBtn.addEventListener('click', () => {
+            if (!stream) return;
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            
+            // Convert to base64 JPEG
+            const base64Data = canvas.toDataURL('image/jpeg', 0.9);
+            base64Input.value = base64Data;
+            
+            // Show preview
+            preview.src = base64Data;
+            preview.style.display = 'block';
+            video.style.display = 'none';
+            
+            // Update controls
+            captureBtn.style.display = 'none';
+            retakeBtn.style.display = 'inline-block';
+            startBtn.style.display = 'none';
+            isCaptured = true;
+            
+            // Stop camera to save resources
+            stopCamera();
+        });
+        
+        // Retake photo
+        retakeBtn.addEventListener('click', () => {
+            preview.style.display = 'none';
+            video.style.display = 'block';
+            base64Input.value = '';
+            
+            captureBtn.style.display = 'inline-block';
+            retakeBtn.style.display = 'none';
+            startBtn.style.display = 'inline-block';
+            captureBtn.disabled = true;
+            isCaptured = false;
+            
+            // Restart camera
+            startBtn.click();
+        });
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            video.srcObject = null;
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', stopCamera);
+    });
+})();
+
+// Form submission with camera data
 document.getElementById('verificationForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
