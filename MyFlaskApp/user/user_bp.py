@@ -545,8 +545,6 @@ def verification_page():
     finally:
         cursor.close()
         conn.close()
-
-
 # ============================================================================
 # API ROUTES - BOOKING OPERATIONS
 # ============================================================================
@@ -555,10 +553,26 @@ def verification_page():
 def book_vehicle():
     """Book a vehicle (only for verified users)"""
     
-    # Check if user is verified
+    # Extract and validate data first (before any DB operations)
+    data = request.get_json()
+    vehicle_id = data.get('vehicle_id')
+    start_date = data.get('start_date')
+    end_date = data.get('end_date')
+    pickup_location = data.get('pickup_location')
+    return_location = data.get('return_location')
+    
+    if not all([vehicle_id, start_date, end_date, pickup_location, return_location]):
+        return jsonify({'success': False, 'message': 'All fields are required'})
+    
+    # Single connection for entire operation
     conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'message': 'Database error'}), 500
+    
     cursor = conn.cursor(dictionary=True)
+    
     try:
+        # Check if user is verified
         cursor.execute("""
             SELECT verification_status FROM verifications 
             WHERE user_id = %s AND verification_status = 'approved'
@@ -571,25 +585,7 @@ def book_vehicle():
                 'message': 'Please complete identity verification before booking a vehicle.',
                 'redirect': url_for('user_bp.verification_page')
             }), 403
-    finally:
-        cursor.close()
-    
-    data = request.get_json()
-    vehicle_id = data.get('vehicle_id')
-    start_date = data.get('start_date')
-    end_date = data.get('end_date')
-    pickup_location = data.get('pickup_location')
-    return_location = data.get('return_location')
-    
-    if not all([vehicle_id, start_date, end_date, pickup_location, return_location]):
-        return jsonify({'success': False, 'message': 'All fields are required'})
-    
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'success': False, 'message': 'Database error'}), 500
-    
-    cursor = conn.cursor(dictionary=True)
-    try:
+        
         # Check if vehicle is available
         cursor.execute("""
             SELECT * FROM vehicles 
@@ -649,9 +645,6 @@ def book_vehicle():
         ))
         
         booking_id = cursor.lastrowid
-        conn.commit()
-        
-
         
         # Redirect to payment checkout page
         return jsonify({
@@ -665,6 +658,8 @@ def book_vehicle():
     except Exception as e:
         conn.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
+    else:
+        conn.commit()
     finally:
         cursor.close()
         conn.close()
