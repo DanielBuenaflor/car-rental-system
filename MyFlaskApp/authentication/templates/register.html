@@ -3,8 +3,8 @@
 {% block title %}Register - CarRental Pro{% endblock %}
 
 {% block content %}
-<div style="max-width: 550px; margin: 60px auto;">
-    <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+<div style="max-width: 550px; margin: 40px auto;">
+    <div style="background: white; border-radius: 24px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
         <h2 style="text-align: center; margin-bottom: 8px; color: #1f3a5f;">Create Account</h2>
         <p style="text-align: center; margin-bottom: 32px; color: #666;">Join us and start your journey</p>
         
@@ -90,234 +90,32 @@
     </div>
 </div>
 
+<style>
+@media (max-width: 768px) {
+    div[style*="max-width: 550px"] {
+        margin: 20px auto !important;
+        padding: 0 16px;
+    }
+    div[style*="padding: 24px"] {
+        padding: 20px !important;
+    }
+    div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+    h2 {
+        font-size: 22px !important;
+    }
+    input[type="text"], input[type="email"], input[type="tel"], input[type="password"] {
+        font-size: 14px !important;
+    }
+    button[type="submit"] {
+        padding: 12px 24px !important;
+        font-size: 14px !important;
+    }
+}
+</style>
+
 <script>
-let registerData = null;
-let timerInterval = null;
-let timeLeft = 300;
-
-// Email availability check
-const emailInput = document.getElementById('email');
-const emailCheck = document.getElementById('emailCheck');
-
-emailInput.addEventListener('blur', function() {
-    const email = this.value;
-    if (email && email.includes('@')) {
-        fetch("{{ url_for('auth_bp.check_email', email='') }}" + encodeURIComponent(email))
-            .then(response => response.json())
-            .then(data => {
-                if (data.available) {
-                    emailCheck.style.display = 'block';
-                    emailCheck.style.color = '#10b981';
-                    emailCheck.innerHTML = '<i class="fas fa-check-circle"></i> Email available';
-                } else {
-                    emailCheck.style.display = 'block';
-                    emailCheck.style.color = '#ef4444';
-                    emailCheck.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + data.message;
-                }
-            })
-            .catch(error => console.error('Error checking email:', error));
-    } else {
-        emailCheck.style.display = 'none';
-    }
-});
-
-function validatePassword(password) {
-    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-    return regex.test(password);
-}
-
-document.getElementById('registerForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const firstname = document.getElementById('firstname').value.trim();
-    const lastname = document.getElementById('lastname').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const phone = document.getElementById('phone').value.trim();
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-    const termsChecked = document.getElementById('termsCheckbox').checked;
-    
-    if (firstname === '') {
-        showAlert('error', 'Please enter your first name');
-        return;
-    }
-    if (lastname === '') {
-        showAlert('error', 'Please enter your last name');
-        return;
-    }
-    if (!email || !email.includes('@')) {
-        showAlert('error', 'Please enter a valid email address');
-        return;
-    }
-    if (phone === '') {
-        showAlert('error', 'Please enter your phone number');
-        return;
-    }
-    if (!validatePassword(password)) {
-        showAlert('error', 'Password must be at least 8 characters with uppercase, lowercase, and numbers');
-        return;
-    }
-    if (password !== confirmPassword) {
-        showAlert('error', 'Passwords do not match!');
-        return;
-    }
-    if (!termsChecked) {
-        showAlert('error', 'Please agree to the Terms & Conditions');
-        return;
-    }
-    
-    registerData = {
-        firstname: firstname,
-        lastname: lastname,
-        email: email,
-        contact_number: phone,
-        password: password,
-        confirm_password: confirmPassword
-    };
-    
-    const submitBtn = this.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
-    
-    fetch("{{ url_for('auth_bp.register') }}", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(registerData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success || data.needs_verification) {
-            document.getElementById('otpEmail').textContent = email;
-            document.getElementById('otpModal').style.display = 'flex';
-            startTimer();
-            if (data.existing_unverified) {
-                showAlert('info', 'This email has a pending verification. Please enter the code sent to your email.');
-            } else {
-                showAlert('success', 'Verification code sent to your email');
-            }
-        } else {
-            showAlert('error', data.message);
-        }
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Create Account';
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('error', 'An error occurred. Please try again.');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Create Account';
-    });
-});
-
-function startTimer() {
-    timeLeft = 300;
-    const timerDisplay = document.getElementById('otpTimer');
-    const resendBtn = document.getElementById('resendBtn');
-    resendBtn.disabled = true;
-    resendBtn.style.opacity = '0.5';
-    
-    if (timerInterval) clearInterval(timerInterval);
-    
-    timerInterval = setInterval(() => {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        timerDisplay.innerHTML = `<i class="fas fa-clock"></i> Code expires in: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-        
-        if (timeLeft <= 60) {
-            timerDisplay.style.color = '#ef4444';
-        }
-        
-        if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            timerDisplay.innerHTML = '<i class="fas fa-exclamation-circle"></i> Code expired. Please resend.';
-            resendBtn.disabled = false;
-            resendBtn.style.opacity = '1';
-        }
-        timeLeft--;
-    }, 1000);
-}
-
-function verifyOTP() {
-    const otpCode = document.getElementById('otpCode').value.trim();
-    
-    if (otpCode.length !== 6) {
-        showAlert('error', 'Please enter the 6-digit verification code');
-        return;
-    }
-    
-    fetch("{{ url_for('auth_bp.verify_otp') }}", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otp_code: otpCode })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('success', 'Email verified successfully!');
-            setTimeout(() => {
-                window.location.href = data.redirect;
-            }, 1500);
-        } else {
-            showAlert('error', data.message);
-        }
-    });
-}
-
-function resendOTP() {
-    const resendBtn = document.getElementById('resendBtn');
-    resendBtn.disabled = true;
-    resendBtn.style.opacity = '0.5';
-    
-    fetch("{{ url_for('auth_bp.resend_otp') }}", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: registerData.email })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('success', 'New verification code sent!');
-            if (timerInterval) clearInterval(timerInterval);
-            startTimer();
-        } else {
-            showAlert('error', data.message);
-            resendBtn.disabled = false;
-            resendBtn.style.opacity = '1';
-        }
-    });
-}
-
-function closeOTPModal() {
-    document.getElementById('otpModal').style.display = 'none';
-    if (timerInterval) clearInterval(timerInterval);
-}
-
-function showAlert(type, message) {
-    // Create toast container if it doesn't exist
-    let toastContainer = document.getElementById('toastContainer');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toastContainer';
-        toastContainer.className = 'toast-container';
-        document.body.appendChild(toastContainer);
-    }
-    
-    // Create toast element
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
-    
-    // Add to container
-    toastContainer.appendChild(toast);
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        toast.style.animation = 'slideInToast 0.3s ease reverse';
-        setTimeout(() => toast.remove(), 300);
-    }, 5000);
-}
-
-// Toggle password visibility
 document.getElementById('togglePassword').addEventListener('click', function() {
     const passwordInput = document.getElementById('password');
     if (passwordInput.type === 'password') {

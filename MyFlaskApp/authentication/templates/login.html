@@ -3,8 +3,8 @@
 {% block title %}Login - CarRental Pro{% endblock %}
 
 {% block content %}
-<div style="max-width: 450px; margin: 80px auto;">
-    <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+<div style="max-width: 450px; margin: 40px auto;">
+    <div style="background: white; border-radius: 24px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
         <h2 style="text-align: center; margin-bottom: 8px; color: #1f3a5f;">Welcome Back</h2>
         <p style="text-align: center; margin-bottom: 32px; color: #666;">Login to your account</p>
         
@@ -35,63 +35,29 @@
     </div>
 </div>
 
-<script>
-document.getElementById('loginForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    
-    if (!email || !password) {
-        showAlert('error', 'Please fill in all fields');
-        return;
+<style>
+@media (max-width: 768px) {
+    div[style*="max-width: 450px"] {
+        margin: 20px auto !important;
+        padding: 0 16px;
     }
-    
-    const submitBtn = this.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
-    
-    fetch('{{ url_for('auth_bp.login') }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('success', data.message);
-            setTimeout(() => {
-                window.location.href = data.redirect;
-            }, 1000);
-        } else {
-            showAlert('error', data.message);
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Login';
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('error', 'An error occurred. Please try again.');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Login';
-    });
-});
-
-function showAlert(type, message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type}`;
-    alertDiv.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
-    const container = document.querySelector('.container');
-    container.insertBefore(alertDiv, container.firstChild);
-    
-    setTimeout(() => {
-        alertDiv.remove();
-    }, 5000);
+    div[style*="padding: 24px"] {
+        padding: 20px !important;
+    }
+    h2 {
+        font-size: 22px !important;
+    }
+    input[type="email"], input[type="password"] {
+        font-size: 14px !important;
+    }
+    button[type="submit"] {
+        padding: 12px 24px !important;
+        font-size: 14px !important;
+    }
 }
+</style>
 
-// Toggle password visibility
+<script>
 document.getElementById('togglePassword').addEventListener('click', function() {
     const passwordInput = document.getElementById('password');
     if (passwordInput.type === 'password') {
