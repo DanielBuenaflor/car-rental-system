@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Late Return Fee Notice</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #0f3b6f; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; background: #f9f9f9; }
+        .warning { background: #fed7aa; color: #9b2c1d; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; font-weight: bold; }
+        .fine-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .button { display: inline-block; padding: 10px 20px; background: #0f3b6f; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>CarRental Pro</h2>
+        </div>
+        <div class="content">
+            <h3>Hello {{ username }},</h3>
+            <div class="warning">
+                ⚠️ Late Return Fee Applied
+            </div>
+            <div class="fine-details">
+                <p><strong>Booking Reference:</strong> {{ booking.booking_reference }}</p>
+                <p><strong>Vehicle:</strong> {{ vehicle.brand_name }} {{ vehicle.model }}</p>
+                <p><strong>Expected Return:</strong> {{ booking.end_date.strftime('%B %d, %Y') }}</p>
+                <p><strong>Actual Return:</strong> {{ booking.actual_return_date.strftime('%B %d, %Y') if booking.actual_return_date else 'Not returned yet' }}</p>
+                <p><strong>Days Late:</strong> {{ fine.days_late }} days</p>
+                <p><strong>Fine Amount:</strong> ₱{{ "%.2f"|format(fine.fine_amount) }}</p>
+            </div>
+            <p>Please make the payment to avoid any issues with future rentals.</p>
+            <a href="{{ url_for('user_bp.my_bookings', _external=True) }}" class="button">Pay Now</a>
+        </div>
+        <div class="footer">
+            <p>&copy; 2025 CarRental Pro. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
