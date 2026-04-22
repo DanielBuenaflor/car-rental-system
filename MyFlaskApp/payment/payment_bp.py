@@ -4,7 +4,7 @@ Handles payment processing, checkout, and verification workflows.
 Integrates with GCash/PayMongo for payment processing.
 """
 
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash, current_app, json
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash, current_app, json, send_file
 from functools import wraps
 import logging
 import requests 
@@ -12,6 +12,7 @@ import requests
 from MyFlaskApp import get_db_connection
 from MyFlaskApp.payment.payment_service import *
 from MyFlaskApp.payment.invoice_service import InvoiceService
+from MyFlaskApp.payment.invoice_generator import InvoiceGenerator
 from MyFlaskApp.email.service import EmailService
 from MyFlaskApp.payment.config import *
 from MyFlaskApp.payment.gcash_service import GCashService
@@ -572,3 +573,69 @@ def payment_cancel():
     if booking_id:
         return redirect(url_for('payment_bp.checkout', booking_id=booking_id))
     return redirect(url_for('user_bp.my_bookings'))
+
+@payment_bp.route('/download-invoice/<int:booking_id>')
+@login_required
+def download_invoice(booking_id):
+    """Generate and download PDF invoice for a booking"""
+    conn = get_db_connection()
+    if not conn:
+        flash('Database error', 'error')
+        return redirect(url_for('user_bp.my_bookings'))
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT b.*, v.model, v.license_plate, vb.name as brand_name,
+                   u.email, u.first_name, u.last_name
+            FROM bookings b
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            JOIN users u ON b.user_id = u.id
+            WHERE b.id = %s AND b.user_id = %s
+        """, (booking_id, session['user_id']))
+        booking = cursor.fetchone()
+        
+        if not booking:
+            flash('Booking not found', 'error')
+            return redirect(url_for('user_bp.my_bookings'))
+        
+        if booking['status'] not in ('confirmed', 'paid'):
+            flash('Invoice only available for paid bookings', 'error')
+            return redirect(url_for('user_bp.my_bookings'))
+        
+        cursor.execute("""
+            SELECT payment_status FROM payments 
+            WHERE booking_id = %s AND payment_status = 'successful'
+            ORDER BY paid_at DESC LIMIT 1
+        """, (booking_id,))
+        payment = cursor.fetchone()
+        
+        user = {
+            'email': booking['email'],
+            'first_name': booking['first_name'],
+            'last_name': booking['last_name']
+        }
+        vehicle = {
+            'model': booking['model'],
+            'license_plate': booking['license_plate'],
+            'brand_name': booking['brand_name']
+        }
+        
+        pdf_buffer = InvoiceGenerator.generate_invoice(booking, user, vehicle, payment)
+        
+        filename = f"Invoice_{booking['booking_reference']}.pdf"
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        print(f"Error generating invoice: {e}")
+        flash('Error generating invoice', 'error')
+        return redirect(url_for('user_bp.my_bookings'))
+    finally:
+        cursor.close()
+        conn.close()
