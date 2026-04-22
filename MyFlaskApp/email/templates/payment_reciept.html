@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Payment Receipt</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #0f3b6f; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; background: #f9f9f9; }
+        .receipt { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .total { font-size: 20px; font-weight: bold; color: #0f3b6f; margin-top: 15px; padding-top: 10px; border-top: 2px solid #0f3b6f; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>CarRental Pro</h2>
+        </div>
+        <div class="content">
+            <h3>Hello {{ username }},</h3>
+            <p>Thank you for your payment!</p>
+            
+            <div class="receipt">
+                <h4>Payment Receipt</h4>
+                <div class="detail-row">
+                    <span>Payment Reference:</span>
+                    <strong>{{ payment.payment_reference }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Booking Reference:</span>
+                    <strong>{{ booking.booking_reference }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Vehicle:</span>
+                    <strong>{{ vehicle.brand_name }} {{ vehicle.model }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Amount Paid:</span>
+                    <strong>₱{{ "%.2f"|format(payment.amount) }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Payment Method:</span>
+                    <strong>{{ payment.payment_method|replace('_', ' ')|title }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Transaction ID:</span>
+                    <strong>{{ payment.transaction_id }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Date:</span>
+                    <strong>{{ payment.paid_at.strftime('%B %d, %Y %H:%M') if payment.paid_at else 'Just now' }}</strong>
+                </div>
+                <div class="total">
+                    Total: ₱{{ "%.2f"|format(payment.amount) }}
+                </div>
+            </div>
+            
+            <a href="{{ url_for('user_bp.my_bookings', _external=True) }}" style="display: inline-block; padding: 10px 20px; background: #0f3b6f; color: white; text-decoration: none; border-radius: 5px;">View My Bookings</a>
+        </div>
+        <div class="footer">
+            <p>&copy; 2025 CarRental Pro. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
