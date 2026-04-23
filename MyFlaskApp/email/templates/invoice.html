@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #0f3b6f; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; background: #f9f9f9; }
+        .invoice-header { text-align: center; margin-bottom: 20px; }
+        .invoice-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .total { font-size: 18px; font-weight: bold; color: #0f3b6f; margin-top: 15px; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>CarRental Pro</h2>
+        </div>
+        <div class="content">
+            <div class="invoice-header">
+                <h3>INVOICE</h3>
+                <p>Invoice #{{ invoice.invoice_number }}</p>
+            </div>
+            
+            <div class="invoice-details">
+                <div class="detail-row">
+                    <span>Invoice Date:</span>
+                    <strong>{{ invoice.invoice_date.strftime('%B %d, %Y') }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Due Date:</span>
+                    <strong>{{ invoice.due_date.strftime('%B %d, %Y') }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Booking Reference:</span>
+                    <strong>{{ booking.booking_reference }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Vehicle:</span>
+                    <strong>{{ vehicle.brand_name }} {{ vehicle.model }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Subtotal:</span>
+                    <strong>${{ "%.2f"|format(invoice.subtotal) }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Tax (10%):</span>
+                    <strong>${{ "%.2f"|format(invoice.tax_amount) }}</strong>
+                </div>
+                {% if invoice.discount_amount > 0 %}
+                <div class="detail-row">
+                    <span>Discount:</span>
+                    <strong>-${{ "%.2f"|format(invoice.discount_amount) }}</strong>
+                </div>
+                {% endif %}
+                <div class="detail-row total">
+                    <span>Total Amount:</span>
+                    <strong>${{ "%.2f"|format(invoice.total_amount) }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Amount Paid:</span>
+                    <strong>${{ "%.2f"|format(invoice.amount_paid) }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Balance Due:</span>
+                    <strong>${{ "%.2f"|format(invoice.balance_due) }}</strong>
+                </div>
+            </div>
+            
+            <a href="{{ url_for('user_bp.my_bookings', _external=True) }}" style="display: inline-block; padding: 10px 20px; background: #0f3b6f; color: white; text-decoration: none; border-radius: 5px;">View Details</a>
+        </div>
+        <div class="footer">
+            <p>&copy; 2025 CarRental Pro. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -3,17 +3,18 @@
 {% block title %}Login - CarRental Pro{% endblock %}
 
 {% block content %}
+<h1 style="color: red; font-size: 48px; text-align: center; background: yellow; padding: 20px;">CLAUDE IS EDITING THIS PAGE</h1>
 <div style="max-width: 450px; margin: 40px auto;">
     <div style="background: white; border-radius: 24px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
         <h2 style="text-align: center; margin-bottom: 8px; color: #1f3a5f;">Welcome Back</h2>
         <p style="text-align: center; margin-bottom: 32px; color: #666;">Login to your account</p>
-        
-        <form id="loginForm">
+
+        <form id="loginForm" method="POST" action="{{ url_for('auth_bp.login') }}">
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1f3a5f;">Email Address</label>
                 <input type="email" id="email" name="email" required placeholder="Enter your email" style="width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 16px;">
             </div>
-            
+
             <div style="margin-bottom: 24px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1f3a5f;">Password</label>
                 <div style="position: relative;">
@@ -21,14 +22,24 @@
                     <i class="fas fa-eye" id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666; font-size: 18px;"></i>
                 </div>
             </div>
-            
+
             <div style="display: flex; justify-content: center;">
-                <button type="submit" class="btn-primary" style="padding: 14px 32px; font-size: 16px; font-weight: 600; border: none; border-radius: 40px; cursor: pointer;">
+                <button type="submit" id="submitBtn" class="btn-primary" style="padding: 14px 32px; font-size: 16px; font-weight: 600; border: none; border-radius: 40px; cursor: pointer;">
                     Login
                 </button>
             </div>
         </form>
-        
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="padding: 12px; margin-top: 16px; border-radius: 8px; text-align: center; {% if category == 'error' %}background: #fee; color: #c00;{% else %}background: #efe; color: #0a0;{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
         <p style="text-align: center; margin-top: 24px; color: #666;">
             Don't have an account? <a href="{{ url_for('auth_bp.register') }}" style="color: #0f3b6f; text-decoration: none; font-weight: 600;">Sign up</a>
         </p>
@@ -58,16 +69,21 @@
 </style>
 
 <script>
-document.getElementById('togglePassword').addEventListener('click', function() {
-    const passwordInput = document.getElementById('password');
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        this.classList.remove('fa-eye');
-        this.classList.add('fa-eye-slash');
-    } else {
-        passwordInput.type = 'password';
-        this.classList.remove('fa-eye-slash');
-        this.classList.add('fa-eye');
+document.addEventListener('DOMContentLoaded', function() {
+    const togglePassword = document.getElementById('togglePassword');
+    if (togglePassword) {
+        togglePassword.addEventListener('click', function() {
+            const passwordInput = document.getElementById('password');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                this.classList.remove('fa-eye');
+                this.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                this.classList.remove('fa-eye-slash');
+                this.classList.add('fa-eye');
+            }
+        });
     }
 });
 </script>

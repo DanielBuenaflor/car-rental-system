@@ -648,7 +648,8 @@ def book_vehicle():
         booking_id = cursor.lastrowid
         conn.commit()
         
-        # Redirect to payment checkout page
+        conn.commit()
+        
         return jsonify({
             'success': True, 
             'message': 'Booking created! Proceed to payment.',
@@ -660,8 +661,6 @@ def book_vehicle():
     except Exception as e:
         conn.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
-    else:
-        conn.commit()
     finally:
         cursor.close()
         conn.close()

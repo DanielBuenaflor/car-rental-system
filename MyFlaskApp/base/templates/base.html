@@ -98,6 +98,17 @@
             transform: scale(1.05);
         }
 
+        .logo img {
+            max-width: 180px;
+            width: 100%;
+            height: auto;
+            transition: all 0.3s;
+        }
+
+        .logo:hover img {
+            transform: scale(1.02);
+        }
+
         .logo i {
             background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
             -webkit-background-clip: text;
@@ -347,11 +358,133 @@
             transition: all 0.3s;
         }
         
-        .close-modal:hover {
+.close-modal:hover {
             color: #ef4444;
             transform: rotate(90deg);
         }
-        
+
+        .confirm-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .confirm-modal.active {
+            display: flex;
+        }
+
+        .confirm-modal-content {
+            background: white;
+            width: 90%;
+            max-width: 420px;
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+
+        .confirm-modal-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 32px;
+        }
+
+        .confirm-modal-icon.danger {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .confirm-modal-icon.warning {
+            background: #fff7ed;
+            color: #ea580c;
+        }
+
+        .confirm-modal-icon.info {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+
+        .confirm-modal h3 {
+            margin: 0 0 12px;
+            font-size: 22px;
+            color: #1f2937;
+        }
+
+        .confirm-modal p {
+            margin: 0 0 24px;
+            color: #6b7280;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .confirm-modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .confirm-modal-actions button {
+            flex: 1;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            font-family: inherit;
+        }
+
+        .confirm-btn-cancel {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .confirm-btn-cancel:hover {
+            background: #e5e7eb;
+        }
+
+        .confirm-btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+
+        .confirm-btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .confirm-btn-warning {
+            background: #ea580c;
+            color: white;
+        }
+
+        .confirm-btn-warning:hover {
+            background: #c2410c;
+        }
+
+        .confirm-btn-info {
+            background: #2563eb;
+            color: white;
+        }
+
+        .confirm-btn-info:hover {
+            background: #1d4ed8;
+        }
+
         .filter-group {
             margin-bottom: 24px;
         }
@@ -1117,11 +1250,16 @@
                  margin-top: 8px;
              }
 
-             .logo {
-                 font-size: 22px;
-             }
+.logo {
+                  font-size: 22px;
+              }
 
-             .hero h1 {
+              .logo img {
+                  max-width: 140px;
+                  height: auto;
+              }
+
+              .hero h1 {
                  font-size: 38px;
              }
 
@@ -1344,11 +1482,16 @@
                  font-size: 22px;
              }
 
-             .logo {
-                 font-size: 20px;
-             }
+.logo {
+                  font-size: 20px;
+              }
 
-             .logo i {
+              .logo img {
+                  max-width: 120px;
+                  height: auto;
+              }
+
+              .logo i {
                  font-size: 24px;
              }
 
@@ -1455,8 +1598,7 @@
     <!-- Navigation -->
     <nav class="navbar">
         <div class="logo" onclick="window.location.href='{{ url_for('base_bp.index') }}'">
-            <i class="fas fa-car"></i>
-            <span>CarRental Pro</span>
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="CarRental Pro" style="max-width: 180px; width: 100%; height: auto;">
         </div>
         <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle menu">
             <i class="fas fa-bars"></i>
@@ -1688,6 +1830,21 @@
     </div>
 </div>
 
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="confirm-modal">
+    <div class="confirm-modal-content">
+        <div class="confirm-modal-icon" id="confirmModalIcon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h3 id="confirmModalTitle">Confirm Action</h3>
+        <p id="confirmModalMessage">Are you sure you want to proceed?</p>
+        <div class="confirm-modal-actions">
+            <button class="confirm-btn-cancel" id="confirmCancelBtn" onclick="closeConfirmModal()">Cancel</button>
+            <button class="confirm-btn-danger" id="confirmActionBtn" onclick="confirmModalAction()">Confirm</button>
+        </div>
+    </div>
+</div>
+
 <!-- Footer -->
 <footer>
     <p style="margin-bottom: 16px;">© 2025 CarRental Pro | Premium Car Rental Experience</p>
@@ -1713,6 +1870,62 @@ let currentFilters = {
 };
 
 let currentVehicleData = null;
+
+let currentVehicleData = null;
+let confirmModalCallback = null;
+
+function openConfirmModal(options) {
+    const modal = document.getElementById('confirmModal');
+    const icon = document.getElementById('confirmModalIcon');
+    const title = document.getElementById('confirmModalTitle');
+    const message = document.getElementById('confirmModalMessage');
+    const actionBtn = document.getElementById('confirmActionBtn');
+    const cancelBtn = document.getElementById('confirmCancelBtn');
+    
+    const defaults = {
+        icon: 'danger',
+        title: 'Confirm Action',
+        message: 'Are you sure you want to proceed?',
+        confirmText: 'Confirm',
+        confirmClass: 'confirm-btn-danger',
+        onConfirm: null
+    };
+    
+    const opts = { ...defaults, ...options };
+    
+    icon.className = 'confirm-modal-icon ' + opts.icon;
+    title.textContent = opts.title;
+    message.textContent = opts.message;
+    actionBtn.textContent = opts.confirmText;
+    actionBtn.className = opts.confirmClass;
+    confirmModalCallback = opts.onConfirm;
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeConfirmModal() {
+    const modal = document.getElementById('confirmModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+    confirmModalCallback = null;
+}
+
+function confirmModalAction() {
+    if (confirmModalCallback) {
+        confirmModalCallback();
+    }
+    closeConfirmModal();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('confirmModal');
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeConfirmModal();
+        }
+    });
+});
 
 function openVehicleModal(vehicleId) {
     const modal = document.getElementById('vehicleModal');
