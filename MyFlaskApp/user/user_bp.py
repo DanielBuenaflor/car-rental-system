@@ -363,7 +363,7 @@ def active_rentals():
         cursor.execute("""
             SELECT b.*, v.model, v.license_plate, vb.name as brand_name,
                    rt.pickup_time, rt.expected_return_time, rt.tracking_status,
-                   rt.current_odometer_reading, rt.fuel_level_at_pickup
+                   rt.pickup_odometer_reading, rt.fuel_level_at_pickup
             FROM bookings b
             JOIN vehicles v ON b.vehicle_id = v.id
             JOIN vehicle_brands vb ON v.brand_id = vb.id
