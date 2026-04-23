@@ -1,0 +1,1044 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Manage Vehicle Images - CarRental Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================================================
+       MAIN CONTAINER
+       ============================================================================ */
+    .image-manager {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px 0;
+    }
+    
+    /* ============================================================================
+       HEADER SECTION
+       ============================================================================ */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    
+    .page-header h2 {
+        margin: 0;
+        color: #1f3a5f;
+        font-size: 28px;
+        font-weight: 700;
+    }
+    
+    .page-header h2 i {
+        color: #0f3b6f;
+        margin-right: 10px;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #0f3b6f;
+        text-decoration: none;
+        font-weight: 500;
+        padding: 8px 16px;
+        background: #f8fafc;
+        border-radius: 8px;
+        transition: all 0.3s;
+    }
+    
+    .back-link:hover {
+        background: #e2e8f0;
+        transform: translateX(-3px);
+    }
+    
+    /* ============================================================================
+       SEARCH SECTION
+       ============================================================================ */
+    .search-section {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        padding: 25px;
+        border-radius: 16px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .search-form {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    
+    .search-input-wrapper {
+        flex: 1;
+        position: relative;
+        min-width: 250px;
+    }
+    
+    .search-input-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+    }
+    
+    .search-form input {
+        width: 100%;
+        padding: 12px 15px 12px 45px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 15px;
+        transition: all 0.3s;
+        background: white;
+    }
+    
+    .search-form input:focus {
+        outline: none;
+        border-color: #0f3b6f;
+        box-shadow: 0 0 0 3px rgba(15, 59, 111, 0.1);
+    }
+    
+    .search-form button {
+        padding: 12px 28px;
+        background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .search-form button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(15, 59, 111, 0.3);
+    }
+    
+    .clear-btn {
+        padding: 12px 24px;
+        background: white;
+        color: #64748b;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .clear-btn:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    
+    .vehicle-count {
+        margin-top: 15px;
+        padding: 10px 15px;
+        background: white;
+        border-radius: 10px;
+        color: #475569;
+        font-size: 14px;
+        border-left: 3px solid #0f3b6f;
+    }
+    
+    /* ============================================================================
+       VEHICLE SELECTOR
+       ============================================================================ */
+    .vehicle-selector {
+        background: white;
+        padding: 25px;
+        border-radius: 16px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 1px solid #e2e8f0;
+    }
+    
+    .vehicle-selector label {
+        display: block;
+        margin-bottom: 10px;
+        font-weight: 600;
+        color: #1f3a5f;
+        font-size: 16px;
+    }
+    
+    .vehicle-selector label i {
+        margin-right: 8px;
+        color: #0f3b6f;
+    }
+    
+    .vehicle-selector select {
+        width: 100%;
+        max-width: 450px;
+        padding: 12px 15px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 15px;
+        background: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+    
+    .vehicle-selector select:focus {
+        outline: none;
+        border-color: #0f3b6f;
+        box-shadow: 0 0 0 3px rgba(15, 59, 111, 0.1);
+    }
+    
+    /* ============================================================================
+       UPLOAD AREA
+       ============================================================================ */
+    .upload-container {
+        background: #f8fafc;
+        border-radius: 16px;
+        padding: 25px;
+        margin-bottom: 30px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .upload-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #0f3b6f;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .upload-area {
+        border: 2px dashed #cbd5e1;
+        border-radius: 16px;
+        padding: 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: linear-gradient(135deg, #fafcff 0%, #f8fafc 100%);
+        margin-bottom: 20px;
+    }
+    
+    .upload-area:hover {
+        border-color: #0f3b6f;
+        background: linear-gradient(135deg, #f0f9ff 0%, #e6f0fa 100%);
+        transform: translateY(-2px);
+    }
+    
+    .upload-area i {
+        font-size: 56px;
+        color: #0f3b6f;
+        margin-bottom: 15px;
+        transition: all 0.3s;
+    }
+    
+    .upload-area:hover i {
+        transform: scale(1.05);
+    }
+    
+    .upload-area p {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1f3a5f;
+        margin: 10px 0;
+    }
+    
+    .upload-area small {
+        color: #64748b;
+        font-size: 13px;
+    }
+    
+    .selected-files {
+        margin-top: 15px;
+        padding: 15px;
+        background: white;
+        border-radius: 12px;
+        display: none;
+    }
+    
+    .selected-files h4 {
+        margin-bottom: 10px;
+        color: #0f3b6f;
+    }
+    
+    .file-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .file-preview {
+        position: relative;
+        width: 80px;
+        height: 80px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .file-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .file-preview .remove-file {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        background: rgba(239, 68, 68, 0.9);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .upload-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+    }
+    
+    .btn-save {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        border: none;
+        padding: 12px 28px;
+        border-radius: 40px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    
+    .btn-save:disabled {
+        background: #cbd5e1;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    /* ============================================================================
+       IMAGE GALLERY
+       ============================================================================ */
+    .gallery-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .image-count {
+        background: #e0f2fe;
+        padding: 8px 16px;
+        border-radius: 40px;
+        color: #0f3b6f;
+        font-weight: 600;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .gallery-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 25px;
+        margin-top: 20px;
+    }
+    
+    /* ============================================================================
+       IMAGE CARD
+       ============================================================================ */
+    .image-card {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transition: all 0.3s;
+        position: relative;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .image-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    
+    .image-wrapper {
+        position: relative;
+        overflow: hidden;
+        background: #f1f5f9;
+        height: 200px;
+    }
+    
+    .image-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s;
+    }
+    
+    .image-card:hover .image-wrapper img {
+        transform: scale(1.05);
+    }
+    
+    .image-badge {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 30px;
+        font-size: 11px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        z-index: 1;
+    }
+    
+    .image-badge i {
+        font-size: 10px;
+    }
+    
+    .image-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s;
+        gap: 10px;
+    }
+    
+    .image-card:hover .image-overlay {
+        opacity: 1;
+    }
+    
+    .overlay-btn {
+        background: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 13px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .overlay-btn.primary-btn {
+        background: #0f3b6f;
+        color: white;
+    }
+    
+    .overlay-btn.primary-btn:hover {
+        background: #1e4a7a;
+        transform: scale(1.05);
+    }
+    
+    .overlay-btn.delete-btn {
+        background: #ef4444;
+        color: white;
+    }
+    
+    .overlay-btn.delete-btn:hover {
+        background: #dc2626;
+        transform: scale(1.05);
+    }
+    
+    .image-info {
+        padding: 12px 15px;
+        background: white;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    .image-info small {
+        color: #64748b;
+        font-size: 11px;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    /* ============================================================================
+       LOADING & EMPTY STATES
+       ============================================================================ */
+    .loading {
+        text-align: center;
+        padding: 60px;
+        color: #64748b;
+    }
+    
+    .loading i {
+        font-size: 48px;
+        color: #0f3b6f;
+        margin-bottom: 20px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        background: #f8fafc;
+        border-radius: 16px;
+        color: #64748b;
+    }
+    
+    .empty-state i {
+        font-size: 80px;
+        color: #cbd5e1;
+        margin-bottom: 20px;
+    }
+    
+    .empty-state p {
+        font-size: 18px;
+        margin: 10px 0;
+        color: #475569;
+    }
+    
+    .empty-state small {
+        color: #94a3b8;
+    }
+    
+    /* ============================================================================
+       NOTIFICATIONS
+       ============================================================================ */
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 12px;
+        background: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+        max-width: 350px;
+    }
+    
+    .notification.success {
+        border-left: 4px solid #10b981;
+    }
+    
+    .notification.error {
+        border-left: 4px solid #ef4444;
+    }
+    
+    .notification i {
+        font-size: 20px;
+    }
+    
+    .notification.success i {
+        color: #10b981;
+    }
+    
+    .notification.error i {
+        color: #ef4444;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    /* ============================================================================
+       RESPONSIVE DESIGN
+       ============================================================================ */
+    @media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .gallery-container {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .upload-area {
+            padding: 30px;
+        }
+        
+        .upload-area i {
+            font-size: 40px;
+        }
+        
+        .upload-area p {
+            font-size: 16px;
+        }
+        
+        .notification {
+            left: 20px;
+            right: 20px;
+            max-width: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="image-manager">
+    <!-- Header Section -->
+    <div class="page-header">
+        <h2>
+            <i class="fas fa-images"></i>
+            Manage Vehicle Images
+        </h2>
+        <a href="{{ url_for('admin_bp.manage_vehicles') }}" class="back-link">
+            <i class="fas fa-arrow-left"></i>
+            Back to Vehicles
+        </a>
+    </div>
+    
+    <!-- Search Section -->
+    <div class="search-section">
+        <form method="GET" action="{{ url_for('admin_bp.manage_vehicle_images') }}" class="search-form">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" name="search" 
+                       placeholder="Search by model, brand, or license plate..." 
+                       value="{{ search }}">
+            </div>
+            <button type="submit">
+                <i class="fas fa-search"></i> Search
+            </button>
+            {% if search %}
+            <a href="{{ url_for('admin_bp.manage_vehicle_images') }}" class="clear-btn">
+                <i class="fas fa-times"></i> Clear
+            </a>
+            {% endif %}
+        </form>
+        {% if search %}
+        <div class="vehicle-count">
+            <i class="fas fa-car"></i>
+            Found <strong>{{ all_vehicles|length }}</strong> vehicle(s) matching "{{ search }}"
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Vehicle Selector -->
+    <div class="vehicle-selector">
+        <label>
+            <i class="fas fa-car"></i>
+            Select Vehicle
+        </label>
+        <select id="vehicleSelect">
+            <option value="">-- Choose a vehicle to manage images --</option>
+            {% for vehicle in all_vehicles %}
+            <option value="{{ vehicle.id }}" {% if selected_vehicle_id == vehicle.id %}selected{% endif %}>
+                {{ vehicle.brand_name }} {{ vehicle.model }} ({{ vehicle.license_plate }})
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <!-- Image Manager Content -->
+    <div id="imageManagerContent">
+        {% if selected_vehicle_id %}
+            <div class="loading">
+                <i class="fas fa-spinner"></i>
+                <p>Loading vehicle images...</p>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-camera"></i>
+                <p>No vehicle selected</p>
+                <small>Please select a vehicle from the dropdown above to manage its images</small>
+                {% if search %}
+                <p style="margin-top: 20px;">No vehicles found matching "{{ search }}"</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+let allVehicles = {{ all_vehicles|tojson }};
+let currentVehicleId = {{ selected_vehicle_id|tojson }};
+let selectedFiles = [];
+let vehicleName = '';
+
+// Show notification
+function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+        <span>${message}</span>
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Load vehicle images
+function loadVehicleImages(vehicleId) {
+    currentVehicleId = vehicleId;
+    const container = document.getElementById('imageManagerContent');
+    container.innerHTML = `
+        <div class="loading">
+            <i class="fas fa-spinner"></i>
+            <p>Loading vehicle images...</p>
+        </div>
+    `;
+    
+    // Get vehicle name
+    const vehicle = allVehicles.find(v => v.id == vehicleId);
+    vehicleName = vehicle ? `${vehicle.brand_name} ${vehicle.model}` : '';
+    
+    fetch(`/admin/api/vehicles/${vehicleId}/images`)
+        .then(response => response.json())
+        .then(data => {
+            displayGallery(vehicleId, data);
+        })
+        .catch(error => {
+            console.error('Error loading images:', error);
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Error loading images</p>
+                    <small>Please try again later</small>
+                </div>
+            `;
+            showNotification('Failed to load images', 'error');
+        });
+}
+
+// Display gallery with upload area
+function displayGallery(vehicleId, data) {
+    const container = document.getElementById('imageManagerContent');
+    
+    let allImages = [];
+    if (data.primary_image) {
+        allImages.push({ path: data.primary_image, is_primary: true, id: null });
+    }
+    if (data.images) {
+        allImages.push(...data.images.map(img => ({ 
+            path: img.image_path, 
+            is_primary: false, 
+            id: img.id 
+        })));
+    }
+    
+    // Build upload form HTML
+    let uploadHtml = `
+        <div class="upload-container">
+            <div class="upload-title">
+                <i class="fas fa-cloud-upload-alt"></i>
+                Upload New Images for ${vehicleName}
+            </div>
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Click to select images</p>
+                <small>Supported formats: PNG, JPG, JPEG, GIF, WEBP (Max 5MB each)</small>
+                <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+            </div>
+            <div id="selectedFilesContainer" class="selected-files">
+                <h4>Selected Files (<span id="fileCount">0</span>)</h4>
+                <div id="fileList" class="file-list"></div>
+                <div class="upload-actions">
+                    <button id="saveImagesBtn" class="btn-save" onclick="saveImages()">
+                        <i class="fas fa-save"></i> Save to Database
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (allImages.length === 0) {
+        container.innerHTML = uploadHtml + `
+            <div class="empty-state">
+                <i class="fas fa-camera"></i>
+                <p>No images yet</p>
+                <small>Use the upload section above to add photos for ${vehicleName}</small>
+            </div>
+        `;
+    } else {
+        let imagesHtml = `
+            ${uploadHtml}
+            <div class="gallery-header">
+                <div class="image-count">
+                    <i class="fas fa-images"></i>
+                    ${allImages.length} ${allImages.length === 1 ? 'Image' : 'Images'} in Gallery
+                </div>
+            </div>
+            <div class="gallery-container">
+        `;
+        
+        allImages.forEach((img, index) => {
+            const fileName = img.path.split('/').pop();
+            imagesHtml += `
+                <div class="image-card">
+                    <div class="image-wrapper">
+                        <img src="${img.path}" alt="Vehicle image ${index + 1}">
+                        ${img.is_primary ? '<div class="image-badge"><i class="fas fa-star"></i> Primary Image</div>' : ''}
+                        <div class="image-overlay">
+                            ${!img.is_primary ? `
+                                <button class="overlay-btn primary-btn" onclick="setAsPrimary(${vehicleId}, '${img.path}')">
+                                    <i class="fas fa-star"></i> Set as Primary
+                                </button>
+                            ` : ''}
+                            <button class="overlay-btn delete-btn" onclick="deleteImage(${img.id || 'null'}, '${img.path}', ${vehicleId})">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                    <div class="image-info">
+                        <small><i class="fas fa-file-image"></i> ${fileName}</small>
+                    </div>
+                </div>
+            `;
+        });
+        
+        imagesHtml += `</div>`;
+        container.innerHTML = imagesHtml;
+    }
+    
+    // Setup file input change handler
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.onchange = function(e) {
+            handleFileSelect(e.target.files);
+        };
+    }
+}
+
+// Handle file selection
+function handleFileSelect(files) {
+    selectedFiles = [];
+    const fileList = document.getElementById('fileList');
+    const fileCount = document.getElementById('fileCount');
+    const selectedContainer = document.getElementById('selectedFilesContainer');
+    
+    if (files.length > 0) {
+        selectedFiles = Array.from(files);
+        fileCount.textContent = selectedFiles.length;
+        
+        fileList.innerHTML = '';
+        selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.createElement('div');
+                preview.className = 'file-preview';
+                preview.innerHTML = `
+                    <img src="${e.target.result}" alt="${file.name}">
+                    <button class="remove-file" onclick="removeFile(${index})">&times;</button>
+                `;
+                fileList.appendChild(preview);
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        selectedContainer.style.display = 'block';
+    } else {
+        selectedContainer.style.display = 'none';
+        selectedFiles = [];
+    }
+}
+
+// Remove file from selection
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    const fileCount = document.getElementById('fileCount');
+    const fileList = document.getElementById('fileList');
+    
+    fileCount.textContent = selectedFiles.length;
+    
+    if (selectedFiles.length === 0) {
+        document.getElementById('selectedFilesContainer').style.display = 'none';
+        return;
+    }
+    
+    // Re-render previews
+    fileList.innerHTML = '';
+    selectedFiles.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.createElement('div');
+            preview.className = 'file-preview';
+            preview.innerHTML = `
+                <img src="${e.target.result}" alt="${file.name}">
+                <button class="remove-file" onclick="removeFile(${idx})">&times;</button>
+            `;
+            fileList.appendChild(preview);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Save images to database
+function saveImages() {
+    if (selectedFiles.length === 0) {
+        showNotification('No images selected to upload', 'error');
+        return;
+    }
+    
+    const saveBtn = document.getElementById('saveImagesBtn');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+    
+    const formData = new FormData();
+    for (let i = 0; i < selectedFiles.length; i++) {
+        formData.append('gallery_images', selectedFiles[i]);
+    }
+    
+    fetch(`/admin/api/vehicles/${currentVehicleId}/upload-images`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`Successfully uploaded ${selectedFiles.length} image(s)`, 'success');
+            // Clear selected files
+            selectedFiles = [];
+            document.getElementById('selectedFilesContainer').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+            // Reload gallery
+            loadVehicleImages(currentVehicleId);
+        } else {
+            showNotification('Error uploading images: ' + (data.message || 'Unknown error'), 'error');
+        }
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Save to Database';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error uploading images', 'error');
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Save to Database';
+    });
+}
+
+// Set as primary image
+function setAsPrimary(vehicleId, imagePath) {
+    fetch(`/admin/api/vehicles/${vehicleId}/set-primary`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image_path: imagePath })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Primary image updated successfully', 'success');
+            loadVehicleImages(vehicleId);
+        } else {
+            showNotification('Error: ' + (data.message || 'Unknown error'), 'error');
+        }
+    });
+}
+
+// Delete image
+function deleteImage(imageId, imagePath, vehicleId) {
+    openConfirmModal({
+        icon: 'warning',
+        title: 'Delete Image',
+        message: 'Are you sure you want to delete this image? This action cannot be undone.',
+        confirmText: 'Yes, Delete',
+        confirmClass: 'confirm-btn-danger',
+        onConfirm: function() {
+            let url = imageId ? `/admin/api/vehicle-images/${imageId}` : `/admin/api/vehicle-images/delete-by-path`;
+            let method = 'DELETE';
+            let body = imageId ? null : JSON.stringify({ image_path: imagePath });
+            
+            fetch(url, {
+                method: method,
+                headers: body ? { 'Content-Type': 'application/json' } : {},
+                body: body
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Image deleted successfully', 'success');
+                    loadVehicleImages(vehicleId);
+                } else {
+                    showNotification('Error: ' + (data.message || 'Unknown error'), 'error');
+                }
+            });
+        }
+    });
+}
+
+// Vehicle selection handler
+document.getElementById('vehicleSelect').addEventListener('change', function() {
+    const vehicleId = this.value;
+    if (vehicleId) {
+        // Update URL without reloading
+        const url = new URL(window.location.href);
+        url.searchParams.set('vehicle_id', vehicleId);
+        window.history.pushState({}, '', url);
+        loadVehicleImages(vehicleId);
+    } else {
+        document.getElementById('imageManagerContent').innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-car"></i>
+                <p>Select a vehicle to manage its images</p>
+                <small>Choose from the dropdown above</small>
+            </div>
+        `;
+        // Remove vehicle_id from URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete('vehicle_id');
+        window.history.pushState({}, '', url);
+    }
+});
+
+// Load images if vehicle is pre-selected
+if (currentVehicleId) {
+    loadVehicleImages(currentVehicleId);
+}
+</script>
+{% endblock %}
