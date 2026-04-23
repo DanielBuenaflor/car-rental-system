@@ -1,0 +1,320 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Active Rentals - CarRental Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+    .rental-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+    .rental-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    .rental-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+    .vehicle-name {
+        font-size: 20px;
+        font-weight: bold;
+        color: #0f3b6f;
+    }
+    .countdown {
+        font-size: 18px;
+        font-weight: bold;
+        padding: 8px 16px;
+        border-radius: 40px;
+    }
+    .countdown-upcoming {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+    .countdown-active {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    .countdown-overdue {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    .rental-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin: 15px 0;
+        padding: 15px;
+        background: #f8fafc;
+        border-radius: 12px;
+    }
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .detail-label {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 5px;
+    }
+    .detail-value {
+        font-size: 16px;
+        font-weight: 500;
+        color: #1f3a5f;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+    }
+    .extension-form {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #e2e8f0;
+        display: none;
+    }
+    .return-form {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #e2e8f0;
+        display: none;
+    }
+    .form-group {
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <h2 style="margin-bottom: 20px;">Active Rentals</h2>
+    
+    {% if active_rentals %}
+        {% for rental in active_rentals %}
+        <div class="rental-card" id="rental-{{ rental.id }}">
+            <div class="rental-header">
+                <div class="vehicle-name">
+                    <i class="fas fa-car"></i> {{ rental.brand_name }} {{ rental.model }}
+                </div>
+                <div class="countdown countdown-{{ rental.countdown_type }}">
+                    <i class="fas fa-clock"></i> {{ rental.status_message }}
+                </div>
+            </div>
+            
+            <div class="rental-details">
+                <div class="detail-item">
+                    <span class="detail-label">Booking Reference</span>
+                    <span class="detail-value">{{ rental.booking_reference }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Pickup Date</span>
+                    <span class="detail-value">{{ rental.start_date.strftime('%B %d, %Y, %H:%M') if rental.start_date else 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Return Date</span>
+                    <span class="detail-value">{{ rental.end_date.strftime('%B %d, %Y, %H:%M') if rental.end_date else 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">License Plate</span>
+                    <span class="detail-value">{{ rental.license_plate }}</span>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                {% if rental.countdown_type == 'upcoming' %}
+                    <button class="btn-secondary" onclick="showExtensionForm({{ rental.id }})">
+                        <i class="fas fa-calendar-plus"></i> Request Extension
+                    </button>
+                {% elif rental.countdown_type == 'active' %}
+                    <button class="btn-secondary" onclick="showExtensionForm({{ rental.id }})">
+                        <i class="fas fa-calendar-plus"></i> Request Extension
+                    </button>
+                    <button class="btn-primary" onclick="showReturnForm({{ rental.id }})">
+                        <i class="fas fa-undo-alt"></i> Return Vehicle
+                    </button>
+                {% elif rental.countdown_type == 'overdue' %}
+                    <button class="btn-danger" onclick="showReturnForm({{ rental.id }})">
+                        <i class="fas fa-undo-alt"></i> Return Vehicle Now
+                    </button>
+                {% endif %}
+            </div>
+            
+            <!-- Extension Form -->
+            <div class="extension-form" id="extension-form-{{ rental.id }}">
+                <h4>Request Extension</h4>
+                <div class="form-group">
+                    <label>Additional Days (max 7)</label>
+                    <input type="number" id="ext-days-{{ rental.id }}" min="1" max="7" value="1">
+                </div>
+                <div class="form-group">
+                    <label>Reason</label>
+                    <textarea id="ext-reason-{{ rental.id }}" rows="2" placeholder="Why do you need to extend?"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-primary" onclick="submitExtension({{ rental.id }})">Submit Request</button>
+                    <button class="btn-secondary" onclick="hideExtensionForm({{ rental.id }})">Cancel</button>
+                </div>
+            </div>
+            
+            <!-- Return Form -->
+            <div class="return-form" id="return-form-{{ rental.id }}">
+                <h4>Return Vehicle</h4>
+                <div class="form-group">
+                    <label>Current Odometer Reading (km)</label>
+                    <input type="number" id="return-odometer-{{ rental.id }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Fuel Level</label>
+                    <select id="return-fuel-{{ rental.id }}">
+                        <option value="full">Full</option>
+                        <option value="three_quarter">3/4</option>
+                        <option value="half">1/2</option>
+                        <option value="quarter">1/4</option>
+                        <option value="empty">Empty</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Condition Notes</label>
+                    <textarea id="return-notes-{{ rental.id }}" rows="2" placeholder="Any damage or issues?"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-primary" onclick="submitReturn({{ rental.id }})">Confirm Return</button>
+                    <button class="btn-secondary" onclick="hideReturnForm({{ rental.id }})">Cancel</button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="card" style="text-align: center; padding: 60px;">
+        <i class="fas fa-car-side" style="font-size: 64px; color: #0f3b6f; margin-bottom: 20px;"></i>
+        <h3>No Active Rentals</h3>
+        <p>You don't have any active rentals at the moment.</p>
+        <a href="{{ url_for('base_bp.browse_fleet') }}" class="btn-primary" style="margin-top: 20px;">Browse Vehicles</a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function showExtensionForm(bookingId) {
+    document.getElementById(`extension-form-${bookingId}`).style.display = 'block';
+    document.getElementById(`return-form-${bookingId}`).style.display = 'none';
+}
+
+function hideExtensionForm(bookingId) {
+    document.getElementById(`extension-form-${bookingId}`).style.display = 'none';
+}
+
+function showReturnForm(bookingId) {
+    document.getElementById(`return-form-${bookingId}`).style.display = 'block';
+    document.getElementById(`extension-form-${bookingId}`).style.display = 'none';
+}
+
+function hideReturnForm(bookingId) {
+    document.getElementById(`return-form-${bookingId}`).style.display = 'none';
+}
+
+function submitExtension(bookingId) {
+    const days = document.getElementById(`ext-days-${bookingId}`).value;
+    const reason = document.getElementById(`ext-reason-${bookingId}`).value;
+    
+    if (!days || days < 1 || days > 7) {
+        alert('Please enter valid number of days (1-7)');
+        return;
+    }
+    
+    openConfirmModal({
+        icon: 'info',
+        title: 'Request Extension',
+        message: `Are you sure you want to request a ${days}-day extension for this rental? Additional charges may apply.`,
+        confirmText: 'Submit Request',
+        confirmClass: 'confirm-btn-info',
+        onConfirm: function() {
+            fetch(`/user/request-extension/${bookingId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    requested_days: parseInt(days),
+                    reason: reason
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            });
+        }
+    });
+}
+
+function submitReturn(bookingId) {
+    const odometer = document.getElementById(`return-odometer-${bookingId}`).value;
+    const fuelLevel = document.getElementById(`return-fuel-${bookingId}`).value;
+    const notes = document.getElementById(`return-notes-${bookingId}`).value;
+    
+    if (!odometer) {
+        alert('Please enter odometer reading');
+        return;
+    }
+    
+    openConfirmModal({
+        icon: 'warning',
+        title: 'Confirm Vehicle Return',
+        message: `Are you sure you want to return this vehicle? Final odometer: ${odometer} km, Fuel: ${fuelLevel}%`,
+        confirmText: 'Yes, Return Vehicle',
+        confirmClass: 'confirm-btn-warning',
+        onConfirm: function() {
+            fetch(`/user/return-vehicle/${bookingId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    odometer: parseInt(odometer),
+                    fuel_level: fuelLevel,
+                    condition_notes: notes
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            });
+        }
+    });
+}
+
+// Auto-refresh countdown every minute
+setInterval(function() {
+    location.reload();
+}, 60000);
+</script>
+{% endblock %}

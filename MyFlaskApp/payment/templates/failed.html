@@ -1,0 +1,19 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Payment Failed - CarRental Pro{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 80px auto; text-align: center;">
+    <div class="card" style="padding: 40px;">
+        <i class="fas fa-times-circle" style="font-size: 80px; color: #ef4444; margin-bottom: 20px;"></i>
+        <h2 style="margin-bottom: 15px;">Payment Failed</h2>
+        <p style="margin-bottom: 30px; color: #666;">
+            We couldn't process your payment. Please try again or use a different payment method.
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: center;">
+            <a href="javascript:history.back()" class="btn-primary">Try Again</a>
+            <a href="{{ url_for('user_bp.my_bookings') }}" class="btn-secondary">View My Bookings</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

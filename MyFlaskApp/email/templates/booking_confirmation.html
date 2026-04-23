@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Booking Confirmation</title>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #0f3b6f;">Booking Confirmed!</h2>
+    
+    <p>Dear {{ username }},</p>
+    
+    <p>Your booking has been confirmed. Here are the details:</p>
+    
+    <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p><strong>Booking Reference:</strong> {{ booking.booking_reference }}</p>
+        <p><strong>Start Date:</strong> {{ booking.start_date }}</p>
+        <p><strong>End Date:</strong> {{ booking.end_date }}</p>
+        <p><strong>Vehicle:</strong> {{ vehicle.brand_name }} {{ vehicle.model }}</p>
+    </div>
+    
+    <p>Thank you for choosing our car rental service!</p>
+    
+    <p>Best regards,<br>The Car Rental Team</p>
+</body>
+</html>
