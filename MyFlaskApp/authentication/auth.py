@@ -200,84 +200,80 @@ def send_otp_email(recipient_email, otp_code, recipient_name):
 def handle_login(email, password):
     """
     Handle user login authentication.
-    
+
     Input:
         email (str): User's email address
         password (str): User's password
-        
+
     Process:
         1. Validate input parameters
         2. Query user from database
         3. Verify password hash
         4. Check account status (active, email verified)
         5. Create user session
-        6. Return appropriate response
-        
+        6. Return dict with success status and redirect URL
+
     Output:
-        JSON response with login result and redirect URL
+        dict with keys: success (bool), message (str), redirect (str, optional)
     """
     logger.info(f"[AUTH] Processing login handler for: {email}")
-    
+
     # Validate input
     if not email or not password:
         logger.warning("[AUTH] Login failed: Missing email or password")
-        return jsonify(success=False, message=ERROR_MESSAGES['MISSING_REQUIRED_FIELDS'])
-    
+        return {'success': False, 'message': ERROR_MESSAGES['MISSING_REQUIRED_FIELDS']}
+
     # Get database connection
     database_connection = get_db_connection()
     if not database_connection:
         logger.error("[AUTH] Login failed: Database connection error")
-        return jsonify(success=False, message=ERROR_MESSAGES['DB_CONNECTION_ERROR'])
-    
+        return {'success': False, 'message': ERROR_MESSAGES['DB_CONNECTION_ERROR']}
+
     database_cursor = database_connection.cursor(dictionary=True)
-    
+
     try:
         logger.info(f"[AUTH] Querying user from database: {email}")
-        
+
         # Retrieve user by email
         database_cursor.execute("""
-            SELECT id, first_name, last_name, email, password, role, 
+            SELECT id, first_name, last_name, email, password, role,
                    is_active, is_email_verified
-            FROM users 
+            FROM users
             WHERE email = %s
         """, (email,))
         user_record = database_cursor.fetchone()
-        
+
         # Verify user exists
         if not user_record:
             logger.warning(f"[AUTH] Login failed: User not found - {email}")
-            return jsonify(success=False, message=ERROR_MESSAGES['INVALID_CREDENTIALS'])
-        
+            return {'success': False, 'message': ERROR_MESSAGES['INVALID_CREDENTIALS']}
+
         logger.debug(f"[AUTH] User found: ID {user_record['id']}")
-        
+
         # Verify password
         stored_password_hash = user_record['password']
         if not check_password_hash(stored_password_hash, password):
             logger.warning(f"[AUTH] Login failed: Invalid password for user {email}")
-            return jsonify(success=False, message=ERROR_MESSAGES['INVALID_CREDENTIALS'])
-        
+            return {'success': False, 'message': ERROR_MESSAGES['INVALID_CREDENTIALS']}
+
         logger.info(f"[AUTH] Password verified for user: {email}")
-        
+
         # Check if account is active
         if not user_record.get('is_active', 0):
             logger.warning(f"[AUTH] Login failed: Account deactivated - {email}")
-            return jsonify(success=False, message=ERROR_MESSAGES['ACCOUNT_DEACTIVATED'])
-        
+            return {'success': False, 'message': ERROR_MESSAGES['ACCOUNT_DEACTIVATED']}
+
         # Check if email is verified
         if not user_record.get('is_email_verified', False):
             logger.warning(f"[AUTH] Login failed: Email not verified - {email}")
-            
+
             # Store temp user ID for verification flow
             session['temp_user_id'] = user_record['id']
             session['temp_email'] = user_record['email']
             session['temp_username'] = user_record['first_name']
-            
-            return jsonify(
-                success=False, 
-                message=ERROR_MESSAGES['EMAIL_NOT_VERIFIED'],
-                needs_verification=True
-            )
-        
+
+            return {'success': False, 'message': ERROR_MESSAGES['EMAIL_NOT_VERIFIED'], 'needs_verification': True}
+
         # Create user session
         session.clear()
         session.update({
@@ -289,24 +285,24 @@ def handle_login(email, password):
             'is_email_verified': True
         })
         logger.info(f"[AUTH] Session created for user: {email} (Role: {user_record['role']})")
-        
+
         # Determine redirect URL based on role
         if user_record['role'] == 'admin':
             redirect_url = url_for('admin_bp.admin_dashboard')
         else:
             redirect_url = url_for('user_bp.user_dashboard')
-        
+
         logger.info(f"[AUTH] Login successful. Redirecting to: {redirect_url}")
-        return jsonify(success=True, message='Login successful!', redirect=redirect_url)
-        
+        return {'success': True, 'message': 'Login successful!', 'redirect': redirect_url}
+
     except mysql.connector.Error as database_error:
         logger.error(f"[AUTH] Database error during login: {database_error}")
         current_app.logger.error(f"[AUTH] DB error during login: {database_error}")
-        return jsonify(success=False, message=ERROR_MESSAGES['DB_OPERATION_ERROR'])
+        return {'success': False, 'message': ERROR_MESSAGES['DB_OPERATION_ERROR']}
     except Exception as error:
         logger.error(f"[AUTH] Unexpected error during login: {error}")
         current_app.logger.error(f"[AUTH] Unexpected error during login: {error}")
-        return jsonify(success=False, message=ERROR_MESSAGES['SERVER_ERROR'])
+        return {'success': False, 'message': ERROR_MESSAGES['SERVER_ERROR']}
     finally:
         database_cursor.close()
         database_connection.close()
@@ -367,21 +363,24 @@ def login():
     
     if request.method == 'POST':
         logger.info("[AUTH] Processing login POST request")
-        
-        # Extract credentials from JSON or form data
-        if request.is_json:
-            request_data = request.get_json()
-            user_email = request_data.get('email', '').strip()
-            user_password = request_data.get('password', '')
-            logger.debug("[AUTH] Login credentials extracted from JSON payload")
-        else:
-            user_email = request.form.get('email', '').strip()
-            user_password = request.form.get('password', '')
-            logger.debug("[AUTH] Login credentials extracted from form data")
-        
+
+        # Extract credentials from form data (standard form submission)
+        user_email = request.form.get('email', '').strip()
+        user_password = request.form.get('password', '')
+        logger.debug("[AUTH] Login credentials extracted from form data")
+
         logger.info(f"[AUTH] Attempting login for email: {user_email}")
-        return handle_login(user_email, user_password)
-    
+
+        # Call handle_login and handle the result
+        result = handle_login(user_email, user_password)
+
+        if result['success']:
+            flash('Login successful!', 'success')
+            return redirect(result['redirect'])
+        else:
+            flash(result['message'], 'error')
+            return render_template('login.html', session=session, all_vehicles=available_vehicles)
+
     # GET request - render login form
     logger.debug("[AUTH] Rendering login form (GET request)")
     return render_template('login.html', session=session, all_vehicles=available_vehicles)
