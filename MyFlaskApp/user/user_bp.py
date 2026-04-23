@@ -492,7 +492,7 @@ def download_invoice(invoice_id):
             JOIN vehicles v ON b.vehicle_id = v.id
             JOIN vehicle_brands vb ON v.brand_id = vb.id
             JOIN users u ON b.user_id = u.id
-            WHERE i.invoice_id = %s AND b.user_id = %s
+            WHERE i.id = %s AND b.user_id = %s
         """, (invoice_id, session['user_id']))
         invoice = cursor.fetchone()
         
@@ -501,7 +501,7 @@ def download_invoice(invoice_id):
             return redirect(url_for('user_bp.invoices'))
         
         # Calculate balance due
-        invoice['balance_due'] = invoice.get('total_amount', 0) - invoice.get('paid_amount', 0)
+        invoice['balance_due'] = invoice.get('total_amount', 0) - invoice.get('amount', 0)
         
         return render_template('invoice_view.html', invoice=invoice, session=session)
         
@@ -627,7 +627,8 @@ def book_vehicle():
         total_amount = subtotal + tax_amount
         
         # Generate booking reference
-        booking_reference = f"BK-{datetime.now().strftime('%Y%m%d')}-{session['user_id']}-{vehicle_id}"
+        import secrets
+        booking_reference = f"BK-{datetime.now().strftime('%Y%m%d%H%M%S')}-{session['user_id']}-{vehicle_id}-{secrets.token_hex(4)}"
         
         # Create booking
         cursor.execute("""
@@ -645,6 +646,7 @@ def book_vehicle():
         ))
         
         booking_id = cursor.lastrowid
+        conn.commit()
         
         conn.commit()
         
@@ -670,7 +672,8 @@ def cancel_booking(booking_id):
     """Cancel a booking"""
     conn = get_db_connection()
     if not conn:
-        return jsonify({'success': False, 'message': 'Database error'}), 500
+        flash('Database error. Please try again.', 'error')
+        return redirect(url_for('user_bp.my_bookings'))
     
     cursor = conn.cursor()
     try:
@@ -681,14 +684,17 @@ def cancel_booking(booking_id):
         """, (booking_id, session['user_id']))
         
         if cursor.rowcount == 0:
-            return jsonify({'success': False, 'message': 'Booking not found or cannot be cancelled'})
+            flash('Booking not found or cannot be cancelled.', 'error')
+            return redirect(url_for('user_bp.my_bookings'))
         
         conn.commit()
-        return jsonify({'success': True, 'message': 'Booking cancelled successfully'})
+        flash('Booking cancelled successfully.', 'success')
+        return redirect(url_for('user_bp.my_bookings'))
         
     except Exception as e:
         conn.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 500
+        flash(f'Error cancelling booking: {str(e)}', 'error')
+        return redirect(url_for('user_bp.my_bookings'))
     finally:
         cursor.close()
         conn.close()

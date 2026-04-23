@@ -209,9 +209,12 @@
                         </td>
                         <td>
                             {% if booking.status in ['pending', 'confirmed'] %}
-                            <button class="btn-sm btn-danger" onclick="cancelBooking({{ booking.id }})">
-                                Cancel
-                            </button>
+                            <form method="POST" action="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+                                <button type="submit" class="btn-sm btn-danger">
+                                    Cancel
+                                </button>
+                            </form>
                             {% endif %}
                             <button class="btn-sm btn-info" onclick="viewBooking({{ booking.id }})">
                                 Details
@@ -222,9 +225,9 @@
                             </a>
                             {% endif %}
                             {% if booking.status in ['confirmed', 'paid'] %}
-                            <a href="{{ url_for('payment_bp.download_invoice', booking_id=booking.id) }}" class="btn-sm" style="background: #0f3b6f; color: white;">
+                            <span class="btn-sm" style="background: #9ca3af; color: white; cursor: default;">
                                 <i class="fas fa-file-pdf"></i> Invoice
-                            </a>
+                            </span>
                             {% endif %}
                         </td>
                     </tr>
@@ -269,25 +272,18 @@ function cancelBooking(bookingId) {
         confirmText: 'Yes, Cancel Booking',
         confirmClass: 'confirm-btn-danger',
         onConfirm: function() {
-            fetch('{{ url_for('user_bp.cancel_booking', booking_id=0) }}'.replace('0', bookingId), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Booking cancelled successfully');
-                    location.reload();
-                } else {
-                    alert(data.message || 'Error cancelling booking');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error cancelling booking');
-            });
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_for("user_bp.cancel_booking", booking_id=0) }}'.replace('0', bookingId);
+            
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = '{{ session.csrf_token }}';
+            form.appendChild(csrfInput);
+            
+            document.body.appendChild(form);
+            form.submit();
         }
     });
 }
@@ -416,9 +412,9 @@ function viewBooking(bookingId) {
             </a>
             ` : ''}
             ${(booking.status === 'confirmed' || booking.status === 'paid') ? `
-            <a href="{{ url_for('payment_bp.download_invoice', booking_id=0) }}".replace('0', booking.id) class="btn-sm" style="background: #0f3b6f; color: white; flex: 1; text-align: center;" target="_blank">
-                <i class="fas fa-file-pdf"></i> Download Invoice
-            </a>
+            <span class="btn-sm" style="background: #9ca3af; color: white; flex: 1; text-align: center; display: inline-block; cursor: default;">
+                <i class="fas fa-file-pdf"></i> Invoice
+            </span>
             ` : ''}
             ${booking.status === 'pending' || booking.status === 'confirmed' ? `
             <button class="btn-sm btn-danger" onclick="cancelAndClose(${booking.id})" style="flex: 1;">
@@ -443,22 +439,18 @@ function cancelAndClose(bookingId) {
         confirmText: 'Yes, Cancel Booking',
         confirmClass: 'confirm-btn-danger',
         onConfirm: function() {
-            fetch('{{ url_for('user_bp.cancel_booking', booking_id=0) }}'.replace('0', bookingId), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Booking cancelled successfully');
-                    closeModal();
-                    location.reload();
-                } else {
-                    alert(data.message || 'Error cancelling booking');
-                }
-            });
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_for("user_bp.cancel_booking", booking_id=0) }}'.replace('0', bookingId);
+            
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = '{{ session.csrf_token }}';
+            form.appendChild(csrfInput);
+            
+            document.body.appendChild(form);
+            form.submit();
         }
     });
 }

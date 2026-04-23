@@ -1,0 +1,197 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Invoice #{{ invoice.invoice_number }} - CarRental Pro{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <div class="card">
+        <div style="text-align: right; margin-bottom: 20px;">
+            <button onclick="window.print()" class="btn-primary">
+                <i class="fas fa-print"></i> Print Invoice
+            </button>
+            <a href="{{ url_for('user_bp.invoices') }}" class="btn-secondary">Back to Invoices</a>
+        </div>
+        
+        <div class="invoice-container" id="invoiceContent">
+            <div class="invoice-header">
+                <h2>CarRental Pro</h2>
+                <h3>TAX INVOICE</h3>
+                <p>123 Rental Street, Downtown, City, 12345</p>
+                <p>support@carrentalpro.com | (555) 123-4567</p>
+            </div>
+            
+            <div class="invoice-details">
+                <div class="row">
+                    <div class="col">
+                        <strong>Bill To:</strong><br>
+                        {{ invoice.first_name }} {{ invoice.last_name }}<br>
+                        {{ invoice.address or 'N/A' }}<br>
+                        {{ invoice.city or '' }} {{ invoice.state or '' }} {{ invoice.postal_code or '' }}<br>
+                        {{ invoice.country or 'Philippines' }}<br>
+                        Email: {{ invoice.email }}<br>
+                        Phone: {{ invoice.phone or 'N/A' }}
+                    </div>
+                    <div class="col" style="text-align: right;">
+                        <strong>Invoice #:</strong> {{ invoice.invoice_number }}<br>
+                        <strong>Date:</strong> {{ invoice.invoice_date.strftime('%B %d, %Y') if invoice.invoice_date else 'N/A' }}<br>
+                        <strong>Due Date:</strong> {{ invoice.due_date.strftime('%B %d, %Y') if invoice.due_date else 'N/A' }}<br>
+                        <strong>Status:</strong> 
+                        <span class="badge badge-{{ invoice.status }}">
+                            {{ (invoice.status if invoice.status else 'pending').upper() }}
+                        </span>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <h4>Booking Details</h4>
+                <table class="invoice-table">
+                    <tr>
+                        <th>Booking Reference</th>
+                        <td>{{ invoice.booking_reference or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Vehicle</th>
+                        <td>{{ invoice.brand_name }} {{ invoice.model }} ({{ invoice.year }})</td>
+                    </tr>
+                    <tr>
+                        <th>License Plate</th>
+                        <td>{{ invoice.license_plate or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Rental Period</th>
+                        <td>{{ invoice.start_date.strftime('%B %d, %Y') if invoice.start_date else 'N/A' }} - {{ invoice.end_date.strftime('%B %d, %Y') if invoice.end_date else 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Rental Days</th>
+                        <td>{{ invoice.rental_days or 0 }} days</td>
+                    </tr>
+                    <tr>
+                        <th>Pickup Location</th>
+                        <td>{{ invoice.pickup_location or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Return Location</th>
+                        <td>{{ invoice.return_location or 'N/A' }}</td>
+                    </tr>
+                    {% if invoice.security_deposit %}
+                    <tr>
+                        <th>Security Deposit</th>
+                        <td>₱{{ "%.2f"|format(invoice.security_deposit) }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+                
+                <h4>Payment Details</h4>
+                <table class="invoice-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Daily Rate (₱{{ "%.2f"|format(invoice.daily_rate_applied|default(0)) }} × {{ invoice.rental_days|default(0) }} days)</td>
+                            <td>₱{{ "%.2f"|format(invoice.subtotal|default(0)) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Tax</td>
+                            <td>₱{{ "%.2f"|format(invoice.tax_amount|default(0)) }}</td>
+                        </tr>
+                        {% if invoice.discount_amount and invoice.discount_amount > 0 %}
+                        <tr>
+                            <td>Discount</td>
+                            <td>-₱{{ "%.2f"|format(invoice.discount_amount) }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr class="total-row">
+                            <th>Total Amount</th>
+                            <th>₱{{ "%.2f"|format(invoice.total_amount|default(0)) }}</th>
+                        </tr>
+                        <tr>
+                            <td>Amount Paid</td>
+                            <td>₱{{ "%.2f"|format(invoice.paid_amount|default(0)) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Balance Due</td>
+                            <td>₱{{ "%.2f"|format(invoice.balance_due|default(invoice.total_amount|default(0))) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="invoice-footer">
+                <p>Thank you for choosing CarRental Pro!</p>
+                <p>This is a system-generated invoice.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .invoice-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .invoice-header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #0f3b6f;
+    }
+    .invoice-header h2 {
+        color: #0f3b6f;
+        margin-bottom: 5px;
+    }
+    .row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+    .col {
+        width: 48%;
+    }
+    .invoice-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+    }
+    .invoice-table th, .invoice-table td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .invoice-table th {
+        background-color: #f8fafc;
+        font-weight: 600;
+    }
+    .total-row th, .total-row td {
+        font-size: 18px;
+        font-weight: bold;
+        color: #0f3b6f;
+        border-top: 2px solid #0f3b6f;
+    }
+    .invoice-footer {
+        margin-top: 30px;
+        padding-top: 20px;
+        text-align: center;
+        border-top: 1px solid #e2e8f0;
+    }
+    .badge-pending { background: #fed7aa; color: #9b2c1d; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+    .badge-completed, .badge-paid { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+    @media print {
+        .navbar, .btn-primary, .btn-secondary, footer {
+            display: none;
+        }
+        .container {
+            margin: 0;
+            padding: 0;
+        }
+        .card {
+            box-shadow: none;
+            padding: 0;
+        }
+    }
+</style>
+{% endblock %}

@@ -4,7 +4,7 @@ Handles payment processing, checkout, and verification workflows.
 Integrates with GCash/PayMongo for payment processing.
 """
 
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash, current_app, json, send_file
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash, current_app, json
 from functools import wraps
 import logging
 import requests 
@@ -12,7 +12,6 @@ import requests
 from MyFlaskApp import get_db_connection
 from MyFlaskApp.payment.payment_service import *
 from MyFlaskApp.payment.invoice_service import InvoiceService
-from MyFlaskApp.payment.invoice_generator import InvoiceGenerator
 from MyFlaskApp.email.service import EmailService
 from MyFlaskApp.payment.config import *
 from MyFlaskApp.payment.gcash_service import GCashService
@@ -111,14 +110,19 @@ def checkout(booking_id):
             FROM bookings b
             JOIN vehicles v ON b.vehicle_id = v.id
             JOIN vehicle_brands vb ON v.brand_id = vb.id
-            WHERE b.id = %s AND b.user_id = %s AND b.status = 'pending'
-        """, (booking_id, session['user_id']))
+            WHERE b.id = %s
+        """, (booking_id,))
         booking_details = database_cursor.fetchone()
         
         # Validate booking exists and is accessible
         if not booking_details:
             logger.warning(f"[PAYMENT] Booking {booking_id} not found or not accessible for user {session['user_id']}")
             flash(PAYMENT_ERROR_MESSAGES['BOOKING_NOT_FOUND'], 'error')
+            return redirect(url_for('user_bp.my_bookings'))
+        
+        # Check if already paid
+        if booking_details['status'] in ['paid', 'confirmed', 'completed']:
+            flash('This booking has already been processed.', 'info')
             return redirect(url_for('user_bp.my_bookings'))
         
         logger.info(f"[PAYMENT] Booking {booking_id} retrieved successfully. Total: {booking_details['total_amount']}")
@@ -245,9 +249,9 @@ def process_payment():
                 database_connection.commit()
                 logger.debug(f"[PAYMENT] Old pending payment marked as failed")
         
-        # Create checkout session with PayMongo
+        # Create checkout session with PayMongo/GCash
         logger.info(f"[PAYMENT] Creating PayMongo checkout session for booking {booking_id}")
-        payment_result = gcash_service.create_payment_session(
+        payment_result = gcash_service.create_gcash_payment(
             booking_id=booking_id,
             amount=payment_amount,
             customer_name=session.get('username', 'Customer'),
@@ -390,16 +394,16 @@ def verify_payment(checkout_session_id):
                 # Create invoice record
                 database_cursor.execute("""
                     INSERT INTO invoices (
-                        booking_id, invoice_number, issue_date, due_date,
-                        subtotal, total_amount, paid_amount, payment_status, invoice_status
+                        booking_id, user_id, invoice_number, invoice_date, due_date,
+                        subtotal, tax_amount, discount_amount, total_amount, balance_due, status
                     )
                     SELECT 
-                        id,
+                        id, user_id,
                         CONCAT('INV-', DATE_FORMAT(NOW(), '%Y%m%d'), '-', id),
                         CURDATE(),
                         DATE_ADD(CURDATE(), INTERVAL 7 DAY),
-                        total_amount, total_amount, total_amount,
-                        'completed', 'paid'
+                        total_amount, tax_amount, discount_amount, total_amount, total_amount,
+                        'paid'
                     FROM bookings 
                     WHERE id = %s
                 """, (booking_id,))
@@ -449,193 +453,129 @@ def verify_gcash_payment(payment_intent_id):
 
 @payment_bp.route('/success')
 def payment_success():
-    """Payment success page - with verification"""
+    """Payment success page - trust database first"""
     booking_id = request.args.get('booking_id')
     session_id = request.args.get('session_id')
     
-    conn = get_db_connection()
-    if conn:
-        cursor = conn.cursor(dictionary=True)
-        try:
-            if not session_id and booking_id:
-                print(f"⚠️ No session_id in URL, retrieving from database for booking {booking_id}")
-                cursor.execute("""
-                    SELECT transaction_id, payment_status FROM payments 
-                    WHERE booking_id = %s AND payment_status = 'pending'
-                    ORDER BY created_at DESC LIMIT 1
-                """, (booking_id,))
-                payment = cursor.fetchone()
-                if payment:
-                    session_id = payment['transaction_id']
-                    print(f"📋 Found session_id from DB: {session_id}")
-            
-            if session_id:
-                print(f"🔍 Verifying payment for session: {session_id}")
+    print(f"[SUCCESS] booking_id={booking_id}, session_id={session_id}")
+
+    # STEP 1: GUARANTEE database is checked FIRST - even if session_id is the placeholder
+    if booking_id:
+        print(f"[SUCCESS] Checking database for booking {booking_id}")
+        
+        # CLOSE any existing connection first to get fresh data
+        import gc
+        gc.collect()
+        
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor(dictionary=True)
+            try:
+                cursor.execute("SELECT status FROM bookings WHERE id = %s", (booking_id,))
+                booking = cursor.fetchone()
+                print(f"[SUCCESS] Booking status from DB: {booking}")
                 
-                if session_id == "{CHECKOUT_SESSION_ID}":
-                    print("❌ Invalid session_id - placeholder not replaced")
-                    return render_template('success.html', 
-                                         session=session, 
-                                         booking_id=booking_id,
-                                         verified=False,
-                                         error="Invalid payment session")
-                
-                result = gcash_service.retrieve_payment_status(session_id)
-                
-                print(f"DEBUG: retrieve_payment_status result: {result}")
-                
-                if result['success'] and result.get('paid'):
-                    print(f"✅ Payment verified for session: {session_id}")
-                    print(f"✅ Payment verified for session: {session_id}")
-                    
-                    cursor.execute("""
-                        SELECT payment_status FROM payments 
-                        WHERE transaction_id = %s
-                    """, (session_id,))
+                # STEP 2: CHECK THE STATUS IMMEDIATELY - this must happen BEFORE any session_id checks
+                if booking and booking['status'] == 'confirmed':
+                    print("✅ Database already confirmed. Showing success page.")
+                    cursor.execute("SELECT payment_status FROM payments WHERE booking_id = %s ORDER BY created_at DESC LIMIT 1", (booking_id,))
                     payment = cursor.fetchone()
+                    already = payment and payment['payment_status'] == 'successful'
+                    return render_template('success.html', session=session, booking_id=booking_id, verified=True, already_confirmed=already)
+            finally:
+                cursor.close()
+                conn.close()
+
+    # STEP 3: Only if no booking_id provided, try to find it from pending payments
+    if not booking_id:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor(dictionary=True)
+            try:
+                cursor.execute("SELECT booking_id FROM payments WHERE transaction_id LIKE 'cs_%%' AND payment_status = 'pending' ORDER BY created_at DESC LIMIT 1")
+                row = cursor.fetchone()
+                if row:
+                    booking_id = row['booking_id']
+                    if booking_id:
+                        cursor.execute("SELECT status FROM bookings WHERE id = %s", (booking_id,))
+                        booking = cursor.fetchone()
+                        if booking and booking['status'] == 'confirmed':
+                            print("✅ Database already confirmed. Showing success page.")
+                            return render_template('success.html', session=session, booking_id=booking_id, verified=True, already_confirmed=True)
+            finally:
+                cursor.close()
+                conn.close()
+
+    # STEP 4: Only if NOT confirmed, THEN check session_id and redirect/paymongo
+    if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
+        flash('Payment was not completed. Please try again.', 'error')
+        if booking_id:
+            return redirect(url_for('payment_bp.checkout', booking_id=booking_id))
+        return redirect(url_for('user_bp.my_bookings'))
+
+    print(f"🔍 Verifying payment for session: {session_id}, booking_id={booking_id}")
+    result = gcash_service.retrieve_payment_status(session_id)
+    print(f"[VERIFY] PayMongo result: {result}")
+
+    if result['success'] and result['paid']:
+        print(f"✅ Payment verified for session: {session_id}")
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor(dictionary=True)
+            try:
+                cursor.execute("SELECT payment_status FROM payments WHERE transaction_id = %s", (session_id,))
+                payment = cursor.fetchone()
+
+                if payment and payment['payment_status'] == 'pending':
+                    cursor.execute("SELECT status FROM bookings WHERE id = %s", (booking_id,))
+                    current = cursor.fetchone()
+                    if current and current['status'] == 'confirmed':
+                        return render_template('success.html', session=session, booking_id=booking_id, verified=True, already_confirmed=True)
                     
-                    if payment and payment['payment_status'] == 'pending':
-                        cursor.execute("""
-                            UPDATE payments 
-                            SET payment_status = 'successful', paid_at = NOW()
-                            WHERE transaction_id = %s
-                        """, (session_id,))
-                        
-                        if booking_id:
-                            cursor.execute("""
-                                UPDATE bookings 
-                                SET status = 'confirmed'
-                                WHERE id = %s
-                            """, (booking_id,))
-                            conn.commit()
-                            print(f"✅ Booking {booking_id} confirmed")
-                            
-                            cursor.execute("""
-                                SELECT b.*, v.model, v.license_plate, vb.name as brand_name,
-                                       u.email, u.first_name, u.last_name
-                                FROM bookings b
-                                JOIN vehicles v ON b.vehicle_id = v.id
-                                JOIN vehicle_brands vb ON v.brand_id = vb.id
-                                JOIN users u ON b.user_id = u.id
-                                WHERE b.id = %s
-                            """, (booking_id,))
-                            booking = cursor.fetchone()
-                            
-                            if booking:
-                                user = {
-                                    'email': booking['email'],
-                                    'first_name': booking['first_name'],
-                                    'last_name': booking['last_name']
-                                }
-                                vehicle = {
-                                    'model': booking['model'],
-                                    'license_plate': booking['license_plate'],
-                                    'brand_name': booking['brand_name']
-                                }
-                                try:
-                                    EmailService.send_booking_confirmation(user, booking, vehicle)
-                                    print(f"📧 Confirmation email sent to {booking['email']}")
-                                except Exception as email_err:
-                                    print(f"Email error (non-fatal): {email_err}")
-                    
-                    return render_template('success.html', 
-                                         session=session, 
-                                         booking_id=booking_id,
-                                         verified=True)
-                else:
-                    error_msg = result.get('message', 'Payment verification failed')
-                    print(f"❌ Payment verification failed: {error_msg}")
-                    return render_template('success.html', 
-                                         session=session, 
-                                         booking_id=booking_id,
-                                         verified=False,
-                                         error=error_msg)
-        except Exception as e:
-            print(f"Error in payment verification: {e}")
-        finally:
-            cursor.close()
-            conn.close()
-    
-    return render_template('success.html', 
-                         session=session, 
-                         booking_id=booking_id,
-                         verified=False)
+                    cursor.execute("UPDATE payments SET payment_status = 'successful', paid_at = NOW() WHERE transaction_id = %s", (session_id,))
+
+                    if booking_id:
+                        cursor.execute("UPDATE bookings SET status = 'confirmed' WHERE id = %s", (booking_id,))
+
+                        conn.commit()
+                        print(f"✅ Manual verification updated booking {booking_id}")
+                elif payment:
+                    print(f"ℹ️ Payment already processed (status={payment['payment_status']})")
+            finally:
+                cursor.close()
+                conn.close()
+
+        return render_template('success.html', session=session, booking_id=booking_id, verified=True)
+    else:
+        payment_status = result.get('payment_status', 'unknown')
+        print(f"⚠️ Payment not yet completed. PayMongo status: {payment_status}")
+
+        if booking_id:
+            check_conn = get_db_connection()
+            if check_conn:
+                check_cursor = check_conn.cursor(dictionary=True)
+                try:
+                    check_cursor.execute("SELECT status FROM bookings WHERE id = %s", (booking_id,))
+                    booking_status = check_cursor.fetchone()
+                    if booking_status and booking_status['status'] == 'confirmed':
+                        return render_template('success.html', session=session, booking_id=booking_id, verified=True)
+                finally:
+                    check_cursor.close()
+                    check_conn.close()
+
+        flash(f'Payment is pending ({payment_status}). Please complete the payment on GCash/Maya.', 'warning')
+        if booking_id:
+            return redirect(url_for('payment_bp.checkout', booking_id=booking_id))
+
+
+@payment_bp.route('/webhook', methods=['POST'])
+def webhook():
+    """PayMongo webhook endpoint at /payment/webhook"""
+    from MyFlaskApp.payment.webhooks import paymongo_webhook_handler
+    return paymongo_webhook_handler()
+
+
 @payment_bp.route('/failed')
 def payment_failed():
     """Payment failed page"""
     return render_template('failed.html', session=session)
-
-@payment_bp.route('/cancel')
-def payment_cancel():
-    """Payment cancelled by user"""
-    booking_id = request.args.get('booking_id')
-    flash('Payment was cancelled. Your booking is still pending.', 'warning')
-    if booking_id:
-        return redirect(url_for('payment_bp.checkout', booking_id=booking_id))
-    return redirect(url_for('user_bp.my_bookings'))
-
-@payment_bp.route('/download-invoice/<int:booking_id>')
-@login_required
-def download_invoice(booking_id):
-    """Generate and download PDF invoice for a booking"""
-    conn = get_db_connection()
-    if not conn:
-        flash('Database error', 'error')
-        return redirect(url_for('user_bp.my_bookings'))
-    
-    cursor = conn.cursor(dictionary=True)
-    try:
-        cursor.execute("""
-            SELECT b.*, v.model, v.license_plate, vb.name as brand_name,
-                   u.email, u.first_name, u.last_name
-            FROM bookings b
-            JOIN vehicles v ON b.vehicle_id = v.id
-            JOIN vehicle_brands vb ON v.brand_id = vb.id
-            JOIN users u ON b.user_id = u.id
-            WHERE b.id = %s AND b.user_id = %s
-        """, (booking_id, session['user_id']))
-        booking = cursor.fetchone()
-        
-        if not booking:
-            flash('Booking not found', 'error')
-            return redirect(url_for('user_bp.my_bookings'))
-        
-        if booking['status'] not in ('confirmed', 'paid'):
-            flash('Invoice only available for paid bookings', 'error')
-            return redirect(url_for('user_bp.my_bookings'))
-        
-        cursor.execute("""
-            SELECT payment_status FROM payments 
-            WHERE booking_id = %s AND payment_status = 'successful'
-            ORDER BY paid_at DESC LIMIT 1
-        """, (booking_id,))
-        payment = cursor.fetchone()
-        
-        user = {
-            'email': booking['email'],
-            'first_name': booking['first_name'],
-            'last_name': booking['last_name']
-        }
-        vehicle = {
-            'model': booking['model'],
-            'license_plate': booking['license_plate'],
-            'brand_name': booking['brand_name']
-        }
-        
-        pdf_buffer = InvoiceGenerator.generate_invoice(booking, user, vehicle, payment)
-        
-        filename = f"Invoice_{booking['booking_reference']}.pdf"
-        return send_file(
-            pdf_buffer,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=filename
-        )
-        
-    except Exception as e:
-        print(f"Error generating invoice: {e}")
-        flash('Error generating invoice', 'error')
-        return redirect(url_for('user_bp.my_bookings'))
-    finally:
-        cursor.close()
-        conn.close()
