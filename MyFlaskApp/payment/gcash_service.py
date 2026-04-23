@@ -35,7 +35,7 @@ class GCashService:
                         "show_description": True,
                         "show_line_items": True,
                         "description": f"Car Rental Booking #{booking_reference}",
-                        "payment_method_types": ["gcash"],
+                        "payment_method_types": ["gcash", "paymaya", "card"],
                         "line_items": [
                             {
                                 "currency": "PHP",
@@ -108,12 +108,17 @@ class GCashService:
             if response.status_code == 200:
                 data = response.json()
                 payment_status = data['data']['attributes'].get('payment_status')
+                checkout_status = data['data']['attributes'].get('status')
+                print(f"[PayMongo] Session status: payment_status={payment_status}, checkout_status={checkout_status}")
+                paid = payment_status == 'paid'
                 return {
                     'success': True,
                     'payment_status': payment_status,
-                    'paid': payment_status == 'paid'
+                    'checkout_status': checkout_status,
+                    'paid': paid
                 }
             else:
+                print(f"[PayMongo] Error response: {response.status_code} - {response.text}")
                 return {'success': False, 'message': 'Failed to retrieve payment status'}
                 
         except Exception as e:

@@ -1,0 +1,102 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}My Invoices - CarRental Pro{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <h2 style="margin-bottom: 20px;">My Invoices</h2>
+    
+    {% if invoices %}
+    <div class="card">
+        <div style="overflow-x: auto;">
+            <table class="invoices-table">
+                <thead>
+                    <tr>
+                        <th>Invoice #</th>
+                        <th>Booking Reference</th>
+                        <th>Vehicle</th>
+                        <th>Date</th>
+                        <th>Due Date</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in invoices %}
+                    <tr>
+                        <td><strong>{{ invoice.invoice_number }}</strong></td>
+                        <td>{{ invoice.booking_reference }}</td>
+                        <td>{{ invoice.brand_name }} {{ invoice.model }} ({{ invoice.year }})</td>
+                        <td>{{ invoice.invoice_date.strftime('%Y-%m-%d') if invoice.invoice_date else 'N/A' }}</td>
+                        <td>{{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else 'N/A' }}</td>
+                        <td>₱{{ "%.2f"|format(invoice.total_amount) }}</td>
+                        <td>
+                            <span class="badge badge-{{ invoice.status }}">
+                                {{ invoice.status|upper if invoice.status else 'PENDING' }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('user_bp.download_invoice', invoice_id=invoice.id) }}" class="btn-sm btn-primary">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card" style="text-align: center; padding: 60px;">
+        <i class="fas fa-file-invoice" style="font-size: 64px; color: #0f3b6f; margin-bottom: 20px;"></i>
+        <h3>No Invoices Yet</h3>
+        <p>Your invoices will appear here after you complete a booking.</p>
+        <a href="{{ url_for('base_bp.browse_fleet') }}" class="btn-primary" style="margin-top: 20px;">Browse Vehicles</a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .invoices-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .invoices-table th, .invoices-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .invoices-table th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #0f3b6f;
+    }
+    
+    .badge-pending { background: #fed7aa; color: #9b2c1d; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+    .badge-completed { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+    .badge-paid { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+    .badge-overdue { background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+    
+    .btn-sm {
+        padding: 5px 12px;
+        font-size: 12px;
+        border-radius: 20px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    @media (max-width: 768px) {
+        .invoices-table {
+            font-size: 12px;
+        }
+        .invoices-table th, .invoices-table td {
+            padding: 8px;
+        }
+    }
+</style>
+{% endblock %}

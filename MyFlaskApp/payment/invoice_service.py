@@ -44,10 +44,10 @@ class InvoiceService:
                 return {'success': False, 'message': 'Booking not found'}
 
             # Check if invoice already exists
-            cursor.execute("SELECT invoice_id FROM invoices WHERE booking_id = %s", (booking_id,))
+            cursor.execute("SELECT id FROM invoices WHERE booking_id = %s", (booking_id,))
             existing = cursor.fetchone()
             if existing:
-                return {'success': True, 'invoice_id': existing['invoice_id'], 'message': 'Invoice already exists'}
+                return {'success': True, 'invoice_id': existing['id'], 'message': 'Invoice already exists'}
 
             # Generate invoice number
             invoice_number = InvoiceService.generate_invoice_number()
@@ -63,22 +63,21 @@ class InvoiceService:
                 INSERT INTO invoices (
                     invoice_number,
                     booking_id,
-                    issue_date,
+                    user_id,
+                    invoice_date,
                     due_date,
                     subtotal,
                     tax_amount,
                     discount_amount,
                     total_amount,
-                    paid_amount,
-                    payment_status,
-                    invoice_status,
-                    created_at
+                    balance_due,
+                    status
                 ) VALUES (
-                    %s, %s, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY),
-                    %s, %s, %s, %s,
-                    0, 'pending', 'draft', NOW()
+                    %s, %s, %s, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY),
+                    %s, %s, %s, %s, %s,
+                    'pending'
                 )
-            """, (invoice_number, booking_id, subtotal, tax_amount, discount_amount, total_amount))
+            """, (invoice_number, booking_id, booking['user_id'], subtotal, tax_amount, discount_amount, total_amount, total_amount))
 
             invoice_id = cursor.lastrowid
             conn.commit()
@@ -124,10 +123,10 @@ class InvoiceService:
                 return {'success': False, 'message': 'Booking not found'}
 
             # Check if invoice already exists
-            cursor.execute("SELECT invoice_id FROM invoices WHERE booking_id = %s", (booking_id,))
+            cursor.execute("SELECT id FROM invoices WHERE booking_id = %s", (booking_id,))
             existing = cursor.fetchone()
             if existing:
-                return {'success': True, 'invoice_id': existing['invoice_id'], 'message': 'Invoice already exists'}
+                return {'success': True, 'invoice_id': existing['id'], 'message': 'Invoice already exists'}
 
             # Get payment details
             cursor.execute("""
@@ -152,26 +151,22 @@ class InvoiceService:
                 INSERT INTO invoices (
                     invoice_number,
                     booking_id,
-                    issue_date,
+                    user_id,
+                    invoice_date,
                     due_date,
                     subtotal,
                     tax_amount,
                     discount_amount,
                     total_amount,
-                    paid_amount,
-                    payment_status,
-                    invoice_status,
-                    created_at
+                    balance_due,
+                    status
                 ) VALUES (
-                    %s, %s, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY),
-                    %s, %s, %s, %s,
-                    %s,
-                    CASE WHEN %s >= %s THEN 'completed' ELSE 'pending' END,
-                    CASE WHEN %s >= %s THEN 'paid' ELSE 'draft' END,
-                    NOW()
+                    %s, %s, %s, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY),
+                    %s, %s, %s, %s, %s,
+                    CASE WHEN %s >= %s THEN 'paid' ELSE 'pending' END
                 )
-            """, (invoice_number, booking_id, subtotal, tax_amount, discount_amount, total_amount,
-                  amount_paid, amount_paid, total_amount, amount_paid, total_amount))
+            """, (invoice_number, booking_id, booking['user_id'], subtotal, tax_amount, discount_amount, total_amount, total_amount,
+                  amount_paid, total_amount))
 
             invoice_id = cursor.lastrowid
             conn.commit()
@@ -228,17 +223,16 @@ class InvoiceService:
         conn = get_db_connection()
         if not conn:
             return False
-
+        
         cursor = conn.cursor()
         try:
             cursor.execute("""
                 UPDATE invoices
-                SET payment_status = %s,
-                    invoice_status = CASE WHEN %s = 'completed' THEN 'paid' ELSE invoice_status END,
+                SET status = %s,
                     updated_at = NOW()
-                WHERE invoice_id = %s
-            """, (status, status, invoice_id))
-
+                WHERE id = %s
+            """, (status, invoice_id))
+            
             conn.commit()
             return cursor.rowcount > 0
         except Exception as e:
@@ -252,7 +246,7 @@ class InvoiceService:
     @staticmethod
     def mark_as_paid(invoice_id, payment_method=None, transaction_id=None):
         """Mark invoice as paid"""
-        return InvoiceService.update_payment_status(invoice_id, 'completed', payment_method, transaction_id)
+        return InvoiceService.update_payment_status(invoice_id, 'paid', payment_method, transaction_id)
 
     @staticmethod
     def get_user_invoices(user_id):
