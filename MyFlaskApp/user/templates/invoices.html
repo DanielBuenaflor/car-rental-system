@@ -30,7 +30,7 @@
                         <td>{{ invoice.brand_name }} {{ invoice.model }} ({{ invoice.year }})</td>
                         <td>{{ invoice.invoice_date.strftime('%Y-%m-%d') if invoice.invoice_date else 'N/A' }}</td>
                         <td>{{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else 'N/A' }}</td>
-                        <td>₱{{ "%.2f"|format(invoice.total_amount) }}</td>
+                        <td>₱{{ "%.2f"|format(invoice.amount) }}</td>
                         <td>
                             <span class="badge badge-{{ invoice.status }}">
                                 {{ invoice.status|upper if invoice.status else 'PENDING' }}
