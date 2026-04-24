@@ -107,7 +107,7 @@
                         {% endif %}
                         <tr class="total-row">
                             <th>Total Amount</th>
-                            <th>₱{{ "%.2f"|format(invoice.total_amount|default(0)) }}</th>
+                            <th>₱{{ "%.2f"|format(invoice.amount|default(0)) }}</th>
                         </tr>
                         <tr>
                             <td>Amount Paid</td>
@@ -115,7 +115,7 @@
                         </tr>
                         <tr>
                             <td>Balance Due</td>
-                            <td>₱{{ "%.2f"|format(invoice.balance_due|default(invoice.total_amount|default(0))) }}</td>
+                            <td>₱{{ "%.2f"|format(invoice.balance_due|default(invoice.amount|default(0))) }}</td>
                         </tr>
                     </tbody>
                 </table>

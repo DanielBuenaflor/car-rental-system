@@ -56,9 +56,9 @@ class InvoiceService:
             subtotal = booking.get('subtotal', 0)
             tax_amount = booking.get('tax_amount', 0)
             discount_amount = booking.get('discount_amount', 0) or 0
-            total_amount = booking.get('total_amount', 0)
+            amount = booking.get('total_amount', 0)
 
-            # Create invoice - using correct column names for your table
+            # Create invoice - using column name 'amount' per DB schema
             cursor.execute("""
                 INSERT INTO invoices (
                     invoice_number,
@@ -69,7 +69,7 @@ class InvoiceService:
                     subtotal,
                     tax_amount,
                     discount_amount,
-                    total_amount,
+                    amount,
                     balance_due,
                     status
                 ) VALUES (
@@ -77,7 +77,7 @@ class InvoiceService:
                     %s, %s, %s, %s, %s,
                     'pending'
                 )
-            """, (invoice_number, booking_id, booking['user_id'], subtotal, tax_amount, discount_amount, total_amount, total_amount))
+            """, (invoice_number, booking_id, booking['user_id'], subtotal, tax_amount, discount_amount, amount, amount))
 
             invoice_id = cursor.lastrowid
             conn.commit()
@@ -143,10 +143,10 @@ class InvoiceService:
             subtotal = booking['subtotal']
             tax_amount = booking['tax_amount']
             discount_amount = booking.get('discount_amount', 0) or 0
-            total_amount = booking['total_amount']
+            amount = booking['total_amount']
             amount_paid = payment['amount'] if payment else 0
 
-            # Create invoice - using correct column names
+            # Create invoice - using column name 'amount' per DB schema
             cursor.execute("""
                 INSERT INTO invoices (
                     invoice_number,
@@ -157,7 +157,7 @@ class InvoiceService:
                     subtotal,
                     tax_amount,
                     discount_amount,
-                    total_amount,
+                    amount,
                     balance_due,
                     status
                 ) VALUES (
@@ -165,8 +165,8 @@ class InvoiceService:
                     %s, %s, %s, %s, %s,
                     CASE WHEN %s >= %s THEN 'paid' ELSE 'pending' END
                 )
-            """, (invoice_number, booking_id, booking['user_id'], subtotal, tax_amount, discount_amount, total_amount, total_amount,
-                  amount_paid, total_amount))
+            """, (invoice_number, booking_id, booking['user_id'], subtotal, tax_amount, discount_amount, amount, amount,
+                  amount_paid, amount))
 
             invoice_id = cursor.lastrowid
             conn.commit()

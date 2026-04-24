@@ -391,11 +391,11 @@ def verify_payment(checkout_session_id):
                 database_connection.commit()
                 logger.info(f"[PAYMENT] Booking {booking_id} status updated to confirmed")
                 
-                # Create invoice record
+                # Create invoice record (bookings.total_amount -> invoices.amount per DB schema)
                 database_cursor.execute("""
                     INSERT INTO invoices (
                         booking_id, user_id, invoice_number, invoice_date, due_date,
-                        subtotal, tax_amount, discount_amount, total_amount, balance_due, status
+                        subtotal, tax_amount, discount_amount, amount, balance_due, status
                     )
                     SELECT 
                         id, user_id,

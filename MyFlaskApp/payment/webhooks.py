@@ -449,12 +449,12 @@ def simulate_payment():
     
     cursor = conn.cursor()
     try:
-        # Get booking info to get user_id and amounts
+        # Get booking info to get user_id and amounts (bookings uses total_amount, invoices uses amount)
         cursor.execute("SELECT user_id, total_amount FROM bookings WHERE id = %s", (booking_id,))
         booking = cursor.fetchone()
         if not booking:
             return jsonify({'success': False, 'message': 'Booking not found'}), 404
-        user_id, total_amount = booking
+        user_id, invoice_amount = booking
         
         # Update booking status
         cursor.execute("""
@@ -463,11 +463,11 @@ def simulate_payment():
             WHERE id = %s
         """, (booking_id,))
         
-        # Create invoice with all required columns
+        # Create invoice with all required columns (using 'amount' per DB schema)
         cursor.execute("""
-            INSERT INTO invoices (booking_id, user_id, invoice_number, invoice_date, due_date, subtotal, tax_amount, discount_amount, total_amount, balance_due, status)
+            INSERT INTO invoices (booking_id, user_id, invoice_number, invoice_date, due_date, subtotal, tax_amount, discount_amount, amount, balance_due, status)
             VALUES (%s, %s, %s, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY), %s, 0, 0, %s, %s, 'paid')
-        """, (booking_id, user_id, f"INV-{datetime.now().strftime('%Y%m%d')}-{booking_id}", total_amount, total_amount, total_amount))
+        """, (booking_id, user_id, f"INV-{datetime.now().strftime('%Y%m%d')}-{booking_id}", invoice_amount, invoice_amount, invoice_amount))
         
         conn.commit()
         return jsonify({'success': True, 'message': f'Payment simulated for booking {booking_id}'}), 200
