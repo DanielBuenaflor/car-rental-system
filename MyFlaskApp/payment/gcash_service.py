@@ -4,12 +4,14 @@ from datetime import datetime
 import base64
 import os
 
-from MyFlaskApp.payment.config import PAYMONGO_SECRET_KEY
+from MyFlaskApp.payment.config import PAYMONGO_SECRET_KEY, PAYMONGO_MODE
 
 class GCashService:
 
     def __init__(self):
         self.secret_key = PAYMONGO_SECRET_KEY
+        self.mode = PAYMONGO_MODE
+        # PayMongo uses same endpoint for both sandbox and live - determined by API keys
         self.base_url = 'https://api.paymongo.com/v1'
         
     def get_auth_header(self):

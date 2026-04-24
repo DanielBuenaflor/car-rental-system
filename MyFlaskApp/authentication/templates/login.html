@@ -32,7 +32,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div style="padding: 12px; margin-top: 16px; border-radius: 8px; text-align: center; {% if category == 'error' %}background: #fee; color: #c00;{% else %}background: #efe; color: #0a0;{% endif %}">
+                    <div class="flash-message flash-{{ category }}">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -64,6 +64,21 @@
         padding: 12px 24px !important;
         font-size: 14px !important;
     }
+}
+
+.flash-message {
+    padding: 12px;
+    margin-top: 16px;
+    border-radius: 8px;
+    text-align: center;
+}
+.flash-error {
+    background: #fee;
+    color: #c00;
+}
+.flash-info, .flash-success {
+    background: #efe;
+    color: #0a0;
 }
 </style>
 

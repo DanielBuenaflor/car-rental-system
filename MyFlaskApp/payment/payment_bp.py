@@ -475,16 +475,27 @@ def payment_success():
                 booking = cursor.fetchone()
                 print(f"[SUCCESS] Booking status from DB: {booking}")
                 
-                # STEP 2: CHECK THE STATUS IMMEDIATELY - this must happen BEFORE any session_id checks
+                # STEP 2: CHECK THE STATUS IMMEDIATELY
                 if booking and booking['status'] == 'confirmed':
                     print("✅ Database already confirmed. Showing success page.")
+                    
+                    # --- ADD THIS NEW QUERY HERE ---
+                    cursor.execute("SELECT id FROM invoices WHERE booking_id = %s", (booking_id,))
+                    invoice = cursor.fetchone()
+                    invoice_id = invoice['id'] if invoice else None
+                    # -------------------------------
+
                     cursor.execute("SELECT payment_status FROM payments WHERE booking_id = %s ORDER BY created_at DESC LIMIT 1", (booking_id,))
                     payment = cursor.fetchone()
                     already = payment and payment['payment_status'] == 'successful'
-                    return render_template('success.html', session=session, booking_id=booking_id, verified=True, already_confirmed=already)
-            finally:
-                cursor.close()
-                conn.close()
+                    
+                    # Pass 'invoice_id' to the template below
+                    return render_template('success.html', 
+                                         session=session, 
+                                         booking_id=booking_id, 
+                                         invoice_id=invoice_id, # Added this
+                                         verified=True, 
+                                         already_confirmed=already)
 
     # STEP 3: Only if no booking_id provided, try to find it from pending payments
     if not booking_id:
@@ -501,7 +512,10 @@ def payment_success():
                         booking = cursor.fetchone()
                         if booking and booking['status'] == 'confirmed':
                             print("✅ Database already confirmed. Showing success page.")
-                            return render_template('success.html', session=session, booking_id=booking_id, verified=True, already_confirmed=True)
+                            cursor.execute("SELECT id FROM invoices WHERE booking_id = %s", (booking_id,))
+                            inv = cursor.fetchone()
+                            invoice_id = inv['id'] if inv else None
+                            return render_template('success.html', session=session, booking_id=booking_id, invoice_id=invoice_id, verified=True, already_confirmed=True)
             finally:
                 cursor.close()
                 conn.close()
@@ -530,7 +544,10 @@ def payment_success():
                     cursor.execute("SELECT status FROM bookings WHERE id = %s", (booking_id,))
                     current = cursor.fetchone()
                     if current and current['status'] == 'confirmed':
-                        return render_template('success.html', session=session, booking_id=booking_id, verified=True, already_confirmed=True)
+                        cursor.execute("SELECT id FROM invoices WHERE booking_id = %s", (booking_id,))
+                        inv = cursor.fetchone()
+                        invoice_id = inv['id'] if inv else None
+                        return render_template('success.html', session=session, booking_id=booking_id, invoice_id=invoice_id, verified=True, already_confirmed=True)
                     
                     cursor.execute("UPDATE payments SET payment_status = 'successful', paid_at = NOW() WHERE transaction_id = %s", (session_id,))
 
@@ -545,7 +562,10 @@ def payment_success():
                 cursor.close()
                 conn.close()
 
-        return render_template('success.html', session=session, booking_id=booking_id, verified=True)
+        cursor.execute("SELECT id FROM invoices WHERE booking_id = %s", (booking_id,))
+        inv = cursor.fetchone()
+        invoice_id = inv['id'] if inv else None
+        return render_template('success.html', session=session, booking_id=booking_id, invoice_id=invoice_id, verified=True)
     else:
         payment_status = result.get('payment_status', 'unknown')
         print(f"⚠️ Payment not yet completed. PayMongo status: {payment_status}")
@@ -558,7 +578,10 @@ def payment_success():
                     check_cursor.execute("SELECT status FROM bookings WHERE id = %s", (booking_id,))
                     booking_status = check_cursor.fetchone()
                     if booking_status and booking_status['status'] == 'confirmed':
-                        return render_template('success.html', session=session, booking_id=booking_id, verified=True)
+                        cursor.execute("SELECT id FROM invoices WHERE booking_id = %s", (booking_id,))
+                        inv = cursor.fetchone()
+                        invoice_id = inv['id'] if inv else None
+                        return render_template('success.html', session=session, booking_id=booking_id, invoice_id=invoice_id, verified=True)
                 finally:
                     check_cursor.close()
                     check_conn.close()
