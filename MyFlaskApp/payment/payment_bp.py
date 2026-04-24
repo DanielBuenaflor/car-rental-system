@@ -496,6 +496,11 @@ def payment_success():
                                          invoice_id=invoice_id, # Added this
                                          verified=True, 
                                          already_confirmed=already)
+            except Exception:
+                pass
+            finally:
+                cursor.close()
+                conn.close()
 
     # STEP 3: Only if no booking_id provided, try to find it from pending payments
     if not booking_id:
@@ -516,6 +521,8 @@ def payment_success():
                             inv = cursor.fetchone()
                             invoice_id = inv['id'] if inv else None
                             return render_template('success.html', session=session, booking_id=booking_id, invoice_id=invoice_id, verified=True, already_confirmed=True)
+            except Exception:
+                pass
             finally:
                 cursor.close()
                 conn.close()
