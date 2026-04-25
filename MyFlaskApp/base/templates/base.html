@@ -1634,7 +1634,7 @@
                             </a>
                         {% endif %}
                         <hr>
-                        <a href="#" onclick="logoutUser(); return false;" style="color: #dc2626;">
+                        <a href="{{ url_for('auth_bp.logout') }}" style="color: #dc2626;">
                             <i class="fas fa-sign-out-alt"></i> Logout
                         </a>
                     </div>
@@ -1853,6 +1853,11 @@
         <span><i class="fas fa-phone-alt"></i> +1 800 555 0199</span>
         <span><i class="fas fa-map-marker-alt"></i> 123 Auto Ave</span>
     </div>
+    <div style="margin-top: 16px; display: flex; justify-content: center; gap: 24px; flex-wrap: wrap;">
+        <a href="{{ url_for('base_bp.terms') }}" style="color: #666; text-decoration: none; font-size: 14px;">Terms & Conditions</a>
+        <span style="color: #ccc;">|</span>
+        <a href="{{ url_for('base_bp.privacy') }}" style="color: #666; text-decoration: none; font-size: 14px;">Privacy Policy</a>
+    </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -1868,8 +1873,6 @@ let currentFilters = {
     min_price: '',
     max_price: ''
 };
-
-let currentVehicleData = null;
 
 let currentVehicleData = null;
 let confirmModalCallback = null;
@@ -2357,21 +2360,26 @@ window.onclick = function(event) {
 }
 
 function logoutUser() {
+    console.log('Logging out...');
+    
     fetch('{{ url_for('auth_bp.logout') }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
     })
     .then(response => response.json())
     .then(data => {
+        console.log('Logout response:', data);
         if (data.success) {
             window.location.href = data.redirect_url || '/';
         } else {
-            alert(data.message || 'Logout failed');
+            console.log('POST failed, trying GET fallback');
+            window.location.href = '{{ url_for("auth_bp.logout") }}';
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        window.location.href = '/';
+        console.error('Logout error:', error);
+        console.log('Using GET fallback');
+        window.location.href = '{{ url_for("auth_bp.logout") }}';
     });
 }
 

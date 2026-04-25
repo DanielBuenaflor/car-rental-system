@@ -1,6 +1,10 @@
+# Environment & Secrets
 .env
+.env.local
 .venv/
 __pycache__/
+
+# Python
 *.pyc
 *.pyo
 *.pyd
@@ -11,7 +15,24 @@ __pycache__/
 dist/
 build/
 *.log
-.DS_Store
+
+# IDE
 .vscode/
 .idea/
 .claude/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (user data - don't commit)
+MyFlaskApp/base/uploads/
+MyFlaskApp/base/static/
+
+# Database
+*.db
+*.sqlite
+
+# Secrets (keys should never be committed)

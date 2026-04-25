@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice {{ invoice.invoice_number }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: #0f3b6f;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .invoice-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        .customer-info, .company-info {
+            width: 48%;
+        }
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .details-table th, .details-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .details-table th {
+            background: #f8fafc;
+            font-weight: bold;
+        }
+        .totals {
+            margin-top: 20px;
+            text-align: right;
+        }
+        .totals div {
+            padding: 5px 0;
+        }
+        .grand-total {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0f3b6f;
+            border-top: 2px solid #0f3b6f;
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #eee;
+            margin-top: 30px;
+        }
+        @media print {
+            body {
+                padding: 0;
+            }
+            .invoice-container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <div class="header">
+            <h2>CarRental Pro</h2>
+            <p>TAX INVOICE</p>
+        </div>
+        <div class="content">
+            <div class="invoice-info">
+                <div class="customer-info">
+                    <h4>Bill To:</h4>
+                    <p>
+                        <strong>{{ user.first_name }} {{ user.last_name }}</strong><br>
+                        {{ user.address or 'N/A' }}<br>
+                        {{ user.city or '' }} {{ user.state or '' }} {{ user.postal_code or '' }}<br>
+                        {{ user.country or 'USA' }}<br>
+                        Email: {{ user.email }}<br>
+                        Phone: {{ user.phone or 'N/A' }}
+                    </p>
+                </div>
+                <div class="company-info">
+                    <h4>Invoice Details:</h4>
+                    <p>
+                        <strong>Invoice #:</strong> {{ invoice.invoice_number }}<br>
+                        <strong>Date:</strong> {{ invoice.invoice_date.strftime('%B %d, %Y') }}<br>
+                        <strong>Due Date:</strong> {{ invoice.due_date.strftime('%B %d, %Y') }}<br>
+                        <strong>Status:</strong> {{ invoice.status.upper() }}
+                    </p>
+                </div>
+            </div>
+            
+            <h4>Booking Details:</h4>
+            <table class="details-table">
+                <tr>
+                    <th>Booking Reference</th>
+                    <td>{{ booking.booking_reference }}</td>
+                </tr>
+                <tr>
+                    <th>Vehicle</th>
+                    <td>{{ vehicle.brand_name }} {{ vehicle.model }}</td>
+                </tr>
+                <tr>
+                    <th>Rental Period</th>
+                    <td>{{ booking.start_date.strftime('%B %d, %Y') }} - {{ booking.end_date.strftime('%B %d, %Y') }}</td>
+                </tr>
+                <tr>
+                    <th>Rental Days</th>
+                    <td>{{ booking.rental_days }} days</td>
+                </tr>
+                <tr>
+                    <th>Pickup Location</th>
+                    <td>{{ booking.pickup_location }}</td>
+                </tr>
+                <tr>
+                    <th>Return Location</th>
+                    <td>{{ booking.return_location }}</td>
+                </tr>
+            </table>
+            
+            <h4>Payment Details:</h4>
+            <table class="details-table">
+                <tr>
+                    <th>Description</th>
+                    <th>Amount</th>
+                </tr>
+                <tr>
+                    <td>Daily Rate (₱{{ "%.2f"|format(booking.daily_rate_applied) }} × {{ booking.rental_days }} days)</td>
+                    <td>${{ "%.2f"|format(booking.subtotal) }}</td>
+                </tr>
+                <tr>
+                    <td>Tax (10%)</td>
+                    <td>₱{{ "%.2f"|format(booking.tax_amount) }}</td>
+                </tr>
+                {% if booking.discount_amount > 0 %}
+                <tr>
+                    <td>Discount</td>
+                    <td>₱{{ "%.2f"|format(booking.discount_amount) }}</td>
+                </tr>
+                {% endif %}
+            </table>
+            
+            <div class="totals">
+                <div><strong>Subtotal:</strong> ₱{{ "%.2f"|format(booking.subtotal) }}</div>
+                <div><strong>Tax:</strong> ₱{{ "%.2f"|format(booking.tax_amount) }}</div>
+                {% if booking.discount_amount > 0 %}
+                <div><strong>Discount:</strong> -₱{{ "%.2f"|format(booking.discount_amount) }}</div>
+                {% endif %}
+                <div class="grand-total"><strong>Total:</strong> ₱{{ "%.2f"|format(booking.total_amount) }}</div>
+                <div><strong>Amount Paid:</strong> ₱{{ "%.2f"|format(invoice.amount_paid) }}</div>
+                <div><strong>Balance Due:</strong> ₱{{ "%.2f"|format(invoice.balance_due) }}</div>
+            </div>
+            
+            <div style="margin-top: 30px; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                <strong>Payment Instructions:</strong><br>
+                Please pay the balance due by the due date to avoid late fees.<br>
+                For questions about this invoice, contact support@carrentalpro.com
+            </div>
+        </div>
+        <div class="footer">
+            <p>CarRental Pro | 123 Rental Street, Downtown, City, 12345</p>
+            <p>support@carrentalpro.com | (555) 123-4567</p>
+            <p>Thank you for choosing CarRental Pro!</p>
+        </div>
+    </div>
+</body>
+</html>

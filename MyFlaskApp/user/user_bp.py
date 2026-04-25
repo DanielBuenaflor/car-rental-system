@@ -8,23 +8,27 @@ import re
 from functools import wraps
 from datetime import datetime, timedelta
 
-from flask import Blueprint, render_template, session, redirect, url_for, flash, jsonify, request
+from flask import Blueprint, render_template, session, redirect, url_for, flash, jsonify, request, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 from MyFlaskApp import get_db_connection
 from MyFlaskApp.payment.invoice_service import InvoiceService
 from MyFlaskApp.utils.ocr_service import LicenseOCRService
+from MyFlaskApp.utils.secure_upload import save_upload, save_base64_upload, ALLOWED_IMAGE_EXTENSIONS
+from MyFlaskApp.utils.secure_db import fetch_one, execute_query, DatabaseError
+from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clear_csrf_token
 
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
+ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS  # Use secure upload module's extensions
+MAX_FILE_SIZE_MB = 5
 UPLOAD_FOLDER = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), 
     'base', 'uploads', 'verifications'
 )
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 
 
 # ============================================================================
@@ -514,6 +518,118 @@ def download_invoice(invoice_id):
         conn.close()
 
 
+@user_bp.route('/invoice/<int:invoice_id>/pdf')
+@login_required
+def invoice_pdf(invoice_id):
+    """Download invoice as PDF"""
+    from MyFlaskApp.payment.invoice_generator import InvoiceGenerator
+    from io import BytesIO
+    
+    conn = get_db_connection()
+    if not conn:
+        flash('Database error', 'error')
+        return redirect(url_for('user_bp.invoices'))
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT i.*, 
+                   b.booking_reference,
+                   b.start_date, 
+                   b.end_date, 
+                   b.pickup_location, 
+                   b.return_location,
+                   b.rental_days,
+                   b.daily_rate_applied,
+                   b.subtotal, 
+                   b.tax_amount, 
+                   b.total_amount,
+                   b.security_deposit,
+                   b.status as booking_status,
+                   v.model, 
+                   v.year, 
+                   v.license_plate, 
+                   vb.name as brand_name,
+                   u.first_name, 
+                   u.last_name, 
+                   u.email, 
+                   u.phone, 
+                   u.address,
+                   COALESCE(u.city, '') as city,
+                   COALESCE(u.state, '') as state,
+                   COALESCE(u.postal_code, '') as postal_code,
+                   COALESCE(u.country, 'Philippines') as country
+            FROM invoices i
+            JOIN bookings b ON i.booking_id = b.id
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            JOIN users u ON b.user_id = u.id
+            WHERE i.id = %s AND b.user_id = %s
+        """, (invoice_id, session['user_id']))
+        invoice = cursor.fetchone()
+        
+        if not invoice:
+            flash('Invoice not found', 'error')
+            return redirect(url_for('user_bp.invoices'))
+        
+        # Prepare data for PDF generator
+        booking = {
+            'booking_reference': invoice.get('booking_reference'),
+            'start_date': invoice.get('start_date'),
+            'end_date': invoice.get('end_date'),
+            'pickup_location': invoice.get('pickup_location'),
+            'return_location': invoice.get('return_location'),
+            'rental_days': invoice.get('rental_days', 0),
+            'daily_rate': invoice.get('daily_rate_applied', 0),
+            'subtotal': invoice.get('subtotal', 0),
+            'tax_amount': invoice.get('tax_amount', 0),
+            'total_amount': invoice.get('total_amount', 0),
+            'security_deposit': invoice.get('security_deposit', 0)
+        }
+        
+        user = {
+            'first_name': invoice.get('first_name'),
+            'last_name': invoice.get('last_name'),
+            'email': invoice.get('email'),
+            'phone': invoice.get('phone'),
+            'address': invoice.get('address'),
+            'city': invoice.get('city'),
+            'state': invoice.get('state'),
+            'postal_code': invoice.get('postal_code'),
+            'country': invoice.get('country')
+        }
+        
+        vehicle = {
+            'model': invoice.get('model'),
+            'year': invoice.get('year'),
+            'brand_name': invoice.get('brand_name'),
+            'license_plate': invoice.get('license_plate')
+        }
+        
+        payment = {
+            'amount': invoice.get('amount', 0),
+            'payment_status': invoice.get('status')
+        }
+        
+        # Generate PDF
+        pdf_buffer = InvoiceGenerator.generate_invoice(booking, user, vehicle, payment)
+        
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f"Invoice_{invoice.get('invoice_number', 'invoice')}.pdf"
+        )
+        
+    except Exception as e:
+        print(f"Error generating PDF: {str(e)}")
+        flash(f'Error generating PDF: {str(e)}', 'error')
+        return redirect(url_for('user_bp.invoices'))
+    finally:
+        cursor.close()
+        conn.close()
+
+
 # ============================================================================
 # PAGE ROUTES - VERIFICATION
 # ============================================================================
@@ -972,64 +1088,108 @@ def submit_verification():
     if not has_license_front:
         return jsonify({'success': False, 'message': 'License front image is required'}), 400
     
-    # Create upload directory if not exists
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    
-    # Save images (base64 takes priority over file upload)
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     
     license_front_path = None
     license_back_path = None
     id_card_path = None
     selfie_path = None
     
+    prefix = f"user_{session['user_id']}"
+    
     # License Front Image
     if license_front_base64:
-        filename = f"user_{session['user_id']}_license_front_{timestamp}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        if save_base64_image(license_front_base64, filepath):
-            license_front_path = filename
-    elif license_front_file and allowed_file(license_front_file.filename):
-        ext = license_front_file.filename.rsplit('.', 1)[1].lower()
-        filename = f"user_{session['user_id']}_license_front_{timestamp}.{ext}"
-        license_front_file.save(os.path.join(UPLOAD_FOLDER, filename))
+        filename, error = save_base64_upload(
+            license_front_base64, UPLOAD_FOLDER, 
+            ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, 
+            f"{prefix}_license_front"
+        )
+        if error:
+            return jsonify({'success': False, 'message': f'License front: {error}'}), 400
         license_front_path = filename
+    elif license_front_file and allowed_file(license_front_file.filename):
+        # Direct file save - bypasses secure_upload to avoid file pointer issues
+        filename = f"{prefix}_license_front_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        try:
+            license_front_file.save(filepath)
+            license_front_path = filename
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'License front: Error saving file: {str(e)}'}), 400
     
     # License Back Image
     if license_back_base64:
-        filename = f"user_{session['user_id']}_license_back_{timestamp}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        if save_base64_image(license_back_base64, filepath):
-            license_back_path = filename
-    elif license_back_file and allowed_file(license_back_file.filename):
-        ext = license_back_file.filename.rsplit('.', 1)[1].lower()
-        filename = f"user_{session['user_id']}_license_back_{timestamp}.{ext}"
-        license_back_file.save(os.path.join(UPLOAD_FOLDER, filename))
+        filename, error = save_base64_upload(
+            license_back_base64, UPLOAD_FOLDER,
+            ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB,
+            f"{prefix}_license_back"
+        )
+        if error:
+            if license_front_path:
+                os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
+            return jsonify({'success': False, 'message': f'License back: {error}'}), 400
         license_back_path = filename
+    elif license_back_file and allowed_file(license_back_file.filename):
+        # Direct file save - bypasses secure_upload to avoid file pointer issues
+        filename = f"{prefix}_license_back_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        try:
+            license_back_file.save(filepath)
+            license_back_path = filename
+        except Exception as e:
+            if license_front_path:
+                os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
+            return jsonify({'success': False, 'message': f'License back: Error saving file: {str(e)}'}), 400
     
     # ID Card Image
     if id_card_base64:
-        filename = f"user_{session['user_id']}_id_{timestamp}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        if save_base64_image(id_card_base64, filepath):
-            id_card_path = filename
-    elif id_card_file and allowed_file(id_card_file.filename):
-        ext = id_card_file.filename.rsplit('.', 1)[1].lower()
-        filename = f"user_{session['user_id']}_id_{timestamp}.{ext}"
-        id_card_file.save(os.path.join(UPLOAD_FOLDER, filename))
+        filename, error = save_base64_upload(
+            id_card_base64, UPLOAD_FOLDER,
+            ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB,
+            f"{prefix}_id"
+        )
+        if error:
+            if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
+            if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
+            return jsonify({'success': False, 'message': f'ID card: {error}'}), 400
         id_card_path = filename
+    elif id_card_file and allowed_file(id_card_file.filename):
+        # Direct file save - bypasses secure_upload to avoid file pointer issues
+        filename = f"{prefix}_id_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        try:
+            id_card_file.save(filepath)
+            id_card_path = filename
+        except Exception as e:
+            if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
+            if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
+            return jsonify({'success': False, 'message': f'ID card: Error saving file: {str(e)}'}), 400
     
     # Selfie Image
     if selfie_base64:
-        filename = f"user_{session['user_id']}_selfie_{timestamp}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        if save_base64_image(selfie_base64, filepath):
-            selfie_path = filename
-    elif selfie_file and allowed_file(selfie_file.filename):
-        ext = selfie_file.filename.rsplit('.', 1)[1].lower()
-        filename = f"user_{session['user_id']}_selfie_{timestamp}.{ext}"
-        selfie_file.save(os.path.join(UPLOAD_FOLDER, filename))
+        filename, error = save_base64_upload(
+            selfie_base64, UPLOAD_FOLDER,
+            ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB,
+            f"{prefix}_selfie"
+        )
+        if error:
+            if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
+            if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
+            if id_card_path: os.remove(os.path.join(UPLOAD_FOLDER, id_card_path))
+            return jsonify({'success': False, 'message': f'Selfie: {error}'}), 400
         selfie_path = filename
+    elif selfie_file and allowed_file(selfie_file.filename):
+        # Direct file save - bypasses secure_upload to avoid file pointer issues
+        filename = f"{prefix}_selfie_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        try:
+            selfie_file.save(filepath)
+            selfie_path = filename
+        except Exception as e:
+            if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
+            if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
+            if id_card_path: os.remove(os.path.join(UPLOAD_FOLDER, id_card_path))
+            return jsonify({'success': False, 'message': f'Selfie: Error saving file: {str(e)}'}), 400
     
     # ============================================================
     # OCR VALIDATION - Extract data for admin review

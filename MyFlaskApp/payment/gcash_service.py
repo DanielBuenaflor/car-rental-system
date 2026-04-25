@@ -47,8 +47,9 @@ class GCashService:
                                 "quantity": 1
                             }
                         ],
-                        # FIXED: Include session_id in success URL
-                        "success_url": f"{base_url}/payment/success?booking_id={booking_id}&session_id={{CHECKOUT_SESSION_ID}}",
+                        # Removed {CHECKOUT_SESSION_ID} placeholder - PayMongo doesn't auto-replace it
+                        # Instead, we verify payment by checking the checkout_session_id we store in payments table
+                        "success_url": f"{base_url}/payment/success?booking_id={booking_id}",
                         "failed_url": f"{base_url}/payment/failed?booking_id={booking_id}",
                         "metadata": {
                             "booking_id": str(booking_id),
@@ -79,6 +80,7 @@ class GCashService:
                     'success': True,
                     'checkout_session_id': checkout_session_id,
                     'checkout_url': checkout_url,
+                    'raw_response': data,
                     'message': 'Checkout session created successfully'
                 }
             else:
@@ -124,4 +126,59 @@ class GCashService:
                 return {'success': False, 'message': 'Failed to retrieve payment status'}
                 
         except Exception as e:
+            return {'success': False, 'message': str(e)}
+    
+    def get_payment_intent_status(self, checkout_session_id):
+        """Get payment intent status from checkout session - more reliable than checkout status"""
+        try:
+            # First get the checkout session to find the payment intent ID
+            response = requests.get(
+                f"{self.base_url}/checkout_sessions/{checkout_session_id}",
+                headers=self.get_auth_header()
+            )
+            
+            if response.status_code != 200:
+                print(f"[PayMongo] Error getting checkout session: {response.status_code}")
+                return {'success': False, 'message': 'Failed to get checkout session'}
+            
+            data = response.json()
+            checkout_attrs = data['data']['attributes']
+            
+            # Get payment_intent from checkout session
+            payment_intent = checkout_attrs.get('payment_intent', {})
+            if not payment_intent:
+                print(f"[PayMongo] No payment_intent in checkout session")
+                return {'success': False, 'message': 'No payment intent found'}
+            
+            payment_intent_id = payment_intent.get('id')
+            print(f"[PayMongo] Found payment_intent: {payment_intent_id}")
+            
+            # Now get the payment intent status
+            pi_response = requests.get(
+                f"{self.base_url}/payment_intents/{payment_intent_id}",
+                headers=self.get_auth_header()
+            )
+            
+            if pi_response.status_code == 200:
+                pi_data = pi_response.json()
+                pi_attrs = pi_data['data']['attributes']
+                status = pi_attrs.get('status')
+                print(f"[PayMongo] Payment intent status: {status}")
+                
+                # Status can be: 'succeeded', 'processing', 'awaiting_payment_method', 'canceled'
+                paid = status == 'succeeded'
+                
+                return {
+                    'success': True,
+                    'payment_intent_id': payment_intent_id,
+                    'status': status,
+                    'paid': paid,
+                    'raw_status': pi_attrs
+                }
+            else:
+                print(f"[PayMongo] Error getting payment intent: {pi_response.status_code}")
+                return {'success': False, 'message': 'Failed to get payment intent'}
+                
+        except Exception as e:
+            print(f"[PayMongo] Exception in get_payment_intent_status: {e}")
             return {'success': False, 'message': str(e)}
