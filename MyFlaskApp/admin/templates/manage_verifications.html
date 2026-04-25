@@ -159,6 +159,89 @@
     .confidence-high { background: #d1fae5; color: #065f46; }
     .confidence-medium { background: #fed7aa; color: #9b2c1d; }
     .confidence-low { background: #fee2e2; color: #991b1b; }
+    
+    /* Dual Pane Layout */
+    .dual-pane-container {
+        display: flex;
+        gap: 30px;
+        min-height: 400px;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    .pane-left {
+        flex: 1;
+        min-width: 300px;
+        border-right: 1px solid #e2e8f0;
+        padding-right: 20px;
+    }
+    .pane-right {
+        flex: 1;
+        min-width: 300px;
+        padding-left: 10px;
+    }
+    .pane-left h4, .pane-right h4 {
+        margin: 0 0 15px 0;
+        color: #0f3b6f;
+        border-bottom: 2px solid #3b82f6;
+        padding-bottom: 8px;
+    }
+    
+    /* Priority Badge */
+    .priority-badge {
+        background: #ef4444;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: bold;
+        margin-left: 10px;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    /* Button variants */
+    .btn-secondary { background: #64748b; color: white; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-info { background: #06b6d4; color: white; }
+    .btn-xs {
+        padding: 3px 8px;
+        font-size: 11px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    /* Reject form dropdown */
+    .reject-form select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
+    
+    /* Manual expiry form */
+    #manualExpiryForm input {
+        padding: 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        margin-right: 5px;
+    }
+    
+    /* OCR mismatch highlighting - RED for license mismatch */
+    .ocr-mismatch {
+        color: #dc2626;
+        background: #fef2f2;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 2px solid #dc2626;
+        font-weight: bold;
+    }
 </style>
 {% endblock %}
 
@@ -242,19 +325,38 @@
 
 <!-- View Documents Modal -->
 <div id="docModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 1100px; width: 95%;">
         <div class="modal-header">
             <h3>Verification Documents</h3>
             <span class="close" onclick="closeModal()">&times;</span>
         </div>
-        <div id="documentsContent"></div>
+        <div class="dual-pane-container">
+            <div class="pane-left">
+                <h4>Document Images</h4>
+                <div id="documentsContent"></div>
+            </div>
+            <div class="pane-right">
+                <h4>OCR Analysis</h4>
+                <div id="ocrResults"></div>
+            </div>
+        </div>
         <div class="form-actions" style="margin-top: 20px;">
             <button class="btn-sm btn-success" id="approveBtn" onclick="approveVerification()">Approve</button>
             <button class="btn-sm btn-warning" id="rejectBtn" onclick="showRejectForm()">Reject</button>
+            <button class="btn-sm btn-info" id="rescanBtn" onclick="rescanVerification()">Re-scan OCR</button>
             <button class="btn-sm btn-secondary" onclick="closeModal()">Close</button>
         </div>
         <div id="rejectForm" class="reject-form">
-            <textarea id="rejectReason" rows="3" placeholder="Reason for rejection..."></textarea>
+            <label for="rejectReason">Rejection Reason:</label>
+            <select id="rejectReasonSelect">
+                <option value="">-- Select a reason --</option>
+                <option value="Blurry Image">Blurry Image</option>
+                <option value="Expired License">Expired License</option>
+                <option value="Data Mismatch">Data Mismatch</option>
+                <option value="ID Not Readable">ID Not Readable</option>
+                <option value="Other">Other (specify below)</option>
+            </select>
+            <textarea id="rejectReason" rows="3" placeholder="Additional details..."></textarea>
             <button class="btn-sm btn-danger" onclick="rejectVerification()">Submit Rejection</button>
             <button class="btn-sm btn-secondary" onclick="hideRejectForm()">Cancel</button>
         </div>
@@ -357,6 +459,66 @@ function viewDocuments(verificationId) {
         imagesHtml += '</div>';
         
         document.getElementById('documentsContent').innerHTML = imagesHtml;
+        
+        // Build OCR Results panel
+        let ocrHtml = '';
+        
+        // Confidence badge
+        const confidence = verification.ocr_confidence_score;
+        let confidenceClass = 'confidence-low';
+        let confidenceLabel = 'Low';
+        if (confidence >= 0.9) {
+            confidenceClass = 'confidence-high';
+            confidenceLabel = 'High';
+        } else if (confidence >= 0.7) {
+            confidenceClass = 'confidence-medium';
+            confidenceLabel = 'Medium';
+        }
+        
+        // High priority badge
+        const isHighPriority = confidence !== null && confidence < 0.75;
+        const priorityBadge = isHighPriority ? '<span class="priority-badge">HIGH PRIORITY REVIEW</span>' : '';
+        
+        ocrHtml += `
+            <div class="ocr-section">
+                <div class="ocr-row">
+                    <span class="ocr-label">Confidence Score:</span>
+                    <span class="confidence-badge ${confidenceClass}">${confidence ? Math.round(confidence * 100) + '% (' + confidenceLabel + ')' : 'N/A'}</span>
+                    ${priorityBadge}
+                </div>
+            </div>
+            <div class="ocr-section">
+                <h5><i class="fas fa-id-card"></i> License Comparison</h5>
+                <div class="ocr-row">
+                    <span class="ocr-label">User-Provided License #:</span>
+                    <span class="ocr-value">${escapeHtml(verification.license_number || 'N/A')}</span>
+                </div>
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted License #:</span>
+                    <span class="ocr-value ${verification.ocr_extracted_license === verification.license_number ? 'ocr-match' : verification.ocr_extracted_license ? 'ocr-mismatch' : 'ocr-missing'}">
+                        ${verification.ocr_extracted_license || 'Not detected'}
+                    </span>
+                </div>
+                <div class="ocr-row">
+                    <span class="ocr-label">User-Provided Expiry:</span>
+                    <span class="ocr-value">${verification.license_expiry_date || 'N/A'}</span>
+                </div>
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted Expiry:</span>
+                    <span class="ocr-value ${verification.ocr_extracted_expiry === verification.license_expiry_date ? 'ocr-match' : verification.ocr_extracted_expiry ? 'ocr-mismatch' : 'ocr-missing'}">
+                        ${verification.ocr_extracted_expiry || 'Not detected'}
+                    </span>
+                    ${!verification.ocr_extracted_expiry ? '<button class="btn-xs btn-primary" onclick="showManualExpiryEntry()" style="margin-left: 10px;">Enter Manually</button>' : ''}
+                </div>
+                <div id="manualExpiryForm" style="display: none; margin-top: 10px;">
+                    <input type="date" id="manualExpiryInput" value="${verification.license_expiry_date || ''}">
+                    <button class="btn-xs btn-success" onclick="saveManualExpiry()">Save</button>
+                    <button class="btn-xs btn-secondary" onclick="hideManualExpiryEntry()">Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('ocrResults').innerHTML = ocrHtml;
         document.getElementById('rejectForm').style.display = 'none';
         document.getElementById('docModal').style.display = 'flex';
     }
@@ -388,9 +550,14 @@ function hideRejectForm() {
 }
 
 function rejectVerification() {
-    const reason = document.getElementById('rejectReason').value;
-    if (!reason) {
-        alert('Please provide a reason for rejection');
+    const selectedReason = document.getElementById('rejectReasonSelect').value;
+    const additionalDetails = document.getElementById('rejectReason').value;
+    
+    let reason = selectedReason;
+    if (selectedReason === 'Other' && additionalDetails) {
+        reason = 'Other: ' + additionalDetails;
+    } else if (!selectedReason) {
+        alert('Please select a reason for rejection');
         return;
     }
     
@@ -422,6 +589,81 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function rescanVerification() {
+    const btn = document.getElementById('rescanBtn');
+    btn.disabled = true;
+    btn.textContent = 'Scanning...';
+    
+    fetch(`{{ url_for('admin_bp.api_rescan_verification', verification_id=0) }}`.replace('0', currentVerificationId), {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.textContent = 'Re-scan OCR';
+        
+        if (data.success) {
+            alert('Re-scan completed!\n\nNew confidence: ' + Math.round(data.new_confidence * 100) + '%');
+            
+            // Update local data
+            const verification = allVerifications.find(v => v.id === currentVerificationId);
+            if (verification) {
+                verification.ocr_confidence_score = data.new_confidence;
+                verification.ocr_extracted_license = data.extracted_license;
+                verification.ocr_extracted_expiry = data.extracted_expiry;
+            }
+            
+            // Refresh the modal view
+            viewDocuments(currentVerificationId);
+        } else {
+            alert('Error re-scanning: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.textContent = 'Re-scan OCR';
+        alert('Re-scan failed: ' + error);
+    });
+}
+
+function showManualExpiryEntry() {
+    document.getElementById('manualExpiryForm').style.display = 'block';
+}
+
+function hideManualExpiryEntry() {
+    document.getElementById('manualExpiryForm').style.display = 'none';
+}
+
+function saveManualExpiry() {
+    const manualExpiry = document.getElementById('manualExpiryInput').value;
+    if (!manualExpiry) {
+        alert('Please select a date');
+        return;
+    }
+    
+    fetch(`{{ url_for('admin_bp.api_approve_verification', verification_id=0) }}`.replace('0', currentVerificationId), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ manual_expiry: manualExpiry })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Manual expiry saved successfully');
+            
+            const verification = allVerifications.find(v => v.id === currentVerificationId);
+            if (verification) {
+                verification.ocr_extracted_expiry = manualExpiry;
+                verification.verification_status = 'approved';
+            }
+            
+            viewDocuments(currentVerificationId);
+        } else {
+            alert('Error saving: ' + (data.message || 'Unknown error'));
+        }
+    });
 }
 </script>
 {% endblock %}

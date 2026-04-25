@@ -58,26 +58,52 @@ class InvoiceService:
             discount_amount = booking.get('discount_amount', 0) or 0
             amount = booking.get('total_amount', 0)
 
-            # Create invoice - using column name 'amount' per DB schema
-            cursor.execute("""
-                INSERT INTO invoices (
-                    invoice_number,
-                    booking_id,
-                    user_id,
-                    invoice_date,
-                    due_date,
-                    subtotal,
-                    tax_amount,
-                    discount_amount,
-                    amount,
-                    balance_due,
-                    status
-                ) VALUES (
-                    %s, %s, %s, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY),
-                    %s, %s, %s, %s, %s,
-                    'pending'
-                )
-            """, (invoice_number, booking_id, booking['user_id'], subtotal, tax_amount, discount_amount, amount, amount))
+            # Create invoice - check what columns exist and use only valid ones
+            cursor.execute("DESCRIBE invoices")
+            columns = [row['Field'] for row in cursor.fetchall()]
+            print(f"Invoices table columns: {columns}")
+            
+            # Build insert query based on available columns
+            insert_cols = ['invoice_number', 'booking_id', 'user_id', 'status']
+            values = [invoice_number, booking_id, booking['user_id'], 'pending']
+            
+            if 'invoice_date' in columns:
+                insert_cols.append('invoice_date')
+                from datetime import datetime
+                values.append(datetime.now().date())
+            
+            if 'due_date' in columns:
+                insert_cols.append('due_date')
+                from datetime import datetime, timedelta
+                values.append(datetime.now().date() + timedelta(days=7))
+            
+            if 'subtotal' in columns:
+                insert_cols.append('subtotal')
+                values.append(subtotal)
+            
+            if 'tax_amount' in columns:
+                insert_cols.append('tax_amount')
+                values.append(tax_amount)
+            
+            if 'discount_amount' in columns:
+                insert_cols.append('discount_amount')
+                values.append(discount_amount or 0)
+            
+            if 'total_amount' in columns:
+                insert_cols.append('total_amount')
+                values.append(amount)
+            
+            if 'balance_due' in columns:
+                insert_cols.append('balance_due')
+                values.append(amount)
+            
+            placeholders = ', '.join(['%s'] * len(values))
+            col_names = ', '.join(insert_cols)
+            
+            cursor.execute(f"""
+                INSERT INTO invoices ({col_names})
+                VALUES ({placeholders})
+            """, values)
 
             invoice_id = cursor.lastrowid
             conn.commit()

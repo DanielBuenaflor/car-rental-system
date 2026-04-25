@@ -223,10 +223,10 @@
                 <div id="promoMessage" style="margin-top: 10px; font-size: 12px;"></div>
             </div>
             
-            <!-- Pay Button -->
-            <button id="payButton" class="btn-pay" onclick="processPayment()">
+            <!-- Pay Button - using GET to redirect to PayMongo -->
+            <a href="{{ url_for('payment_bp.initiate_payment', booking_id=booking.id) }}" class="btn-pay" style="display: inline-block; text-decoration: none; text-align: center; padding: 15px 30px;">
                 <i class="fas fa-mobile-alt"></i> Pay with GCash - ₱{{ "%.2f"|format(booking.total_amount) }}
-            </button>
+            </a>
             
             <p style="text-align: center; margin-top: 15px; font-size: 12px; color: #666;">
                 <i class="fas fa-lock"></i> Secure payment powered by PayMongo
@@ -281,41 +281,5 @@ function applyPromo() {
     });
 }
 
-function processPayment() {
-    const payBtn = document.getElementById('payButton');
-    
-    payBtn.disabled = true;
-    payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting to GCash...';
-    
-    fetch('{{ url_for('payment_bp.process_payment') }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            booking_id: currentBookingId,
-            payment_method: 'gcash',
-            amount: currentAmount
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.redirect_url) {
-            // Redirect to GCash payment page
-            window.location.href = data.redirect_url;
-        } else if (data.success) {
-            alert('Payment successful!');
-            window.location.href = '{{ url_for('payment_bp.payment_success') }}';
-        } else {
-            alert('Payment failed: ' + (data.error || 'Unknown error'));
-            payBtn.disabled = false;
-            payBtn.innerHTML = '<i class="fas fa-mobile-alt"></i> Pay with GCash - ₱' + currentAmount.toFixed(2);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred. Please try again.');
-        payBtn.disabled = false;
-        payBtn.innerHTML = '<i class="fas fa-mobile-alt"></i> Pay with GCash - ₱' + currentAmount.toFixed(2);
-    });
-}
 </script>
 {% endblock %}

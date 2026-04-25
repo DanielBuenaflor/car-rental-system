@@ -143,18 +143,28 @@ def testimonials():
             count_result = cursor.fetchone()
             user_testimonial_count = count_result['count'] if count_result else 0
 
-        return render_template('base/templates/testimonials.html',
-                               testimonials=testimonials_list,
-                               total_pages=total_pages,
-                               current_page=page,
-                               user_testimonial_count=user_testimonial_count,
+        return render_template('base/templates/testimonials.html', 
+                               approved_testimonials=testimonials_list,
                                session=session)
     except Exception as e:
-        current_app.logger.error(f"Testimonials error: {e}")
-        return render_template('base/templates/testimonials.html', testimonials=[], session=session)
+        current_app.logger.error(f"Testimonials page error: {e}")
+        flash('Error loading testimonials', 'error')
+        return render_template('base/templates/testimonials.html', approved_testimonials=[], session=session)
     finally:
         cursor.close()
         conn.close()
+
+
+@base_bp.route('/terms')
+def terms():
+    """Terms and Conditions page"""
+    return render_template('terms.html', session=session)
+
+
+@base_bp.route('/privacy')
+def privacy():
+    """Privacy Policy page"""
+    return render_template('privacy.html', session=session)
 
 
 

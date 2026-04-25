@@ -1,5 +1,6 @@
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request, after_this_request
 from flask.cli import load_dotenv
+from flask import session
 import mysql.connector
 from flask_mail import Mail
 import os
@@ -27,6 +28,16 @@ def create_app():
             "Set SECRET_KEY or run with FLASK_DEBUG=True for development."
         )
     app.config['SECRET_KEY'] = secret_key or 'dev-secret-key-change-in-production'
+    # Set secret_key for session signing
+    app.secret_key = app.config['SECRET_KEY']
+    
+    # Configure session with permanent cookie
+    app.config['SESSION_COOKIE_NAME'] = 'car_rental_session'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+    
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
     app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
     app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
@@ -73,6 +84,24 @@ def create_app():
     app.register_blueprint(user_bp, url_prefix='/user')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(payment_bp, url_prefix='/payment')
+    
+    @app.after_request
+    def add_security_headers(response):
+        """Add security headers to all responses"""
+        debug = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true', '1', 'yes')
+        
+        if not debug:
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+            response.headers['X-XSS-Protection'] = '1; mode=block'
+            response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+            response.headers['Content-Security-Policy'] = "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;"
+        
+        response.headers['X-Permitted-Cross-Domain-Policies'] = 'none'
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        
+        return response
     
     return app
 

@@ -19,6 +19,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 from MyFlaskApp import get_db_connection, mail
+from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clear_csrf_token
+from MyFlaskApp.utils.rate_limit import check_rate_limit, get_client_ip, reset_rate_limit
 
 # ============================================================================
 # STANDARDIZED ERROR MESSAGES (Single Source of Truth)
@@ -70,6 +72,14 @@ def login_required(f):
             flash('Please login to access this page', 'error')
             return redirect(url_for('auth_bp.login'))
         return f(*args, **kwargs)
+    return decorated_function
+
+def csrf_exempt(f):
+    """Decorator to exempt a route from CSRF validation (for APIs/webhooks only)"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        return f(*args, **kwargs)
+    decorated_function.csrf_exempt = True
     return decorated_function
 
 
@@ -316,24 +326,6 @@ def handle_login(email, password):
 def login():
     """
     User login page - handles GET (display form) and POST (process login).
-    
-    Input (GET):
-        None - Renders login form with available vehicles
-        
-    Input (POST):
-        JSON or Form Data:
-            - email (str): User's email address
-            - password (str): User's password
-            
-    Process:
-        1. Load available vehicles for display on login page
-        2. If POST: Extract email and password from request
-        3. Call handle_login() for authentication logic
-        4. Return appropriate response based on authentication result
-        
-    Output:
-        GET: Rendered login.html template with vehicle data
-        POST: JSON response with authentication result and redirect URL
     """
     logger.info(f"[AUTH] Login route accessed. Method: {request.method}")
     
@@ -364,7 +356,22 @@ def login():
     if request.method == 'POST':
         logger.info("[AUTH] Processing login POST request")
 
-        # Extract credentials from form data (standard form submission)
+        csrf_submitted = request.form.get('csrf_token', '')
+        valid, error = validate_csrf_token(csrf_submitted)
+        if not valid:
+            logger.warning(f"[AUTH] CSRF validation failed: {error}")
+            flash('Security validation failed. Please try again.', 'error')
+            generate_csrf_token()
+            return render_template('login.html', session=session, all_vehicles=available_vehicles)
+        
+        client_ip = get_client_ip()
+        allowed, remaining = check_rate_limit('login_attempt', client_ip, max_attempts=5, window_seconds=60)
+        if not allowed:
+            logger.warning(f"[AUTH] Login rate limit exceeded for IP: {client_ip}")
+            flash('Too many login attempts. Please try again in 60 seconds.', 'error')
+            generate_csrf_token()
+            return render_template('login.html', session=session, all_vehicles=available_vehicles)
+        
         user_email = request.form.get('email', '').strip()
         user_password = request.form.get('password', '')
         logger.debug("[AUTH] Login credentials extracted from form data")
@@ -375,17 +382,23 @@ def login():
         result = handle_login(user_email, user_password)
 
         if result['success']:
+            reset_rate_limit('login_attempt', client_ip)
+            clear_csrf_token()
             flash('Login successful!', 'success')
             return redirect(result['redirect'])
         else:
+            # Generate new CSRF token for retry form
+            generate_csrf_token()
             flash(result['message'], 'error')
             return render_template('login.html', session=session, all_vehicles=available_vehicles)
 
     # GET request - render login form
     logger.debug("[AUTH] Rendering login form (GET request)")
+    generate_csrf_token()
     return render_template('login.html', session=session, all_vehicles=available_vehicles)
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
+@csrf_exempt
 def register():
     """
     User registration page - handles GET (display form) and POST (process registration).
@@ -445,14 +458,68 @@ def register():
         if request.is_json:
             registration_data = request.get_json()
             logger.debug("[AUTH] Registration data extracted from JSON payload")
+            
+            # Validate CSRF token
+            csrf_submitted = registration_data.get('csrf_token', '')
+            valid, error = validate_csrf_token(csrf_submitted)
+            if not valid:
+                logger.warning(f"[AUTH] CSRF validation failed: {error}")
+                return jsonify(success=False, message='Security validation failed. Please try again.')
         else:
             registration_data = request.form
             logger.debug("[AUTH] Registration data extracted from form data")
-        
-        return handle_signup(registration_data)
+            
+            # Validate CSRF token
+            csrf_submitted = registration_data.get('csrf_token', '')
+            valid, error = validate_csrf_token(csrf_submitted)
+            if not valid:
+                logger.warning(f"[AUTH] CSRF validation failed: {error}")
+                flash('Security validation failed. Please try again.', 'error')
+                generate_csrf_token()
+                return render_template('register.html', session=session, all_vehicles=available_vehicles)
+            
+            # Process registration for form data
+            if not request.is_json:
+                # Get form data as dictionary
+                form_data = {
+                    'firstname': request.form.get('firstname', ''),
+                    'lastname': request.form.get('lastname', ''),
+                    'email': request.form.get('email', ''),
+                    'contact_number': request.form.get('contact_number', ''),
+                    'password': request.form.get('password', ''),
+                    'confirm_password': request.form.get('confirm_password', '')
+                }
+                
+                # Call handle_signup
+                result = handle_signup(form_data)
+                
+                # Parse the JSON result
+                if isinstance(result, tuple):
+                    result_data = result[0].get_json() if hasattr(result[0], 'get_json') else {'success': False, 'message': 'Error'}
+                    status_code = result[1]
+                else:
+                    result_data = result.get_json() if hasattr(result, 'get_json') else {'success': False, 'message': 'Error'}
+                    status_code = 200
+                
+                if result_data.get('success'):
+                    if result_data.get('needs_verification'):
+                        # Store data in session for OTP verification
+                        session['temp_email'] = result_data.get('email', form_data['email'])
+                        session['temp_username'] = form_data['firstname']
+                        flash('Verification code sent to your email. Please verify to complete registration.', 'success')
+                        # For HTML form, redirect to login which handles OTP
+                        return redirect(url_for('auth_bp.login'))
+                    else:
+                        flash(result_data.get('message', 'Registration successful!'), 'success')
+                        return redirect(url_for('auth_bp.login'))
+                else:
+                    flash(result_data.get('message', 'Registration failed. Please try again.'), 'error')
+                    generate_csrf_token()
+                    return render_template('register.html', session=session, all_vehicles=available_vehicles)
     
     # GET request - render registration form
     logger.debug("[AUTH] Rendering registration form (GET request)")
+    generate_csrf_token()
     return render_template('register.html', session=session, all_vehicles=available_vehicles)
 
 
@@ -680,6 +747,7 @@ def resend_otp():
 
 
 @auth_bp.route('/logout', methods=['GET', 'POST'])
+@csrf_exempt
 def logout():
     """Logout user"""
     try:
@@ -861,6 +929,9 @@ def handle_signup(data):
         session['temp_user_id'] = user_id
         session['temp_email'] = email
         session['temp_username'] = first_name
+        
+        # Clear the CSRF token after successful submission
+        clear_csrf_token()
         
         return jsonify(
             success=True, 

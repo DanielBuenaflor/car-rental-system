@@ -14,6 +14,7 @@ from MyFlaskApp import get_db_connection
 from MyFlaskApp.payment.payment_service import process_booking_payment
 from MyFlaskApp.payment.invoice_service import InvoiceService
 from MyFlaskApp.email.service import EmailService
+from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clear_csrf_token
 
 
 # ============================================================================
@@ -217,24 +218,16 @@ def manage_brands():
 @admin_required
 def manage_vehicles():
     """Manage vehicles with search and filters"""
-    # Get search parameters
+    from MyFlaskApp.utils.secure_db import fetch_all, fetch_one
+    from MyFlaskApp.utils.secure_db import DatabaseError
+    
     search = request.args.get('search', '').strip()
     brand_id = request.args.get('brand_id', '')
     status = request.args.get('status', '')
     page = request.args.get('page', 1, type=int)
     per_page = 10
     
-    conn = get_db_connection()
-    if not conn:
-        flash('Database connection error', 'error')
-        return render_template('manage_vehicles.html', vehicles=[], brands=[], 
-                               total=0, page=page, per_page=per_page,
-                               search=search, brand_id=brand_id, status=status,
-                               session=session)
-    
-    cursor = conn.cursor(dictionary=True)
     try:
-        # Build query conditions
         conditions = []
         params = []
         
@@ -244,51 +237,60 @@ def manage_vehicles():
             params.extend([search_param, search_param, search_param])
         
         if brand_id:
-            conditions.append("v.brand_id = %s")
-            params.append(brand_id)
+            try:
+                conditions.append("v.brand_id = %s")
+                params.append(int(brand_id))
+            except (ValueError, TypeError):
+                pass
         
         if status:
-            conditions.append("v.status = %s")
-            params.append(status)
+            valid_statuses = ['available', 'rented', 'maintenance', 'reserved', 'unavailable']
+            if status in valid_statuses:
+                conditions.append("v.status = %s")
+                params.append(status)
         
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
         
-        # Get total count
-        cursor.execute(f"""
+        count_query = f"""
             SELECT COUNT(*) as total
             FROM vehicles v
             JOIN vehicle_brands vb ON v.brand_id = vb.id
             {where_clause}
-        """, params)
-        total = cursor.fetchone()['total']
+        """
+        total = fetch_one(count_query, tuple(params))
+        total_count = total['total'] if total else 0
         
-        # Get vehicles with pagination
         offset = (page - 1) * per_page
-        cursor.execute(f"""
+        list_query = f"""
             SELECT v.*, vb.name as brand_name
             FROM vehicles v
             JOIN vehicle_brands vb ON v.brand_id = vb.id
             {where_clause}
             ORDER BY v.id DESC
             LIMIT %s OFFSET %s
-        """, params + [per_page, offset])
-        vehicles = cursor.fetchall()
+        """
+        vehicles = fetch_all(list_query, tuple(params + [per_page, offset]))
         
-        # Get all brands for filter dropdown
-        cursor.execute("SELECT id, name FROM vehicle_brands ORDER BY name")
-        brands = cursor.fetchall()
+        brands = fetch_all("SELECT id, name FROM vehicle_brands ORDER BY name")
         
         print(f"Loaded {len(vehicles)} vehicles and {len(brands)} brands")
         
         return render_template('manage_vehicles.html', 
                                vehicles=vehicles, 
                                brands=brands,
-                               total=total,
+                               total=total_count,
                                page=page,
                                per_page=per_page,
                                search=search,
                                brand_id=brand_id,
                                status=status,
+                               session=session)
+    except DatabaseError as e:
+        print(f"Error loading vehicles: {e}")
+        flash('Error loading vehicles', 'error')
+        return render_template('manage_vehicles.html', vehicles=[], brands=[], 
+                               total=0, page=1, per_page=per_page,
+                               search=search, brand_id=brand_id, status=status,
                                session=session)
     except Exception as e:
         print(f"Error loading vehicles: {e}")
@@ -297,9 +299,6 @@ def manage_vehicles():
                                total=0, page=1, per_page=per_page,
                                search=search, brand_id=brand_id, status=status,
                                session=session)
-    finally:
-        cursor.close()
-        conn.close()
 
 
 @admin_bp.route('/manage-users')
@@ -364,22 +363,15 @@ def manage_bookings():
 @admin_required
 def manage_testimonials():
     """Manage testimonials with search and filters"""
-    # Get search parameters
+    from MyFlaskApp.utils.secure_db import fetch_all, fetch_one
+    from MyFlaskApp.utils.secure_db import DatabaseError
+    
     search = request.args.get('search', '').strip()
     status_filter = request.args.get('status', '')
     page = request.args.get('page', 1, type=int)
     per_page = 10
     
-    conn = get_db_connection()
-    if not conn:
-        return render_template('manage_testimonials.html', testimonials=[], pending_count=0,
-                               total=0, page=page, per_page=per_page,
-                               search=search, status_filter=status_filter,
-                               session=session)
-    
-    cursor = conn.cursor(dictionary=True)
     try:
-        # Build query conditions
         conditions = []
         params = []
         
@@ -389,44 +381,50 @@ def manage_testimonials():
             params.extend([search_param, search_param])
         
         if status_filter:
-            conditions.append("t.status = %s")
-            params.append(status_filter)
+            valid_statuses = ['pending', 'approved', 'rejected']
+            if status_filter in valid_statuses:
+                conditions.append("t.status = %s")
+                params.append(status_filter)
         
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
         
-        # Get total count
-        cursor.execute(f"""
+        count_query = f"""
             SELECT COUNT(*) as total
             FROM testimonials t
             JOIN users u ON t.user_id = u.id
             {where_clause}
-        """, params)
-        total = cursor.fetchone()['total']
+        """
+        total = fetch_one(count_query, tuple(params))
+        total_count = total['total'] if total else 0
         
-        # Get testimonials with pagination
         offset = (page - 1) * per_page
-        cursor.execute(f"""
+        list_query = f"""
             SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as user_name, u.email
             FROM testimonials t
             JOIN users u ON t.user_id = u.id
             {where_clause}
             ORDER BY t.created_at DESC
             LIMIT %s OFFSET %s
-        """, params + [per_page, offset])
-        testimonials = cursor.fetchall()
+        """
+        testimonials = fetch_all(list_query, tuple(params + [per_page, offset]))
         
-        # Calculate pending count (overall, not filtered)
-        cursor.execute("SELECT COUNT(*) as count FROM testimonials WHERE status = 'pending'")
-        pending_count = cursor.fetchone()['count']
+        pending_result = fetch_one("SELECT COUNT(*) as count FROM testimonials WHERE status = 'pending'")
+        pending_count = pending_result['count'] if pending_result else 0
         
         return render_template('manage_testimonials.html', 
                                testimonials=testimonials, 
                                pending_count=pending_count,
-                               total=total,
+                               total=total_count,
                                page=page,
                                per_page=per_page,
                                search=search,
                                status_filter=status_filter,
+                               session=session)
+    except DatabaseError as e:
+        print(f"Error loading testimonials: {e}")
+        return render_template('manage_testimonials.html', testimonials=[], pending_count=0,
+                               total=0, page=1, per_page=per_page,
+                               search=search, status_filter=status_filter,
                                session=session)
     except Exception as e:
         print(f"Error loading testimonials: {e}")
@@ -434,9 +432,6 @@ def manage_testimonials():
                                total=0, page=1, per_page=per_page,
                                search=search, status_filter=status_filter,
                                session=session)
-    finally:
-        cursor.close()
-        conn.close()
 
 
 @admin_bp.route('/manage-queries')
@@ -605,6 +600,177 @@ def manage_extensions():
     except Exception as e:
         print(f"Error loading extensions: {e}")
         return render_template('manage_extensions.html', extensions=[], session=session)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@admin_bp.route('/manage-invoices')
+@admin_required
+def manage_invoices():
+    """Manage all invoices"""
+    status_filter = request.args.get('status', 'all')
+    
+    conn = get_db_connection()
+    if not conn:
+        return render_template('manage_invoices.html', invoices=[], session=session)
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        query = """
+            SELECT i.*, 
+                   b.booking_reference,
+                   b.start_date, 
+                   b.end_date,
+                   v.model, 
+                   vb.name as brand_name,
+                   u.first_name, 
+                   u.last_name,
+                   u.email
+            FROM invoices i
+            JOIN bookings b ON i.booking_id = b.id
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            JOIN users u ON b.user_id = u.id
+        """
+        
+        if status_filter == 'paid':
+            query += " WHERE i.status = 'paid'"
+        elif status_filter == 'pending':
+            query += " WHERE i.status = 'pending'"
+        elif status_filter == 'overdue':
+            query += " WHERE i.status = 'overdue'"
+        
+        query += " ORDER BY i.invoice_date DESC"
+        
+        cursor.execute(query)
+        invoices = cursor.fetchall()
+        return render_template('manage_invoices.html', invoices=invoices, status_filter=status_filter, session=session)
+    except Exception as e:
+        print(f"Error loading invoices: {e}")
+        return render_template('manage_invoices.html', invoices=[], session=session)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@admin_bp.route('/api/invoices')
+@admin_required
+def api_get_invoices():
+    """API to get all invoices with filters"""
+    status = request.args.get('status', 'all')
+    search = request.args.get('search', '').strip()
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify([])
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        query = """
+            SELECT i.*, 
+                   b.booking_reference,
+                   b.start_date, 
+                   b.end_date,
+                   v.model, 
+                   vb.name as brand_name,
+                   u.first_name, 
+                   u.last_name,
+                   u.email
+            FROM invoices i
+            JOIN bookings b ON i.booking_id = b.id
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            JOIN users u ON b.user_id = u.id
+            WHERE 1=1
+        """
+        
+        params = []
+        
+        if status == 'paid':
+            query += " AND i.status = 'paid'"
+        elif status == 'pending':
+            query += " AND i.status = 'pending'"
+        elif status == 'overdue':
+            query += " AND i.status = 'overdue'"
+        
+        if search:
+            query += " AND (i.invoice_number LIKE %s OR u.first_name LIKE %s OR u.last_name LIKE %s OR u.email LIKE %s)"
+            search_param = f"%{search}%"
+            params = [search_param, search_param, search_param, search_param]
+        
+        query += " ORDER BY i.invoice_date DESC"
+        
+        cursor.execute(query, params)
+        invoices = cursor.fetchall()
+        return jsonify(invoices)
+    except Exception as e:
+        print(f"Error getting invoices: {e}")
+        return jsonify([])
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@admin_bp.route('/api/invoices/<int:invoice_id>/resend', methods=['POST'])
+@admin_required
+def api_resend_invoice(invoice_id):
+    """Resend invoice email to customer"""
+    from MyFlaskApp.email.service import EmailService
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'message': 'Database error'}), 500
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT i.*, 
+                   b.booking_reference,
+                   b.start_date, 
+                   b.end_date,
+                   v.model, 
+                   vb.name as brand_name,
+                   u.first_name, 
+                   u.last_name,
+                   u.email
+            FROM invoices i
+            JOIN bookings b ON i.booking_id = b.id
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            JOIN users u ON b.user_id = u.id
+            WHERE i.id = %s
+        """, (invoice_id,))
+        invoice = cursor.fetchone()
+        
+        if not invoice:
+            return jsonify({'success': False, 'message': 'Invoice not found'}), 404
+        
+        # Send invoice email
+        user = {
+            'email': invoice['email'],
+            'first_name': invoice['first_name']
+        }
+        booking = {
+            'booking_reference': invoice['booking_reference'],
+            'start_date': invoice['start_date'],
+            'end_date': invoice['end_date']
+        }
+        vehicle = {
+            'brand_name': invoice['brand_name'],
+            'model': invoice['model']
+        }
+        
+        result = EmailService.send_invoice(user, invoice, booking, vehicle)
+        
+        if result:
+            return jsonify({'success': True, 'message': 'Invoice resent successfully'})
+        else:
+            return jsonify({'success': False, 'message': 'Failed to send email'})
+            
+    except Exception as e:
+        print(f"Error resending invoice: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
     finally:
         cursor.close()
         conn.close()
@@ -2154,6 +2320,9 @@ def api_get_verifications():
 @admin_required
 def api_approve_verification(verification_id):
     """Approve verification request"""
+    data = request.get_json() if request.is_json else {}
+    manual_expiry = data.get('manual_expiry')
+    
     conn = get_db_connection()
     if not conn:
         return jsonify({'success': False, 'message': 'Database error'}), 500
@@ -2171,12 +2340,20 @@ def api_approve_verification(verification_id):
         user_id = result['user_id'] if result else None
         user = result if result else None
         
-        # Update verification status
-        cursor.execute("""
-            UPDATE verifications 
-            SET verification_status = 'approved', verified_by = %s, verified_at = NOW()
-            WHERE id = %s
-        """, (session['user_id'], verification_id))
+        # Build update query based on whether manual_expiry is provided
+        if manual_expiry:
+            cursor.execute("""
+                UPDATE verifications 
+                SET verification_status = 'approved', verified_by = %s, verified_at = NOW(),
+                    ocr_extracted_expiry = %s, updated_at = NOW()
+                WHERE id = %s
+            """, (session['user_id'], manual_expiry, verification_id))
+        else:
+            cursor.execute("""
+                UPDATE verifications 
+                SET verification_status = 'approved', verified_by = %s, verified_at = NOW()
+                WHERE id = %s
+            """, (session['user_id'], verification_id))
         
         # Create notification for user
         cursor.execute("""
@@ -2257,6 +2434,93 @@ def api_reject_verification(verification_id):
         return jsonify({'success': True})
     except Exception as e:
         conn.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@admin_bp.route('/api/verifications/<int:verification_id>/rescan', methods=['POST'])
+@admin_required
+def api_rescan_verification(verification_id):
+    """Re-run OCR with enhanced preprocessing on stored images"""
+    from MyFlaskApp.utils.ocr_service import LicenseOCRService
+    import os
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'message': 'Database connection error'}), 500
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Get verification record
+        cursor.execute("""
+            SELECT v.*, 
+                   CONCAT(u.first_name, ' ', u.last_name) as user_name,
+                   u.email, u.phone
+            FROM verifications v
+            JOIN users u ON v.user_id = u.id
+            WHERE v.id = %s
+        """, (verification_id,))
+        
+        verification = cursor.fetchone()
+        
+        if not verification:
+            return jsonify({'success': False, 'message': 'Verification not found'}), 404
+        
+        # Get upload folder from config
+        upload_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'MyFlaskApp', 'base', 'uploads', 'verifications')
+        
+        # Process license front image
+        ocr_result_license = {'confidence': 0, 'extracted_license': None, 'extracted_expiry': None}
+        if verification.get('license_front_image'):
+            license_path = os.path.join(upload_folder, verification['license_front_image'])
+            if os.path.exists(license_path):
+                result = LicenseOCRService.extract_license_info(license_path)
+                if result:
+                    ocr_result_license = result
+        
+        # Process ID card image
+        ocr_result_id = {'confidence': 0, 'extracted_id': None}
+        if verification.get('id_card_image'):
+            id_path = os.path.join(upload_folder, verification['id_card_image'])
+            if os.path.exists(id_path):
+                result = LicenseOCRService.extract_license_info(id_path)
+                if result:
+                    ocr_result_id = result
+        
+        # Use the better of the two results (higher confidence)
+        best_confidence = max(ocr_result_license.get('confidence', 0), ocr_result_id.get('confidence', 0))
+        extracted_license = ocr_result_license.get('extracted_license') or ocr_result_id.get('extracted_id')
+        extracted_expiry = ocr_result_license.get('extracted_expiry')
+        
+        # Update the verification record with new OCR results
+        cursor.execute("""
+            UPDATE verifications 
+            SET ocr_confidence_score = %s,
+                ocr_extracted_license = %s,
+                ocr_extracted_expiry = %s,
+                updated_at = NOW()
+            WHERE id = %s
+        """, (best_confidence, extracted_license, extracted_expiry, verification_id))
+        
+        conn.commit()
+        
+        print(f"[ADMIN] Re-scan completed for verification {verification_id}")
+        print(f"  - New confidence: {best_confidence:.2%}")
+        print(f"  - Extracted license: {extracted_license}")
+        print(f"  - Extracted expiry: {extracted_expiry}")
+        
+        return jsonify({
+            'success': True,
+            'new_confidence': best_confidence,
+            'extracted_license': extracted_license,
+            'extracted_expiry': extracted_expiry
+        })
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"[ADMIN] Re-scan error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
     finally:
         cursor.close()
