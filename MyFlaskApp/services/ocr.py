@@ -8,7 +8,6 @@ import re
 import cv2
 import pytesseract
 import logging
-import requests
 from PIL import Image
 from datetime import datetime
 
@@ -20,9 +19,6 @@ tesseract_cmd = os.environ.get('TESSERACT_CMD')
 if tesseract_cmd:
     pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
-# Configure OCR.space API key
-ocr_api_key = os.environ.get('OCR_API_KEY')
-
 
 class LicenseOCRService:
     """OCR service for extracting license information from images"""
@@ -31,17 +27,17 @@ class LicenseOCRService:
     def preprocess_image(image_path):
         """
         Preprocess image for better OCR accuracy.
-
+        
         Input:
             image_path (str): Path to the license image file
-
+            
         Process:
             1. Load image using OpenCV
             2. Convert to grayscale for thresholding
             3. Resize if image is too small (below 800px height)
             4. Apply adaptive Gaussian thresholding to handle uneven lighting
             5. Denoise using non-local means denoising
-
+            
         Output:
             numpy.ndarray: Preprocessed image array ready for OCR, or None if processing fails
         """
@@ -52,137 +48,65 @@ class LicenseOCRService:
                 logger.error(f"[OCR] Failed to load image from path: {image_path}")
                 return None
             logger.debug(f"[OCR] Image loaded successfully. Original shape: {loaded_image.shape}")
-
+            
             # Convert to grayscale
             grayscale_image = cv2.cvtColor(loaded_image, cv2.COLOR_BGR2GRAY)
             logger.debug("[OCR] Image converted to grayscale")
-
+            
             # Resize if image is too small (improves OCR accuracy)
             image_height, image_width = grayscale_image.shape
             if image_height < 800:
                 scale_factor = 800 / image_height
                 grayscale_image = cv2.resize(grayscale_image, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_CUBIC)
                 logger.debug(f"[OCR] Image resized with scale factor: {scale_factor:.2f}")
-
+            
             # Apply adaptive thresholding
             thresholded_image = cv2.adaptiveThreshold(
-                grayscale_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                grayscale_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
                 cv2.THRESH_BINARY, 11, 2
             )
             logger.debug("[OCR] Adaptive thresholding applied (Gaussian, blockSize=11, C=2)")
-
+            
             # Denoise
             denoised_image = cv2.fastNlMeansDenoising(thresholded_image, None, 10, 7, 21)
             logger.debug("[OCR] Image denoising completed")
             logger.info("[OCR] Image preprocessing completed successfully")
-
+            
             return denoised_image
         except Exception as preprocessing_error:
             logger.error(f"[OCR] Image preprocessing error: {preprocessing_error}")
             print(f"Image preprocessing error: {preprocessing_error}")
             return None
-
-    @staticmethod
-    def extract_text_ocr_space(image_path):
-        """
-        Extract text from image using OCR.space API.
-
-        Input:
-            image_path (str): Path to the license image file
-
-        Process:
-            1. Check if OCR_API_KEY is configured
-            2. POST image to OCR.space API
-            3. Parse JSON response for extracted text
-
-        Output:
-            str: Extracted text from license image, or None if API fails
-        """
-        if not ocr_api_key:
-            logger.warning("[OCR] OCR.space API key not configured. Skipping API call.")
-            return None
-
-        logger.info(f"[OCR] Calling OCR.space API for: {image_path}")
-        try:
-            with open(image_path, 'rb') as f:
-                response = requests.post(
-                    'https://api.ocr.space/parse/image',
-                    files={'file': f},
-                    data={
-                        'apikey': ocr_api_key,
-                        'language': 'eng',
-                        'isOverlayRequired': False
-                    },
-                    timeout=30
-                )
-
-            result = response.json()
-            logger.debug(f"[OCR] OCR.space response: OCRExitCode={result.get('OCRExitCode')}")
-
-            if result.get('IsErroredOnProcessing'):
-                error_msg = result.get('ErrorMessage', 'Unknown error')
-                logger.error(f"[OCR] OCR.space API error: {error_msg}")
-                return None
-
-            parsed_results = result.get('ParsedResults', [])
-            if not parsed_results:
-                logger.warning("[OCR] OCR.space returned no parsed results")
-                return None
-
-            parsed_text = parsed_results[0].get('ParsedText', '').strip()
-            if parsed_text:
-                logger.info(f"[OCR] OCR.space extracted {len(parsed_text)} characters")
-            else:
-                logger.warning("[OCR] OCR.space returned empty text")
-
-            return parsed_text if parsed_text else None
-
-        except requests.exceptions.Timeout:
-            logger.error("[OCR] OCR.space API timeout")
-            return None
-        except requests.exceptions.RequestException as request_error:
-            logger.error(f"[OCR] OCR.space API request failed: {request_error}")
-            return None
-        except Exception as api_error:
-            logger.error(f"[OCR] OCR.space API error: {api_error}")
-            return None
     
     @staticmethod
     def extract_text(image_path):
         """
-        Extract text from license image using OCR.space API with Tesseract fallback.
-
+        Extract text from license image using Tesseract OCR.
+        
         Input:
             image_path (str): Path to the license image file
-
+            
         Process:
-            1. Try OCR.space API first for better accuracy
-            2. If API fails or returns insufficient text (<10 chars), fallback to Tesseract
-            3. For Tesseract: preprocess image, run OCR, fallback to original if poor results
-
+            1. Preprocess image for better OCR accuracy
+            2. Run Tesseract OCR with LSTM engine (oem 3) and uniform text layout (psm 6)
+            3. If extracted text is too short (<10 chars), fallback to original image
+            4. Return the best result from processed or original image
+            
         Output:
             str: Extracted text from license image, or None if extraction fails
-
-        Tesseract Configuration (fallback):
+            
+        Tesseract Configuration:
             --oem 3: Use LSTM neural net mode (most accurate)
             --psm 6: Assume a single uniform block of text
             -l eng: English language
         """
         logger.info(f"[OCR] Starting text extraction for: {image_path}")
-
-        ocr_space_result = LicenseOCRService.extract_text_ocr_space(image_path)
-        if ocr_space_result and len(ocr_space_result.strip()) >= 10:
-            logger.info(f"[OCR] OCR.space succeeded: {len(ocr_space_result)} characters")
-            return ocr_space_result.strip()
-
-        logger.warning("[OCR] OCR.space failed or returned insufficient text. Falling back to Tesseract.")
-
         try:
             preprocessed_image = LicenseOCRService.preprocess_image(image_path)
             if preprocessed_image is None:
                 logger.error(f"[OCR] Preprocessing failed for: {image_path}")
                 return None
-
+            
             # OCR configuration optimized for documents
             tesseract_config = r'--oem 3 --psm 6 -l eng'
             logger.debug(f"[OCR] Using Tesseract config: {tesseract_config}")

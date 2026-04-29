@@ -446,6 +446,86 @@
             });
         });
         
+        // Image compression function
+        function compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.7) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // Calculate new dimensions maintaining aspect ratio
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height = Math.round(height * maxWidth / width);
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width = Math.round(width * maxHeight / height);
+                                height = maxHeight;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Compress to JPEG
+                        const compressedData = canvas.toDataURL('image/jpeg', quality);
+                        resolve(compressedData);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // Handle file upload with compression
+        fileInput.addEventListener('change', async function() {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                const maxSize = 5 * 1024 * 1024; // 5MB
+                
+                if (file.size > maxSize) {
+                    // Compress if too large
+                    console.log('Compressing image...');
+                    try {
+                        const compressed = await compressImage(file, 1200, 1200, 0.7);
+                        base64Input.value = compressed;
+                        console.log('Image compressed successfully');
+                        
+                        // Show preview
+                        preview.src = compressed;
+                        preview.style.display = 'block';
+                        video.style.display = 'none';
+                        isCaptured = true;
+                    } catch (err) {
+                        console.error('Compression error:', err);
+                        alert('Failed to compress image. Please try a smaller file.');
+                    }
+                } else {
+                    // Small file - convert directly
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        base64Input.value = e.target.result;
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                        video.style.display = 'none';
+                        isCaptured = true;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+        
         // Start camera
         startBtn.addEventListener('click', async () => {
             try {
@@ -476,8 +556,8 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0);
             
-            // Convert to base64 JPEG
-            const base64Data = canvas.toDataURL('image/jpeg', 0.9);
+            // Convert to compressed base64 JPEG
+            const base64Data = canvas.toDataURL('image/jpeg', 0.7);
             base64Input.value = base64Data;
             
             // Show preview
@@ -537,7 +617,15 @@ document.getElementById('verificationForm').addEventListener('submit', function(
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            if (response.status === 413) {
+                throw new Error('413:Payload too large');
+            }
+            return response.json().catch(() => ({}));
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             // Show success message
@@ -577,12 +665,22 @@ document.getElementById('verificationForm').addEventListener('submit', function(
     })
     .catch(error => {
         console.error('Error:', error);
+        let errorMessage = 'An error occurred. Please try again.';
+        
+        // Check if it's a payload too large error
+        if (error.message && error.message.includes('413')) {
+            errorMessage = 'File size is too large. Please try smaller images or use the camera capture instead.';
+        }
+        
         const alertDiv = document.createElement('div');
         alertDiv.className = 'alert alert-error';
-        alertDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> An error occurred. Please try again.';
+        alertDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + errorMessage;
         document.querySelector('.card').insertBefore(alertDiv, document.querySelector('.card').firstChild);
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Verification';
+        
+        // Remove alert after 8 seconds
+        setTimeout(() => alertDiv.remove(), 8000);
     });
 });
 </script>

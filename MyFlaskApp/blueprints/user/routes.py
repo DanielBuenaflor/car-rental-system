@@ -669,18 +669,29 @@ def verification_page():
 def book_vehicle():
     """Book a vehicle (only for verified users)"""
     
+    # Extract and validate data first (before any DB operations)
     data = request.get_json()
     vehicle_id = data.get('vehicle_id')
     start_date = data.get('start_date')
     end_date = data.get('end_date')
-    pickup_time = data.get('pickup_time')
-    return_time = data.get('return_time')
     pickup_location = data.get('pickup_location')
     return_location = data.get('return_location')
+    pickup_location_id = data.get('pickup_location_id')
+    return_location_id = data.get('return_location_id')
+    is_custom_pickup = data.get('is_custom_pickup', False)
+    is_custom_return = data.get('is_custom_return', False)
+    custom_pickup_address = data.get('custom_pickup_address')
+    custom_pickup_lat = data.get('custom_pickup_lat')
+    custom_pickup_lng = data.get('custom_pickup_lng')
+    custom_return_lat = data.get('custom_return_lat')
+    custom_return_lng = data.get('custom_return_lng')
+    one_way_fee = float(data.get('one_way_fee', 0))
+    delivery_fee = float(data.get('delivery_fee', 0))
     
     if not all([vehicle_id, start_date, end_date, pickup_location, return_location]):
         return jsonify({'success': False, 'message': 'All fields are required'})
     
+    # Single connection for entire operation
     conn = get_db_connection()
     if not conn:
         return jsonify({'success': False, 'message': 'Database error'}), 500
@@ -688,6 +699,7 @@ def book_vehicle():
     cursor = conn.cursor(dictionary=True)
     
     try:
+        # Check if user is verified
         cursor.execute("""
             SELECT verification_status FROM verifications 
             WHERE user_id = %s AND verification_status = 'approved'
@@ -701,6 +713,7 @@ def book_vehicle():
                 'redirect': url_for('user_bp.verification_page')
             }), 403
         
+        # Check if vehicle is available
         cursor.execute("""
             SELECT * FROM vehicles 
             WHERE id = %s AND status = 'available'
@@ -710,38 +723,7 @@ def book_vehicle():
         if not vehicle:
             return jsonify({'success': False, 'message': 'Vehicle is not available'})
         
-        start = datetime.strptime(start_date, '%Y-%m-%d')
-        end = datetime.strptime(end_date, '%Y-%m-%d')
-        days = (end - start).days
-        
-        if days <= 0:
-            return jsonify({'success': False, 'message': 'End date must be after start date'})
-        
-        is_same_day = start_date == end_date
-        is_hourly = is_same_day and pickup_time and return_time
-        
-        if is_hourly:
-            pickup_h = int(pickup_time.split(':')[0])
-            return_h = int(return_time.split(':')[0])
-            hours = return_h - pickup_h
-            if hours < 0: hours += 24
-            
-            hourly_rate = float(vehicle['daily_rate']) / 5
-            subtotal = hours * hourly_rate
-            subtotal = min(subtotal, float(vehicle['daily_rate']))
-            rental_days = 1
-        else:
-            if days > 30:
-                return jsonify({'success': False, 'message': 'Maximum rental period is 30 days'})
-            
-            daily_rate = float(vehicle['daily_rate'])
-            subtotal = daily_rate * days
-            rental_days = days
-            hours = 0
-        
-        tax_amount = subtotal * 0.10
-        total_amount = subtotal + tax_amount
-        
+        # Check for overlapping bookings
         cursor.execute("""
             SELECT id FROM bookings 
             WHERE vehicle_id = %s 
@@ -758,27 +740,49 @@ def book_vehicle():
         if overlapping:
             return jsonify({'success': False, 'message': 'Vehicle is already booked for these dates'})
         
+        # Calculate total amount
+        start = datetime.strptime(start_date, '%Y-%m-%d')
+        end = datetime.strptime(end_date, '%Y-%m-%d')
+        rental_days = (end - start).days
+        
+        if rental_days <= 0:
+            return jsonify({'success': False, 'message': 'End date must be after start date'})
+        
+        daily_rate = float(vehicle['daily_rate'])
+        subtotal = daily_rate * rental_days
+        total_before_tax = subtotal + one_way_fee + delivery_fee
+        tax_amount = total_before_tax * 0.10
+        total_amount = total_before_tax + tax_amount
+        
+        # Generate booking reference
         import secrets
         booking_reference = f"BK-{datetime.now().strftime('%Y%m%d%H%M%S')}-{session['user_id']}-{vehicle_id}-{secrets.token_hex(4)}"
         
+        # Create booking
         cursor.execute("""
             INSERT INTO bookings (
-                user_id, vehicle_id, start_date, end_date, pickup_time, return_time,
-                pickup_location, return_location, rental_days, hourly_rate_applied,
-                daily_rate_applied, subtotal, tax_amount, total_amount,
-                security_deposit, status, booking_reference, created_at
+                user_id, vehicle_id, start_date, end_date, pickup_location, return_location,
+                rental_days, daily_rate_applied, subtotal, tax_amount, total_amount,
+                security_deposit, status, booking_reference, created_at,
+                pickup_location_id, return_location_id, custom_pickup_address,
+                custom_pickup_lat, custom_pickup_lng, delivery_fee, one_way_fee,
+                custom_return_lat, custom_return_lng
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, NOW()
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, NOW(),
+                %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """, (
-            session['user_id'], vehicle_id, start_date, end_date, 
-            pickup_time, return_time, pickup_location, return_location,
-            rental_days, hourly_rate if is_hourly else 0,
-            vehicle['daily_rate'], subtotal, tax_amount, total_amount,
-            vehicle['security_deposit'], booking_reference
+            session['user_id'], vehicle_id, start_date, end_date, pickup_location, return_location,
+            rental_days, daily_rate, subtotal, tax_amount, total_amount,
+            vehicle['security_deposit'], booking_reference,
+            pickup_location_id, return_location_id, custom_pickup_address,
+            custom_pickup_lat, custom_pickup_lng, delivery_fee, one_way_fee,
+            custom_return_lat, custom_return_lng
         ))
         
         booking_id = cursor.lastrowid
+        conn.commit()
+        
         conn.commit()
         
         return jsonify({
