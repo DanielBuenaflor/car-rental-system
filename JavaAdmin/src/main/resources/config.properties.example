@@ -1,7 +1,0 @@
-# Database Configuration
-# Copy this file to config.properties and update with your credentials
-
-db.url=jdbc:mysql://localhost:3307/car_rental_system
-db.username=car_user
-db.password=your_password_here
-db.driver=com.mysql.cj.jdbc.Driver

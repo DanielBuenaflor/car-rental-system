@@ -68,7 +68,7 @@
         text-align: center;
         cursor: pointer;
         transition: all 0.3s;
-        border: 2px solid transparent;
+        border: 2px solid #e2e8f0;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     }
     
@@ -153,11 +153,13 @@
         display: flex;
         align-items: center;
         gap: 20px;
+        border: 2px solid #e2e8f0;
     }
     
     .management-card:hover {
         transform: translateY(-3px);
         box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        border-color: #0f3b6f;
     }
     
     .card-icon {
@@ -209,6 +211,7 @@
         border-radius: 15px;
         padding: 20px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border: 2px solid #e2e8f0;
     }
     
     .chart-card h3 {
@@ -332,7 +335,7 @@
         </div>
         
         <div class="stat-tab" onclick="showTab('revenue')">
-            <div class="stat-tab-icon"><i class="fas fa-dollar-sign"></i></div>
+            <div class="stat-tab-icon"><i class="fas fa-peso-sign"></i></div>
             <div class="stat-tab-number">₱{{ "%.2f"|format(dashboard_stats.total_revenue|default(0)) }}</div>
             <div class="stat-tab-label">Total Revenue</div>
         </div>

@@ -294,20 +294,26 @@
         /* ============================================
            FILTER MODAL
         ============================================ */
-        .filter-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(4px);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            animation: fadeIn 0.3s ease;
-        }
+        /* --- Filter Modal Styles --- */
+    .filter-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.6);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+        animation: fadeIn 0.3s ease;
+    }
+
+    /* This is the missing piece that makes the JS work */
+    .filter-modal.active {
+        display: flex;
+    }
         
         @keyframes fadeIn {
             from { opacity: 0; }
@@ -1051,6 +1057,7 @@
         }
         
         .book-now-btn {
+            position: sticky;
             width: 100%;
             padding: 14px;
             background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
@@ -1203,6 +1210,95 @@
              padding: 8px;
          }
 
+         /* ============================================
+            USER MENU & DROPDOWN
+         ============================================ */
+         .user-menu {
+             position: relative;
+             display: inline-block;
+         }
+
+         .user-name {
+             display: flex;
+             align-items: center;
+             gap: 8px;
+             padding: 10px 20px;
+             background: linear-gradient(135deg, rgba(15, 59, 111, 0.05), rgba(44, 90, 140, 0.05));
+             border-radius: 40px;
+             cursor: pointer;
+             transition: all 0.3s;
+             font-weight: 500;
+             color: #334155;
+         }
+
+         .user-name:hover {
+             background: linear-gradient(135deg, rgba(15, 59, 111, 0.1), rgba(44, 90, 140, 0.1));
+             color: #0f3b6f;
+         }
+
+         .user-name i:first-child {
+             font-size: 20px;
+         }
+
+         .user-name i:last-child {
+             font-size: 14px;
+             transition: transform 0.3s;
+         }
+
+         .user-menu.active .user-name i:last-child {
+             transform: rotate(180deg);
+         }
+
+         .dropdown-content {
+             position: absolute;
+             top: 100%;
+             right: 0;
+             background: white;
+             min-width: 220px;
+             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+             border-radius: 16px;
+             margin-top: 12px;
+             padding: 12px 0;
+             display: none;
+             flex-direction: column;
+             z-index: 1001;
+             border: 1px solid #e2e8f0;
+         }
+
+         .user-menu.active .dropdown-content,
+         .user-menu:hover .dropdown-content {
+             display: flex;
+         }
+
+         .dropdown-content a {
+             display: flex;
+             align-items: center;
+             gap: 12px;
+             padding: 12px 20px;
+             color: #334155;
+             text-decoration: none;
+             transition: all 0.2s;
+             font-weight: 500;
+         }
+
+         .dropdown-content a:hover {
+             background: #f8fafc;
+             color: #0f3b6f;
+             padding-left: 24px;
+         }
+
+         .dropdown-content a i {
+             font-size: 16px;
+             width: 20px;
+             text-align: center;
+         }
+
+         .dropdown-content hr {
+             margin: 8px 0;
+             border: none;
+             border-top: 1px solid #e2e8f0;
+         }
+
          @media (max-width: 992px) {
              .mobile-menu-btn {
                  display: block;
@@ -1248,6 +1344,7 @@
                  box-shadow: none;
                  border-radius: 12px;
                  margin-top: 8px;
+                 display: flex !important;
              }
 
 .logo {
@@ -1861,752 +1958,10 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script>
-// All your JavaScript functions remain exactly the same as in your original code
-// (openVehicleModal, displayVehicleModal, loadSimilarVehicle, etc.)
-
-let currentFilters = {
-    search: '',
-    transmission: '',
-    fuel_type: '',
-    seating_capacity: '',
-    min_price: '',
-    max_price: ''
-};
-
-let currentVehicleData = null;
-let confirmModalCallback = null;
-
-function openConfirmModal(options) {
-    const modal = document.getElementById('confirmModal');
-    const icon = document.getElementById('confirmModalIcon');
-    const title = document.getElementById('confirmModalTitle');
-    const message = document.getElementById('confirmModalMessage');
-    const actionBtn = document.getElementById('confirmActionBtn');
-    const cancelBtn = document.getElementById('confirmCancelBtn');
-    
-    const defaults = {
-        icon: 'danger',
-        title: 'Confirm Action',
-        message: 'Are you sure you want to proceed?',
-        confirmText: 'Confirm',
-        confirmClass: 'confirm-btn-danger',
-        onConfirm: null
-    };
-    
-    const opts = { ...defaults, ...options };
-    
-    icon.className = 'confirm-modal-icon ' + opts.icon;
-    title.textContent = opts.title;
-    message.textContent = opts.message;
-    actionBtn.textContent = opts.confirmText;
-    actionBtn.className = opts.confirmClass;
-    confirmModalCallback = opts.onConfirm;
-    
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeConfirmModal() {
-    const modal = document.getElementById('confirmModal');
-    modal.classList.remove('active');
-    document.body.style.overflow = '';
-    confirmModalCallback = null;
-}
-
-function confirmModalAction() {
-    if (confirmModalCallback) {
-        confirmModalCallback();
-    }
-    closeConfirmModal();
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const modal = document.getElementById('confirmModal');
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            closeConfirmModal();
-        }
-    });
-});
-
-function openVehicleModal(vehicleId) {
-    const modal = document.getElementById('vehicleModal');
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    
-    fetch(`/api/vehicle/${vehicleId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                currentVehicleData = data.vehicle;
-                displayVehicleModal(data.vehicle, data.images, data.similar_vehicles);
-            } else {
-                showError('Failed to load vehicle details');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showError('Error loading vehicle details');
-        });
-}
-
-function displayVehicleModal(vehicle, images, similarVehicles) {
-    const container = document.getElementById('modalBody');
-    
-    let imagesHtml = '';
-    let mainImage = vehicle.primary_image || '/static/images/placeholder-car.jpg';
-    
-    // Check if we have images from the API
-    if (images && images.length > 0) {
-        // Find primary image or use first as main
-        const primaryImg = images.find(img => img.is_primary === 1 || img.is_primary === true);
-        if (primaryImg) {
-            mainImage = primaryImg.image_path;
-        } else {
-            mainImage = images[0].image_path;
-        }
-        
-        // Create thumbnail gallery - THIS IS WHAT YOU NEED
-        imagesHtml = `
-            <div class="thumbnail-list">
-                ${images.map((img, idx) => `
-                    <div class="thumbnail-item ${img.image_path === mainImage ? 'active' : ''}" onclick="changeModalImage('${img.image_path}', this)">
-                        <img src="${img.image_path}" alt="Thumbnail ${idx + 1}">
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } else if (vehicle.primary_image) {
-        mainImage = vehicle.primary_image;
-        imagesHtml = `
-            <div class="thumbnail-list">
-                <div class="thumbnail-item active" onclick="changeModalImage('${mainImage}', this)">
-                    <img src="${mainImage}" alt="Vehicle">
-                </div>
-            </div>
-        `;
-    } else {
-        imagesHtml = `
-            <div class="thumbnail-list">
-                <div class="thumbnail-item active" onclick="changeModalImage('${mainImage}', this)">
-                    <img src="${mainImage}" alt="Vehicle">
-                </div>
-            </div>
-        `;
-    }
-    
-    const html = `
-        <div class="vehicle-gallery">
-            <div class="main-image">
-                <img id="modalMainImage" src="${mainImage}" alt="${vehicle.brand_name} ${vehicle.model}">
-            </div>
-            ${imagesHtml}
-        </div>
-        
-        <div class="vehicle-info-grid">
-            <div>
-                <div class="vehicle-specs">
-                    <h3><i class="fas fa-info-circle"></i> Vehicle Specifications</h3>
-                    <div class="specs-grid">
-                        <div class="spec-item">
-                            <i class="fas fa-calendar-alt"></i>
-                            <div><strong>Year</strong><br><span>${vehicle.year}</span></div>
-                        </div>
-                        <div class="spec-item">
-                            <i class="fas fa-cog"></i>
-                            <div><strong>Transmission</strong><br><span>${vehicle.transmission}</span></div>
-                        </div>
-                        <div class="spec-item">
-                            <i class="fas fa-gas-pump"></i>
-                            <div><strong>Fuel Type</strong><br><span>${vehicle.fuel_type}</span></div>
-                        </div>
-                        <div class="spec-item">
-                            <i class="fas fa-users"></i>
-                            <div><strong>Seats</strong><br><span>${vehicle.seating_capacity}</span></div>
-                        </div>
-                        <div class="spec-item">
-                            <i class="fas fa-palette"></i>
-                            <div><strong>Color</strong><br><span>${vehicle.color || 'Not specified'}</span></div>
-                        </div>
-                        <div class="spec-item">
-                            <i class="fas fa-road"></i>
-                            <div><strong>Mileage Limit</strong><br><span>${vehicle.mileage_limit_km || 'Unlimited'} km/day</span></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="description-section">
-                    <h3><i class="fas fa-file-alt"></i> Description</h3>
-                    <p>${vehicle.description || 'Experience the perfect blend of comfort, style, and performance with this premium vehicle. Perfect for both city driving and long journeys.'}</p>
-                    
-                    <h3 style="margin-top: 20px;"><i class="fas fa-check-circle"></i> What's Included</h3>
-                    <ul style="margin-top: 10px; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> Free cancellation up to 24h</li>
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> 24/7 roadside assistance</li>
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> Insurance included</li>
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> GPS navigation available</li>
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> Child seat on request</li>
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> Additional driver option</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div>
-                <div class="booking-card">
-                    <div class="modal-price">₱${vehicle.daily_rate}/day</div>
-                    <a href="/user/book/${vehicle.id}" class="book-now-btn" style="text-align: center; display: block; text-decoration: none;">
-                        <i class="fas fa-calendar-check"></i> Book Now
-                    </a>
-                    <p style="text-align: center; margin-top: 15px; font-size: 12px; color: #64748b;">
-                        <i class="fas fa-shield-alt"></i> Free cancellation up to 24 hours before pickup
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        ${similarVehicles && similarVehicles.length > 0 ? `
-        <div class="similar-vehicles-modal">
-            <h3><i class="fas fa-car"></i> Similar Vehicles You Might Like</h3>
-            <div class="similar-grid-modal">
-                ${similarVehicles.map(similar => `
-                    <div class="similar-card-modal" onclick="openVehicleModal(${similar.id})">
-                        ${similar.primary_image ? 
-                            `<img src="${similar.primary_image}" alt="${similar.brand_name} ${similar.model}">` : 
-                            '<div style="height: 140px; background: linear-gradient(135deg, #e0f2fe, #bae6fd); display: flex; align-items: center; justify-content: center;"><i class="fas fa-car" style="font-size: 50px; color: #0f3b6f;"></i></div>'}
-                        <div class="info">
-                            <h4>${similar.brand_name} ${similar.model}</h4>
-                            <div class="price">₱${similar.daily_rate}/day</div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-        ` : ''}
-    `;
-    
-    container.innerHTML = html;
-}
-
-
-
-function loadSimilarVehicle(vehicleId) {
-    const container = document.getElementById('modalBody');
-    container.innerHTML = `
-        <div class="loading-spinner" style="display: block;">
-            <i class="fas fa-spinner fa-spin fa-3x"></i>
-            <p>Loading vehicle details...</p>
-        </div>
-    `;
-    
-    const modalContent = document.querySelector('.vehicle-modal-content');
-    if (modalContent) {
-        modalContent.scrollTop = 0;
-    }
-    
-    fetch(`/api/vehicle/${vehicleId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                currentVehicleData = data.vehicle;
-                displayVehicleModal(data.vehicle, data.images, data.similar_vehicles);
-            } else {
-                showError('Failed to load vehicle details');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showError('Error loading vehicle details');
-        });
-}
-
-// Make sure changeModalImage function exists and works
-function changeModalImage(imagePath, element) {
-    const mainImage = document.getElementById('modalMainImage');
-    if (mainImage) {
-        mainImage.src = imagePath;
-    }
-    
-    // Update active class on thumbnails
-    document.querySelectorAll('.thumbnail-item').forEach(thumb => {
-        thumb.classList.remove('active');
-    });
-    
-    if (element) {
-        element.classList.add('active');
-    }
-}
-
-
-function calculateModalTotal(dailyRate) {
-    const startDate = document.getElementById('modalStartDate').value;
-    const endDate = document.getElementById('modalEndDate').value;
-    
-    if (startDate && endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-        
-        if (days > 0) {
-            const total = days * dailyRate;
-            document.getElementById('modalTotalAmount').innerText = '₱' + total.toLocaleString();
-            document.getElementById('modalTotalPrice').style.display = 'block';
-            document.getElementById('modalBookBtn').disabled = false;
-        } else {
-            document.getElementById('modalTotalPrice').style.display = 'none';
-            document.getElementById('modalBookBtn').disabled = true;
-        }
-    } else {
-        document.getElementById('modalTotalPrice').style.display = 'none';
-        document.getElementById('modalBookBtn').disabled = true;
-    }
-}
-
-function closeVehicleModal() {
-    const modal = document.getElementById('vehicleModal');
-    modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
-}
-
-function showError(message) {
-    const container = document.getElementById('modalBody');
-    container.innerHTML = `
-        <div style="text-align: center; padding: 60px;">
-            <i class="fas fa-exclamation-circle" style="font-size: 48px; color: #ef4444;"></i>
-            <p style="margin-top: 20px;">${message}</p>
-            <button class="btn-secondary" onclick="closeVehicleModal()" style="margin-top: 20px;">Close</button>
-        </div>
-    `;
-}
-
-function openFilterModal() {
-    document.getElementById('filterModal').style.display = 'flex';
-}
-
-function closeFilterModal() {
-    document.getElementById('filterModal').style.display = 'none';
-}
-
-function applyFiltersFromModal() {
-    currentFilters.transmission = document.getElementById('filterTransmission').value;
-    currentFilters.fuel_type = document.getElementById('filterFuelType').value;
-    currentFilters.seating_capacity = document.getElementById('filterSeats').value;
-    currentFilters.min_price = document.getElementById('filterMinPrice').value;
-    currentFilters.max_price = document.getElementById('filterMaxPrice').value;
-    
-    closeFilterModal();
-    applyFilters();
-}
-
-function resetAllFilters() {
-    document.getElementById('filterTransmission').value = '';
-    document.getElementById('filterFuelType').value = '';
-    document.getElementById('filterSeats').value = '';
-    document.getElementById('filterMinPrice').value = '';
-    document.getElementById('filterMaxPrice').value = '';
-    document.getElementById('searchInput').value = '';
-    
-    currentFilters = {
-        search: '',
-        transmission: '',
-        fuel_type: '',
-        seating_capacity: '',
-        min_price: '',
-        max_price: ''
-    };
-    
-    applyFilters();
-}
-
-function updateActiveFiltersDisplay() {
-    const container = document.getElementById('activeFilters');
-    let filtersHtml = '';
-    
-    if (currentFilters.search) {
-        filtersHtml += `<div class="filter-tag">Search: ${currentFilters.search} <i class="fas fa-times" onclick="removeFilter('search')"></i></div>`;
-    }
-    if (currentFilters.transmission) {
-        filtersHtml += `<div class="filter-tag">Transmission: ${currentFilters.transmission} <i class="fas fa-times" onclick="removeFilter('transmission')"></i></div>`;
-    }
-    if (currentFilters.fuel_type) {
-        filtersHtml += `<div class="filter-tag">Fuel: ${currentFilters.fuel_type} <i class="fas fa-times" onclick="removeFilter('fuel_type')"></i></div>`;
-    }
-    if (currentFilters.seating_capacity) {
-        let seats = currentFilters.seating_capacity;
-        filtersHtml += `<div class="filter-tag">Seats: ${seats === '7' ? '7+' : seats} <i class="fas fa-times" onclick="removeFilter('seating_capacity')"></i></div>`;
-    }
-    if (currentFilters.min_price) {
-        filtersHtml += `<div class="filter-tag">Min: ₱${currentFilters.min_price} <i class="fas fa-times" onclick="removeFilter('min_price')"></i></div>`;
-    }
-    if (currentFilters.max_price) {
-        filtersHtml += `<div class="filter-tag">Max: ₱${currentFilters.max_price} <i class="fas fa-times" onclick="removeFilter('max_price')"></i></div>`;
-    }
-    
-    container.innerHTML = filtersHtml;  
-}
-
-function removeFilter(filterKey) {
-    if (filterKey === 'search') {
-        currentFilters.search = '';
-        document.getElementById('searchInput').value = '';
-    } else {
-        currentFilters[filterKey] = '';
-        
-        if (filterKey === 'transmission') document.getElementById('filterTransmission').value = '';
-        if (filterKey === 'fuel_type') document.getElementById('filterFuelType').value = '';
-        if (filterKey === 'seating_capacity') document.getElementById('filterSeats').value = '';
-        if (filterKey === 'min_price') document.getElementById('filterMinPrice').value = '';
-        if (filterKey === 'max_price') document.getElementById('filterMaxPrice').value = '';
-    }
-    
-    applyFilters();
-}
-
-function applyFilters() {
-    currentFilters.search = document.getElementById('searchInput').value;
-    
-    const filters = {
-        search: currentFilters.search,
-        transmission: currentFilters.transmission,
-        fuel_type: currentFilters.fuel_type,
-        seating_capacity: currentFilters.seating_capacity,
-        min_price: currentFilters.min_price,
-        max_price: currentFilters.max_price
-    };
-    
-    updateActiveFiltersDisplay();
-    
-    document.getElementById('loadingSpinner').style.display = 'block';
-    document.getElementById('vehiclesContainer').innerHTML = '';
-    
-    fetch('/api/vehicles/filter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(filters)
-    })
-    .then(response => response.json())
-    .then(data => {
-        displayVehicles(data.vehicles);
-        document.getElementById('loadingSpinner').style.display = 'none';
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        document.getElementById('loadingSpinner').style.display = 'none';
-        document.getElementById('vehiclesContainer').innerHTML = '<div class="no-results"><i class="fas fa-exclamation-circle fa-3x"></i><p>Error loading vehicles. Please try again.</p></div>';
-    });
-}
-
-function displayVehicles(vehicles) {
-    const container = document.getElementById('vehiclesContainer');
-    
-    if (!vehicles || vehicles.length === 0) {
-        container.innerHTML = `
-            <div class="no-results">
-                <i class="fas fa-search fa-3x" style="color: #cbd5e1;"></i>
-                <h3>No vehicles found</h3>
-                <p>Try adjusting your search filters to find more vehicles.</p>
-                <button class="btn-secondary" onclick="resetAllFilters()">Reset Filters</button>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '<div class="fleet-grid">';
-    vehicles.forEach(vehicle => {
-        html += `
-            <div class="fleet-card" onclick="openVehicleModal(${vehicle.id})">
-                <div class="fleet-image">
-                    ${vehicle.primary_image ? 
-                        `<img src="${vehicle.primary_image}" alt="${vehicle.brand_name} ${vehicle.model}">` : 
-                        '<i class="fas fa-car"></i>'}
-                </div>
-                <div class="fleet-info">
-                    <h3>${vehicle.brand_name} ${vehicle.model}</h3>
-                    <div class="fleet-price">₱${vehicle.daily_rate}/day <small>+ tax</small></div>
-                    <ul class="fleet-features">
-                        <li><i class="fas fa-calendar-alt"></i> ${vehicle.year}</li>
-                        <li><i class="fas fa-cog"></i> ${vehicle.transmission}</li>
-                        <li><i class="fas fa-gas-pump"></i> ${vehicle.fuel_type}</li>
-                        <li><i class="fas fa-users"></i> ${vehicle.seating_capacity} seats</li>
-                    </ul>
-                    <button class="btn-primary" style="width:100%; text-align:center;" onclick="event.stopPropagation(); openVehicleModal(${vehicle.id})">
-                        View Details
-                    </button>
-                </div>
-            </div>
-        `;
-    });
-    html += '</div>';
-    container.innerHTML = html;
-}
-
-let searchTimeout;
-document.getElementById('searchInput').addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        applyFilters();
-    }, 500);
-});
-
-window.onclick = function(event) {
-    const filterModal = document.getElementById('filterModal');
-    if (event.target === filterModal) {
-        closeFilterModal();
-    }
-    const vehicleModal = document.getElementById('vehicleModal');
-    if (event.target === vehicleModal) {
-        closeVehicleModal();
-    }
-}
-
-function logoutUser() {
-    console.log('Logging out...');
-    
-    fetch('{{ url_for('auth_bp.logout') }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Logout response:', data);
-        if (data.success) {
-            window.location.href = data.redirect_url || '/';
-        } else {
-            console.log('POST failed, trying GET fallback');
-            window.location.href = '{{ url_for("auth_bp.logout") }}';
-        }
-    })
-    .catch(error => {
-        console.error('Logout error:', error);
-        console.log('Using GET fallback');
-        window.location.href = '{{ url_for("auth_bp.logout") }}';
-    });
-}
-
-function toggleMobileMenu() {
-    const navLinks = document.getElementById('navLinks');
-    const menuBtn = document.querySelector('.mobile-menu-btn i');
-    navLinks.classList.toggle('active');
-    if (navLinks.classList.contains('active')) {
-        menuBtn.classList.remove('fa-bars');
-        menuBtn.classList.add('fa-times');
-    } else {
-        menuBtn.classList.remove('fa-times');
-        menuBtn.classList.add('fa-bars');
-    }
-}
-
-function adjustFooterForMobile() {
-    const footer = document.querySelector('footer div');
-    if (footer && window.innerWidth <= 768) {
-        footer.style.alignItems = 'center';
-    }
-}
-</script>
-
-<style>
-    .dropdown-content {
-        display: none;
-        position: absolute;
-        right: 0;
-        background-color: white;
-        min-width: 220px;
-        box-shadow: 0 12px 30px rgba(0,0,0,0.12);
-        border-radius: 16px;
-        z-index: 1;
-        overflow: hidden;
-        animation: slideDown 0.3s ease;
-    }
-    
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .user-menu {
-        position: relative;
-        display: inline-block;
-    }
-    
-    .user-name {
-        background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
-        color: white;
-        padding: 10px 24px;
-        border-radius: 40px;
-        font-weight: 600;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        transition: all 0.3s;
-    }
-    
-    .user-name:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(15, 59, 111, 0.3);
-    }
-    
-    .user-menu:hover .dropdown-content {
-        display: block;
-    }
-    
-    .dropdown-content a {
-        color: #1f3a5f;
-        padding: 12px 20px;
-        text-decoration: none;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        transition: all 0.2s;
-    }
-    
-    .dropdown-content a:hover {
-        background-color: #f1f5f9;
-        padding-left: 28px;
-    }
-    
-    .dropdown-content hr {
-        margin: 8px 0;
-        border-color: #e2e8f0;
-    }
-    
-    .alert {
-        padding: 16px 24px;
-        border-radius: 16px;
-        margin-bottom: 24px;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        animation: slideDown 0.3s ease;
-    }
-    
-    .alert-success {
-        background: #d1fae5;
-        color: #065f46;
-        border-left: 4px solid #10b981;
-    }
-    
-    .alert-error {
-        background: #fee2e2;
-        color: #991b1b;
-        border-left: 4px solid #ef4444;
-    }
-    
-    .alert-info {
-        background: #e0f2fe;
-        color: #0f3b6f;
-        border-left: 4px solid #0f3b6f;
-    }
-
-    /* Thumbnail Gallery Styles */
-.vehicle-gallery {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    margin-bottom: 32px;
-}
-
-.main-image {
-    background: #f8fafc;
-    border-radius: 20px;
-    overflow: hidden;
-    height: 420px;
-}
-
-.main-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.thumbnail-list {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-}
-
-.thumbnail-item {
-    background: #f8fafc;
-    border-radius: 16px;
-    overflow: hidden;
-    height: 198px;
-    cursor: pointer;
-    transition: all 0.3s;
-    border: 2px solid transparent;
-}
-
-.thumbnail-item:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-
-.thumbnail-item.active {
-    border-color: #0f3b6f;
-    box-shadow: 0 4px 12px rgba(15, 59, 111, 0.2);
-}
-
-.thumbnail-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* ============================================
-   TOAST NOTIFICATIONS (Fixed Position)
-============================================ */
-.toast-container {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-width: 400px;
-}
-
-.toast {
-    padding: 16px 24px;
-    border-radius: 12px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-    animation: slideInToast 0.3s ease;
-    backdrop-filter: blur(10px);
-}
-
-@keyframes slideInToast {
-    from {
-        opacity: 0;
-        transform: translateX(100%);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-.toast-error {
-    background: #fee2e2;
-    color: #991b1b;
-    border-left: 4px solid #ef4444;
-}
-
-.toast-success {
-    background: #d1fae5;
-    color: #065f46;
-    border-left: 4px solid #10b981;
-}
-</style>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/vehicle-modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filters.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}"></script>
 
 {% block extra_js %}{% endblock %}
 </body>

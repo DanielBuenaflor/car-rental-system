@@ -168,6 +168,10 @@ CREATE TABLE vehicles (
     next_service_date DATE,
     insurance_expiry DATE,
     registration_expiry DATE,
+    current_lat DECIMAL(10, 8),
+    current_lng DECIMAL(11, 8),
+    last_location_update DATETIME,
+    gps_device_id VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
@@ -178,6 +182,24 @@ CREATE TABLE vehicles (
     INDEX idx_location (location),
     
     FOREIGN KEY (brand_id) REFERENCES vehicle_brands(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table 6b: vehicle_location_history - GPS tracking history
+DROP TABLE IF EXISTS vehicle_location_history;
+CREATE TABLE vehicle_location_history (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    vehicle_id INT NOT NULL,
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    speed_kmh DECIMAL(6, 2),
+    heading DECIMAL(5, 2),
+    location_address VARCHAR(255),
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_vehicle_id (vehicle_id),
+    INDEX idx_recorded_at (recorded_at),
+    
+    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table 7: vehicle_images
@@ -215,6 +237,41 @@ CREATE TABLE maintenance_logs (
     INDEX idx_maintenance_date (maintenance_date),
     
     FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table 8b: rental_locations - Branch/ pickup locations with GPS coordinates
+DROP TABLE IF EXISTS rental_locations;
+CREATE TABLE rental_locations (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    address TEXT NOT NULL,
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    branch_type ENUM('airport', 'city', 'hotel') DEFAULT 'city',
+    operating_hours VARCHAR(100),
+    contact_phone VARCHAR(20),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_branch_type (branch_type),
+    INDEX idx_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table 8c: location_pricing - One-way drop-off fees between locations
+DROP TABLE IF EXISTS location_pricing;
+CREATE TABLE location_pricing (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    from_location_id INT NOT NULL,
+    to_location_id INT NOT NULL,
+    fee_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_from_location (from_location_id),
+    INDEX idx_to_location (to_location_id),
+    
+    FOREIGN KEY (from_location_id) REFERENCES rental_locations(id) ON DELETE CASCADE,
+    FOREIGN KEY (to_location_id) REFERENCES rental_locations(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_route (from_location_id, to_location_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================
@@ -263,6 +320,21 @@ CREATE TABLE bookings (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table 9b: bookings - add custom pickup columns
+ALTER TABLE bookings ADD COLUMN pickup_location_id INT;
+ALTER TABLE bookings ADD COLUMN return_location_id INT;
+ALTER TABLE bookings ADD COLUMN custom_pickup_address TEXT;
+ALTER TABLE bookings ADD COLUMN custom_pickup_lat DECIMAL(10, 8);
+ALTER TABLE bookings ADD COLUMN custom_pickup_lng DECIMAL(11, 8);
+ALTER TABLE bookings ADD COLUMN delivery_fee DECIMAL(10, 2) DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN one_way_fee DECIMAL(10, 2) DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN pickup_time TIME;
+ALTER TABLE bookings ADD COLUMN return_time TIME;
+ALTER TABLE bookings ADD COLUMN hourly_rate_applied DECIMAL(10,2) DEFAULT 0;
+
+ALTER TABLE bookings ADD INDEX idx_pickup_location_id (pickup_location_id);
+ALTER TABLE bookings ADD INDEX idx_return_location_id (return_location_id);
 
 -- Table 10: bookings_backup
 DROP TABLE IF EXISTS bookings_backup;
@@ -340,6 +412,43 @@ CREATE TABLE rental_tracking (
     FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================
+-- SEED DATA: RENTAL LOCATIONS (10 locations across Philippines)
+-- =============================================
+
+INSERT INTO rental_locations (name, address, latitude, longitude, branch_type, operating_hours, contact_phone, is_active) VALUES
+('Manila Airport Branch', 'NAIA Terminal 3, Pasay City, Metro Manila', 14.5086, 121.0194, 'airport', '24/7', '+63 2 8888 7777', TRUE),
+('Makati City Branch', 'Ayala Avenue, Makati City, Metro Manila', 14.5547, 121.0244, 'city', '07:00 - 22:00', '+63 2 8899 6666', TRUE),
+('Cebu City Branch', 'Archbishop Street, Cebu City, Cebu', 10.3157, 123.8854, 'city', '07:00 - 21:00', '+63 32 888 5555', TRUE),
+('Davao City Branch', 'CM Recto Avenue, Davao City', 7.0731, 125.6128, 'city', '08:00 - 20:00', '+63 82 888 4444', TRUE),
+('Clark International Airport', 'Clark Freeport Zone, Pampanga', 15.1851, 120.5601, 'airport', '06:00 - 23:00', '+63 45 888 3333', TRUE),
+('Bacolod City Branch', 'Lacson Street, Bacolod City, Negros Occidental', 10.6762, 122.9567, 'city', '08:00 - 19:00', '+63 34 888 2222', TRUE),
+('Iloilo City Branch', 'Iloilo City, Iloilo', 10.7202, 122.5621, 'city', '07:00 - 20:00', '+63 33 888 1111', TRUE),
+('Tagbilaran City Branch', 'Tagbilaran City, Bohol', 9.8500, 123.8500, 'city', '08:00 - 18:00', '+63 38 888 0000', TRUE),
+('Subic Bay Branch', 'Subic Bay Freeport Zone, Zambales', 14.8801, 120.2355, 'city', '08:00 - 20:00', '+63 47 888 9999', TRUE),
+('Laoag City Branch', 'Laoag City, Ilocos Norte', 18.1988, 120.5913, 'city', '08:00 - 18:00', '+63 77 888 8888', TRUE);
+
+-- Seed data: Location pricing (one-way fees between popular routes)
+-- Fee = 0 means no extra charge (same city or partner locations)
+INSERT INTO location_pricing (from_location_id, to_location_id, fee_amount) VALUES
+(1, 2, 0),    -- Manila Airport to Makati (same metro, no fee)
+(1, 3, 1500), -- Manila Airport to Cebu (inter-island)
+(1, 4, 2500), -- Manila Airport to Davao (inter-island)
+(1, 5, 800),  -- Manila Airport to Clark (nearby)
+(2, 1, 0),    -- Makati to Manila Airport
+(2, 3, 1500), -- Makati to Cebu
+(2, 4, 2500), -- Makati to Davao
+(2, 5, 800),  -- Makati to Clark
+(3, 1, 1500), -- Cebu to Manila Airport
+(3, 2, 1500), -- Cebu to Makati
+(3, 4, 1800), -- Cebu to Davao
+(3, 8, 300),  -- Cebu to Tagbilaran (Bohol)
+(4, 1, 2500), -- Davao to Manila Airport
+(4, 2, 2500), -- Davao to Makati
+(4, 3, 1800), -- Davao to Cebu
+(5, 1, 800),  -- Clark to Manila Airport
+(5, 2, 800);  -- Clark to Makati
 
 -- =============================================
 -- SECTION 4: PAYMENT & FINANCIAL TABLES

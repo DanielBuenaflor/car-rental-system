@@ -234,17 +234,27 @@ function filterAndDisplayBookings() {
     if (currentFilters.status !== 'all') {
         filtered = filtered.filter(b => b.status === currentFilters.status);
     }
+    // Filter by Date From (Normalize to start of day)
     if (currentFilters.dateFrom) {
-        filtered = filtered.filter(b => b.start_date >= currentFilters.dateFrom);
+        const fromDate = new Date(currentFilters.dateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        filtered = filtered.filter(b => new Date(b.start_date) >= fromDate);
     }
+
+    // Filter by Date To (Normalize to end of day)
     if (currentFilters.dateTo) {
-        filtered = filtered.filter(b => b.end_date <= currentFilters.dateTo);
+        const toDate = new Date(currentFilters.dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        filtered = filtered.filter(b => new Date(b.end_date) <= toDate);
     }
+
+    // 3. Filter by Search Text (Case-Insensitive)
     if (currentFilters.search) {
+        const searchTerm = currentFilters.search.toLowerCase();
         filtered = filtered.filter(b => 
-            b.user_name.toLowerCase().includes(currentFilters.search) ||
-            b.brand_name.toLowerCase().includes(currentFilters.search) ||
-            b.model.toLowerCase().includes(currentFilters.search)
+            (b.user_name && b.user_name.toLowerCase().includes(searchTerm)) ||
+            (b.brand_name && b.brand_name.toLowerCase().includes(searchTerm)) ||
+            (b.model && b.model.toLowerCase().includes(searchTerm))
         );
     }
     

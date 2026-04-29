@@ -430,9 +430,42 @@
     }
     
     /* ============================================
+       AVAILABILITY BADGE
+    ============================================ */
+    .availability-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    
+    .availability-badge.badge-green {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .availability-badge.badge-yellow {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .availability-badge.badge-red {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .availability-badge i {
+        font-size: 10px;
+    }
+    
+    /* ============================================
        VEHICLE DETAIL MODAL
     ============================================ */
-    .vehicle-modal {
+.vehicle-modal {
         display: none;
         position: fixed;
         top: 0;
@@ -444,7 +477,7 @@
         z-index: 2000;
         justify-content: center;
         align-items: center;
-        animation: fadeIn 0.3s ease;
+        overflow: hidden;
     }
     
     .vehicle-modal-content {
@@ -453,9 +486,11 @@
         max-width: 1200px;
         max-height: 90vh;
         border-radius: 32px;
+        overflow-x: hidden;
         overflow-y: auto;
         position: relative;
         animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        padding-bottom: 24px;
     }
     
     .vehicle-modal-content::-webkit-scrollbar {
@@ -529,11 +564,15 @@
     }
     
     .main-image {
-        background: #f8fafc;
+        background: linear-gradient(135deg, #e0f2fe, #bae6fd);
         border-radius: 20px;
         overflow: hidden;
         height: 420px;
+        min-height: 420px;
         position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
     .main-image img {
@@ -545,6 +584,11 @@
     
     .main-image:hover img {
         transform: scale(1.02);
+    }
+    
+    .main-image .no-image {
+        font-size: 100px;
+        color: #0f3b6f;
     }
     
     .thumbnail-list {
@@ -697,6 +741,36 @@
     .book-now-btn:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(15, 59, 111, 0.3);
+    }
+    
+    .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 16px 32px;
+    border-top: 2px solid #e2e8f0;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    align-items: center;
+    z-index: 10;
+    }
+    
+    .close-modal-btn {
+        padding: 14px 32px;
+        background: #f1f5f9;
+        color: #64748b;
+        border: none;
+        border-radius: 40px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 16px;
+    }
+    
+    .close-modal-btn:hover {
+        background: #e2e8f0;
+        color: #1e293b;
     }
     
     .description-section {
@@ -974,455 +1048,10 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/js/lightbox.min.js"></script>
 <script>
-let currentFilters = {
-    search: '',
-    transmission: '',
-    fuel_type: '',
-    seating_capacity: '',
-    min_price: '',
-    max_price: '',
-    start_date: '',
-    end_date: ''
-};
-
-// Load vehicle images for initial vehicles
-document.addEventListener('DOMContentLoaded', function() {
-    // Load images for all vehicle cards
-    document.querySelectorAll('.fleet-card').forEach(card => {
-        const vehicleId = card.dataset.vehicleId;
-        if (vehicleId) {
-            loadVehicleImages(vehicleId, card);
-        }
-    });
-});
-
-function openFilterModal() {
-    document.getElementById('filterModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-}
-
-function closeFilterModal() {
-    document.getElementById('filterModal').style.display = 'none';
-    document.body.style.overflow = 'auto';
-}
-
-function applyFiltersFromModal() {
-    currentFilters.transmission = document.getElementById('filterTransmission').value;
-    currentFilters.fuel_type = document.getElementById('filterFuelType').value;
-    currentFilters.seating_capacity = document.getElementById('filterSeats').value;
-    currentFilters.min_price = document.getElementById('filterMinPrice').value;
-    currentFilters.max_price = document.getElementById('filterMaxPrice').value;
-    currentFilters.start_date = document.getElementById('filterPickupDate').value;
-    currentFilters.end_date = document.getElementById('filterReturnDate').value;
-    
-    closeFilterModal();
-    applyFilters();
-}
-
-function resetAllFilters() {
-    document.getElementById('filterTransmission').value = '';
-    document.getElementById('filterFuelType').value = '';
-    document.getElementById('filterSeats').value = '';
-    document.getElementById('filterMinPrice').value = '';
-    document.getElementById('filterMaxPrice').value = '';
-    document.getElementById('filterPickupDate').value = '';
-    document.getElementById('filterReturnDate').value = '';
-    document.getElementById('searchInput').value = '';
-    
-    currentFilters = {
-        search: '',
-        transmission: '',
-        fuel_type: '',
-        seating_capacity: '',
-        min_price: '',
-        max_price: '',
-        start_date: '',
-        end_date: ''
-    };
-    
-    applyFilters();
-}
-
-function updateActiveFiltersDisplay() {
-    const container = document.getElementById('activeFilters');
-    let filtersHtml = '';
-    
-    if (currentFilters.search) {
-        filtersHtml += `<div class="filter-tag"><i class="fas fa-search"></i> ${escapeHtml(currentFilters.search)} <i class="fas fa-times" onclick="removeFilter('search')"></i></div>`;
-    }
-    if (currentFilters.transmission) {
-        filtersHtml += `<div class="filter-tag"><i class="fas fa-cog"></i> ${currentFilters.transmission} <i class="fas fa-times" onclick="removeFilter('transmission')"></i></div>`;
-    }
-    if (currentFilters.fuel_type) {
-        filtersHtml += `<div class="filter-tag"><i class="fas fa-gas-pump"></i> ${currentFilters.fuel_type} <i class="fas fa-times" onclick="removeFilter('fuel_type')"></i></div>`;
-    }
-    if (currentFilters.seating_capacity) {
-        let seats = currentFilters.seating_capacity === '7' ? '7+' : currentFilters.seating_capacity;
-        filtersHtml += `<div class="filter-tag"><i class="fas fa-users"></i> ${seats} seats <i class="fas fa-times" onclick="removeFilter('seating_capacity')"></i></div>`;
-    }
-    if (currentFilters.min_price) {
-        filtersHtml += `<div class="filter-tag"><i class="fas fa-dollar-sign"></i> Min: ₱${parseInt(currentFilters.min_price).toLocaleString()} <i class="fas fa-times" onclick="removeFilter('min_price')"></i></div>`;
-    }
-    if (currentFilters.max_price) {
-        filtersHtml += `<div class="filter-tag"><i class="fas fa-dollar-sign"></i> Max: ₱${parseInt(currentFilters.max_price).toLocaleString()} <i class="fas fa-times" onclick="removeFilter('max_price')"></i></div>`;
-    }
-    if (currentFilters.start_date) {
-        filtersHtml += `<div class="filter-tag"><i class="fas fa-calendar-alt"></i> From: ${currentFilters.start_date} <i class="fas fa-times" onclick="removeFilter('start_date')"></i></div>`;
-    }
-    if (currentFilters.end_date) {
-        filtersHtml += `<div class="filter-tag"><i class="fas fa-calendar-check"></i> To: ${currentFilters.end_date} <i class="fas fa-times" onclick="removeFilter('end_date')"></i></div>`;
-    }
-    
-    container.innerHTML = filtersHtml;
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function removeFilter(filterKey) {
-    if (filterKey === 'search') {
-        currentFilters.search = '';
-        document.getElementById('searchInput').value = '';
-    } else {
-        currentFilters[filterKey] = '';
-        
-        if (filterKey === 'transmission') document.getElementById('filterTransmission').value = '';
-        if (filterKey === 'fuel_type') document.getElementById('filterFuelType').value = '';
-        if (filterKey === 'seating_capacity') document.getElementById('filterSeats').value = '';
-        if (filterKey === 'min_price') document.getElementById('filterMinPrice').value = '';
-        if (filterKey === 'max_price') document.getElementById('filterMaxPrice').value = '';
-        if (filterKey === 'start_date') document.getElementById('filterPickupDate').value = '';
-        if (filterKey === 'end_date') document.getElementById('filterReturnDate').value = '';
-    }
-    
-    applyFilters();
-}
-
-function applyFilters() {
-    currentFilters.search = document.getElementById('searchInput').value;
-    
-    const filters = {
-        search: currentFilters.search,
-        transmission: currentFilters.transmission,
-        fuel_type: currentFilters.fuel_type,
-        seating_capacity: currentFilters.seating_capacity,
-        min_price: currentFilters.min_price,
-        max_price: currentFilters.max_price,
-        start_date: currentFilters.start_date,
-        end_date: currentFilters.end_date
-    };
-    
-    updateActiveFiltersDisplay();
-    
-    document.getElementById('loadingSpinner').style.display = 'block';
-    document.getElementById('vehiclesContainer').innerHTML = '';
-    
-    fetch('/api/vehicles/filter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(filters)
-    })
-    .then(response => response.json())
-    .then(data => {
-        displayVehicles(data.vehicles);
-        document.getElementById('loadingSpinner').style.display = 'none';
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        document.getElementById('loadingSpinner').style.display = 'none';
-        document.getElementById('vehiclesContainer').innerHTML = '<div class="no-results"><i class="fas fa-exclamation-circle fa-3x"></i><h3>Error Loading Vehicles</h3><p>Please try again later.</p></div>';
-    });
-}
-
-function displayVehicles(vehicles) {
-    const container = document.getElementById('vehiclesContainer');
-    
-    if (!vehicles || vehicles.length === 0) {
-        container.innerHTML = `
-            <div class="no-results">
-                <i class="fas fa-search fa-3x"></i>
-                <h3>No Vehicles Found</h3>
-                <p>Try adjusting your search filters to find more vehicles.</p>
-                <button class="btn-secondary" onclick="resetAllFilters()" style="margin-top: 20px;">
-                    <i class="fas fa-undo"></i> Reset Filters
-                </button>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '<div class="fleet-grid">';
-    vehicles.forEach(vehicle => {
-        const isLoggedIn = {{ session.get('loggedin', False)|tojson }};
-        const isAdmin = {{ session.get('role', '')|tojson }} === 'admin';
-        
-        html += `
-            <div class="fleet-card" data-vehicle-id="${vehicle.id}">
-                <div class="fleet-image">
-                    ${vehicle.primary_image ? 
-                        `<img src="${vehicle.primary_image}" alt="${escapeHtml(vehicle.brand_name)} ${escapeHtml(vehicle.model)}">` : 
-                        '<i class="fas fa-car"></i>'}
-                </div>
-                <div class="fleet-info">
-                    <h3>${escapeHtml(vehicle.brand_name)} ${escapeHtml(vehicle.model)}</h3>
-                    <div class="fleet-price">₱${vehicle.daily_rate}/day <small>+ tax</small></div>
-                    <ul class="fleet-features">
-                        <li><i class="fas fa-calendar-alt"></i> ${vehicle.year}</li>
-                        <li><i class="fas fa-cog"></i> ${vehicle.transmission}</li>
-                        <li><i class="fas fa-gas-pump"></i> ${vehicle.fuel_type}</li>
-                        <li><i class="fas fa-users"></i> ${vehicle.seating_capacity} seats</li>
-                    </ul>
-                    <div class="vehicle-gallery"></div>
-                    ${isLoggedIn ? 
-                        (isAdmin ? 
-                            '<div class="admin-message"><i class="fas fa-lock"></i> Admin accounts cannot book vehicles</div>' : 
-                            `<button onclick="openVehicleModal(${vehicle.id})" class="btn-primary" style="width: 100%; text-align: center;">
-                                <i class="fas fa-eye"></i> View Details
-                            </button>`) : 
-                        `<a href="{{ url_for('auth_bp.login') }}" class="btn-primary" style="width: 100%; text-align: center; display: inline-block;">
-                            <i class="fas fa-sign-in-alt"></i> Login to Book
-                        </a>`}
-                </div>
-            </div>
-        `;
-    });
-    html += '</div>';
-    container.innerHTML = html;
-    
-    document.querySelectorAll('.fleet-card').forEach(card => {
-        const vehicleId = card.dataset.vehicleId;
-        if (vehicleId) {
-            loadVehicleImages(vehicleId, card);
-        }
-    });
-}
-
-// Search input with debounce
-let searchTimeout;
-document.getElementById('searchInput').addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        applyFilters();
-    }, 500);
-});
-
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const filterModal = document.getElementById('filterModal');
-    if (event.target === filterModal) {
-        closeFilterModal();
-    }
-    const vehicleModal = document.getElementById('vehicleModal');
-    if (event.target === vehicleModal) {
-        closeVehicleModal();
-    }
-}
-
-function loadVehicleImages(vehicleId, element) {
-    fetch(`/admin/api/vehicles/${vehicleId}/images`)
-        .then(response => response.json())
-        .then(data => {
-            const galleryDiv = element.querySelector('.vehicle-gallery');
-            if (!galleryDiv) return;
-            
-            let images = [];
-            if (data.primary_image) images.push(data.primary_image);
-            if (data.images) images.push(...data.images.map(img => img.image_path));
-            
-            if (images.length > 0) {
-                galleryDiv.innerHTML = images.slice(0, 4).map(img => `
-                    <a href="${img}" data-lightbox="vehicle-${vehicleId}" data-title="${element.querySelector('h3').innerText}">
-                        <img src="${img}" class="gallery-thumb">
-                    </a>
-                `).join('');
-                
-                if (images.length > 4) {
-                    galleryDiv.innerHTML += `<div class="gallery-thumb" style="background: linear-gradient(135deg, #0f3b6f, #1e4a7a); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold;">+${images.length-4}</div>`;
-                }
-            }
-        })
-        .catch(error => console.error('Error loading images:', error));
-}
-
-// ============================================
-// VEHICLE MODAL FUNCTIONS
-// ============================================
-
-function openVehicleModal(vehicleId) {
-    const modal = document.getElementById('vehicleModal');
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    
-    fetch(`/api/vehicle/${vehicleId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                displayVehicleModal(data.vehicle, data.images, data.similar_vehicles);
-            } else {
-                showError('Failed to load vehicle details');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showError('Error loading vehicle details');
-        });
-}
-
-function displayVehicleModal(vehicle, images, similarVehicles) {
-    const container = document.getElementById('modalBody');
-    
-    let imagesHtml = '';
-    let mainImage = vehicle.primary_image || '/static/images/placeholder-car.jpg';
-    
-    if (images && images.length > 0) {
-        mainImage = images.find(img => img.is_primary)?.image_path || images[0].image_path;
-        
-        imagesHtml = `
-            <div class="thumbnail-list">
-                ${images.map((img, idx) => `
-                    <div class="thumbnail-item ${idx === 0 ? 'active' : ''}" onclick="changeModalImage('${img.image_path}', this)">
-                        <img src="${img.image_path}" alt="Thumbnail">
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } else {
-        imagesHtml = `
-            <div class="thumbnail-list">
-                <div class="thumbnail-item active">
-                    <img src="${mainImage}" alt="Vehicle">
-                </div>
-            </div>
-        `;
-    }
-    
-    const html = `
-        <div class="vehicle-gallery">
-            <div class="main-image">
-                <img id="modalMainImage" src="${mainImage}" alt="${vehicle.brand_name} ${vehicle.model}">
-            </div>
-            ${imagesHtml}
-        </div>
-        
-        <div class="vehicle-info-grid">
-            <div>
-                <div class="vehicle-specs">
-                    <h3><i class="fas fa-info-circle"></i> Vehicle Specifications</h3>
-                    <div class="specs-grid">
-                        <div class="spec-item">
-                            <i class="fas fa-calendar-alt"></i>
-                            <div><strong>Year</strong><br><span>${vehicle.year}</span></div>
-                        </div>
-                        <div class="spec-item">
-                            <i class="fas fa-cog"></i>
-                            <div><strong>Transmission</strong><br><span>${vehicle.transmission}</span></div>
-                        </div>
-                        <div class="spec-item">
-                            <i class="fas fa-gas-pump"></i>
-                            <div><strong>Fuel Type</strong><br><span>${vehicle.fuel_type}</span></div>
-                        </div>
-                        <div class="spec-item">
-                            <i class="fas fa-users"></i>
-                            <div><strong>Seats</strong><br><span>${vehicle.seating_capacity}</span></div>
-                        </div>
-                        <div class="spec-item">
-                            <i class="fas fa-palette"></i>
-                            <div><strong>Color</strong><br><span>${vehicle.color || 'Not specified'}</span></div>
-                        </div>
-                        <div class="spec-item">
-                            <i class="fas fa-road"></i>
-                            <div><strong>Mileage Limit</strong><br><span>${vehicle.mileage_limit_km || 'Unlimited'} km/day</span></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="description-section">
-                    <h3><i class="fas fa-file-alt"></i> Description</h3>
-                    <p>${vehicle.description || 'Experience the perfect blend of comfort, style, and performance with this premium vehicle. Perfect for both city driving and long journeys.'}</p>
-                    
-                    <h3 style="margin-top: 20px;"><i class="fas fa-check-circle"></i> What's Included</h3>
-                    <ul style="margin-top: 10px; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> Free cancellation up to 24h</li>
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> 24/7 roadside assistance</li>
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> Insurance included</li>
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> GPS navigation available</li>
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> Child seat on request</li>
-                        <li><i class="fas fa-check" style="color: #10b981;"></i> Additional driver option</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div>
-                <div class="booking-card">
-                    <div class="modal-price">₱${vehicle.daily_rate}/day</div>
-                    <a href="/user/book/${vehicle.id}" class="book-now-btn">
-                        <i class="fas fa-calendar-check"></i> Proceed to Book
-                    </a>
-                    <p style="text-align: center; margin-top: 15px; font-size: 12px; color: #64748b;">
-                        <i class="fas fa-shield-alt"></i> Free cancellation up to 24 hours before pickup
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        ${similarVehicles && similarVehicles.length > 0 ? `
-        <div class="similar-vehicles-modal">
-            <h3><i class="fas fa-car"></i> Similar Vehicles You Might Like</h3>
-            <div class="similar-grid-modal">
-                ${similarVehicles.map(similar => `
-                    <div class="similar-card-modal" onclick="openVehicleModal(${similar.id})">
-                        ${similar.primary_image ? 
-                            `<img src="${similar.primary_image}" alt="${similar.brand_name} ${similar.model}">` : 
-                            '<div style="height: 140px; background: linear-gradient(135deg, #e0f2fe, #bae6fd); display: flex; align-items: center; justify-content: center;"><i class="fas fa-car" style="font-size: 50px; color: #0f3b6f;"></i></div>'}
-                        <div class="info">
-                            <h4>${similar.brand_name} ${similar.model}</h4>
-                            <div class="price">₱${similar.daily_rate}/day</div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-        ` : ''}
-    `;
-    
-    container.innerHTML = html;
-}
-
-function changeModalImage(imagePath, element) {
-    document.getElementById('modalMainImage').src = imagePath;
-    
-    document.querySelectorAll('.thumbnail-item').forEach(thumb => {
-        thumb.classList.remove('active');
-    });
-    element.classList.add('active');
-}
-
-function closeVehicleModal() {
-    const modal = document.getElementById('vehicleModal');
-    modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
-}
-
-function showError(message) {
-    const container = document.getElementById('modalBody');
-    container.innerHTML = `
-        <div style="text-align: center; padding: 60px;">
-            <i class="fas fa-exclamation-circle" style="font-size: 48px; color: #ef4444;"></i>
-            <p style="margin-top: 20px;">${message}</p>
-            <button class="btn-secondary" onclick="closeVehicleModal()" style="margin-top: 20px;">Close</button>
-        </div>
-    `;
-}
-
-lightbox.option({
-    'resizeDuration': 200,
-    'wrapAround': true,
-    'albumLabel': 'Image %1 of %2'
-});
+    window.isLoggedIn = {{ 'true' if session.get('loggedin') else 'false' }};
+    window.userRole = {{ session.get('role', '')|tojson }};
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/js/lightbox.min.js"></script>
+<script src="{{ url_for('static', filename='js/fleet.js') }}"></script>
 {% endblock %}

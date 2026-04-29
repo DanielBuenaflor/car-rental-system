@@ -48,6 +48,7 @@ def create_app():
     
     # Change this - uploads folder is now inside base
     app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'base', 'uploads')
+    app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload size
     
     mail.init_app(app)
     
@@ -71,12 +72,13 @@ def create_app():
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
     # Register blueprints
-    from MyFlaskApp.base.base_bp import base_bp
-    from MyFlaskApp.authentication.auth import auth_bp
-    from MyFlaskApp.user.user_bp import user_bp
-    from MyFlaskApp.admin.admin_bp import admin_bp
+    from MyFlaskApp.blueprints.base.base_bp import base_bp
+    from MyFlaskApp.blueprints.auth.routes import auth_bp
+    from MyFlaskApp.blueprints.user.routes import user_bp
+    from MyFlaskApp.blueprints.admin.routes import admin_bp
     from MyFlaskApp.payment.payment_bp import payment_bp
     from MyFlaskApp.payment.webhooks import webhook_bp
+    from MyFlaskApp.api.locations_bp import locations_bp
 
     app.register_blueprint(webhook_bp, url_prefix='/webhooks')
     app.register_blueprint(base_bp)
@@ -84,6 +86,7 @@ def create_app():
     app.register_blueprint(user_bp, url_prefix='/user')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(payment_bp, url_prefix='/payment')
+    app.register_blueprint(locations_bp)
     
     @app.after_request
     def add_security_headers(response):
@@ -95,7 +98,7 @@ def create_app():
             response.headers['X-Frame-Options'] = 'SAMEORIGIN'
             response.headers['X-XSS-Protection'] = '1; mode=block'
             response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-            response.headers['Content-Security-Policy'] = "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;"
+            response.headers['Content-Security-Policy'] = "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com https://*.openstreetmap.org; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data: blob: https://*.openstreetmap.org https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://*.openstreetmap.org https://unpkg.com;"
         
         response.headers['X-Permitted-Cross-Domain-Policies'] = 'none'
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
