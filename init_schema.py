@@ -13,8 +13,11 @@ Options:
 
 import sys
 import os
-import mysql.connector
 from pathlib import Path
+from flask.cli import load_dotenv
+import mysql.connector
+
+load_dotenv()  # Load environment variables from .env file
 
 def get_connection():
     """Create database connection."""
@@ -57,9 +60,9 @@ def execute_statements(dry_run=False):
         else:
             try:
                 cursor.execute(stmt)
-                print(f"✓ Executed statement {i}")
+                print(f"[OK] Executed statement {i}")
             except mysql.connector.Error as e:
-                print(f"✗ Error in statement {i}: {e}")
+                print(f"[ERROR] Error in statement {i}: {e}")
                 print(f"  Statement: {stmt[:100]}...")
     
     cursor.close()
@@ -79,7 +82,7 @@ def main():
     execute_statements(dry_run=dry_run)
     
     if not dry_run:
-        print("\n✓ Database initialization complete")
+        print("\n[OK] Database initialization complete")
 
 if __name__ == '__main__':
     main()

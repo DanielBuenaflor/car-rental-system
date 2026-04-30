@@ -1,5 +1,10 @@
 import os
+import logging
 from MyFlaskApp.__init__ import create_app
+
+# Show Werkzeug request logs even when debug=False
+logging.basicConfig(level=logging.INFO)
+logging.getLogger('werkzeug').setLevel(logging.INFO)
 
 app = create_app()
 
