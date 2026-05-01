@@ -17,7 +17,7 @@ from MyFlaskApp.payment.invoice_service import InvoiceService
 from MyFlaskApp.utils.ocr_service import LicenseOCRService
 from MyFlaskApp.utils.secure_upload import save_upload, save_base64_upload, ALLOWED_IMAGE_EXTENSIONS
 from MyFlaskApp.utils.secure_db import fetch_one, execute_query, DatabaseError
-from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clear_csrf_token
+from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clear_csrf_token, require_csrf
 
 
 # ============================================================================
@@ -25,8 +25,9 @@ from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clea
 # ============================================================================
 ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS  # Use secure upload module's extensions
 MAX_FILE_SIZE_MB = 5
+# Correct path: from MyFlaskApp/blueprints/user/routes.py -> MyFlaskApp/base/uploads/verifications/
 UPLOAD_FOLDER = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), 
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
     'base', 'uploads', 'verifications'
 )
 
@@ -61,7 +62,7 @@ def save_base64_image(base64_data, filepath):
     except Exception as e:
         print(f"Error saving base64 image: {e}")
         return None
-
+    
 def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -97,67 +98,8 @@ def login_required(f):
 
 
 # ============================================================================
-# PAGE ROUTES - DASHBOARD & PROFILE
+# PAGE ROUTES - PROFILE (Dashboard moved to user_bp.py to avoid duplicates)
 # ============================================================================
-@user_bp.route('/dashboard')
-@login_required
-def user_dashboard():
-    """User dashboard page with statistics and recent activity"""
-    conn = get_db_connection()
-    if not conn:
-        return render_template('user_dashboard.html', session=session)
-    
-    cursor = conn.cursor(dictionary=True)
-    try:
-        # Get user stats
-        cursor.execute("SELECT COUNT(*) as count FROM bookings WHERE user_id = %s", 
-                      (session['user_id'],))
-        booking_count = cursor.fetchone()['count']
-        
-        cursor.execute("""
-            SELECT COUNT(*) as count FROM testimonials 
-            WHERE user_id = %s AND status = 'approved'
-        """, (session['user_id'],))
-        testimonial_count = cursor.fetchone()['count']
-        
-        # Get verification status
-        cursor.execute("""
-            SELECT verification_status, rejection_reason 
-            FROM verifications 
-            WHERE user_id = %s 
-            ORDER BY created_at DESC LIMIT 1
-        """, (session['user_id'],))
-        verification = cursor.fetchone()
-        verification_status = verification['verification_status'] if verification else 'not_submitted'
-        rejection_reason = verification['rejection_reason'] if verification else None
-        
-        # Get recent bookings
-        cursor.execute("""
-            SELECT b.*, v.model, v.brand_id, vb.name as brand_name
-            FROM bookings b
-            JOIN vehicles v ON b.vehicle_id = v.id
-            JOIN vehicle_brands vb ON v.brand_id = vb.id
-            WHERE b.user_id = %s
-            ORDER BY b.created_at DESC
-            LIMIT 3
-        """, (session['user_id'],))
-        recent_bookings = cursor.fetchall()
-        
-        return render_template(
-            'user_dashboard.html',
-            session=session,
-            booking_count=booking_count,
-            testimonial_count=testimonial_count,
-            verification_status=verification_status,
-            rejection_reason=rejection_reason,
-            recent_bookings=recent_bookings
-        )
-    except Exception as e:
-        print(f"Dashboard error: {e}")
-        return render_template('user_dashboard.html', session=session)
-    finally:
-        cursor.close()
-        conn.close()
 
 
 @user_bp.route('/profile', methods=['GET', 'POST'])
@@ -167,7 +109,7 @@ def profile():
     conn = get_db_connection()
     if not conn:
         flash('Database connection error', 'error')
-        return redirect(url_for('user_bp.user_dashboard'))
+        return redirect('/user/dashboard')
     
     cursor = conn.cursor(dictionary=True)
     
@@ -216,7 +158,7 @@ def profile():
         return render_template('profile.html', user=user, session=session)
     except Exception as e:
         flash('Error loading profile', 'error')
-        return redirect(url_for('user_bp.user_dashboard'))
+        return redirect('/user/dashboard')
     finally:
         cursor.close()
         conn.close()
@@ -636,11 +578,12 @@ def invoice_pdf(invoice_id):
 @user_bp.route('/verification')
 @login_required
 def verification_page():
+    print("DEBUG: ===== ENTERING verification_page() in blueprints/user/routes.py =====")
     """Show verification page"""
     conn = get_db_connection()
     if not conn:
         flash('Database connection error', 'error')
-        return redirect(url_for('user_bp.user_dashboard'))
+        return redirect('/user/dashboard')
     
     cursor = conn.cursor(dictionary=True)
     try:
@@ -652,12 +595,16 @@ def verification_page():
         """, (session['user_id'],))
         verification = cursor.fetchone()
         
+        # Generate CSRF token and store in session
+        token = generate_csrf_token()
+        print(f"DEBUG: Token generated in blueprints: {token}")
+        
         return render_template('verification.html', 
                                verification=verification, 
                                session=session)
     except Exception as e:
         flash(f'Error loading verification: {str(e)}', 'error')
-        return redirect(url_for('user_bp.user_dashboard'))
+        return redirect('/user/dashboard')
     finally:
         cursor.close()
         conn.close()
@@ -676,17 +623,44 @@ def book_vehicle():
     end_date = data.get('end_date')
     pickup_location = data.get('pickup_location')
     return_location = data.get('return_location')
-    pickup_location_id = data.get('pickup_location_id')
     return_location_id = data.get('return_location_id')
     is_custom_pickup = data.get('is_custom_pickup', False)
     is_custom_return = data.get('is_custom_return', False)
+    
+    # Custom pickup fields
     custom_pickup_address = data.get('custom_pickup_address')
     custom_pickup_lat = data.get('custom_pickup_lat')
     custom_pickup_lng = data.get('custom_pickup_lng')
+    
+    # Custom return fields - DEFINE THEM FIRST
+    custom_return_address = data.get('custom_return_address')
     custom_return_lat = data.get('custom_return_lat')
     custom_return_lng = data.get('custom_return_lng')
+    
     one_way_fee = float(data.get('one_way_fee', 0))
     delivery_fee = float(data.get('delivery_fee', 0))
+    
+    # Handle NULLs: If user chose standard branch, set custom fields to None
+    # Convert empty strings to None for proper NULL storage
+    if not is_custom_pickup:
+        custom_pickup_address = None
+        custom_pickup_lat = None
+        custom_pickup_lng = None
+    else:
+        # If custom but empty string, convert to None
+        custom_pickup_address = custom_pickup_address if custom_pickup_address else None
+        custom_pickup_lat = custom_pickup_lat if custom_pickup_lat else None
+        custom_pickup_lng = custom_pickup_lng if custom_pickup_lng else None
+    
+    if not is_custom_return:
+        custom_return_address = None
+        custom_return_lat = None
+        custom_return_lng = None
+    else:
+        # If custom but empty string, convert to None
+        custom_return_address = custom_return_address if custom_return_address else None
+        custom_return_lat = custom_return_lat if custom_return_lat else None
+        custom_return_lng = custom_return_lng if custom_return_lng else None
     
     if not all([vehicle_id, start_date, end_date, pickup_location, return_location]):
         return jsonify({'success': False, 'message': 'All fields are required'})
@@ -764,20 +738,20 @@ def book_vehicle():
                 user_id, vehicle_id, start_date, end_date, pickup_location, return_location,
                 rental_days, daily_rate_applied, subtotal, tax_amount, total_amount,
                 security_deposit, status, booking_reference, created_at,
-                pickup_location_id, return_location_id, custom_pickup_address,
+                return_location_id, custom_pickup_address,
                 custom_pickup_lat, custom_pickup_lng, delivery_fee, one_way_fee,
-                custom_return_lat, custom_return_lng
+                custom_return_address, custom_return_lat, custom_return_lng
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, NOW(),
-                %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, NOW(), %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """, (
             session['user_id'], vehicle_id, start_date, end_date, pickup_location, return_location,
             rental_days, daily_rate, subtotal, tax_amount, total_amount,
-            vehicle['security_deposit'], booking_reference,
-            pickup_location_id, return_location_id, custom_pickup_address,
+            vehicle['security_deposit'], 'pending', booking_reference,
+            return_location_id, custom_pickup_address,
             custom_pickup_lat, custom_pickup_lng, delivery_fee, one_way_fee,
-            custom_return_lat, custom_return_lng
+            custom_return_address, custom_return_lat, custom_return_lng
         ))
         
         booking_id = cursor.lastrowid
@@ -1058,12 +1032,16 @@ def submit_testimonial():
 # ============================================================================
 @user_bp.route('/submit-verification', methods=['POST'])
 @login_required
+@require_csrf
 def submit_verification():
+    print("DEBUG: ===== ENTERING submit_verification() in blueprints/user/routes.py =====")
     """Submit verification documents with OCR extraction for admin review"""
     
     # Check if already verified
+    print("DEBUG: Checking if already verified...")
     conn = get_db_connection()
     if not conn:
+        print("DEBUG: Database connection failed")
         return jsonify({'success': False, 'message': 'Database error'}), 500
     
     cursor = conn.cursor(dictionary=True)
@@ -1075,26 +1053,33 @@ def submit_verification():
         existing = cursor.fetchone()
         
         if existing:
+            print(f"DEBUG: Already verified! Status: {existing['verification_status']}")
             return jsonify({'success': False, 'message': 'Your account is already verified'}), 400
     finally:
         cursor.close()
     
     # Get form data
-    license_number = request.form.get('license_number', '').strip()
-    license_expiry = request.form.get('license_expiry', '').strip()
+    print("DEBUG: Getting form data...")
     id_card_type = request.form.get('id_card_type', '').strip()
-    id_card_number = request.form.get('id_card_number', '').strip()
+    print(f"DEBUG: id_card_type='{id_card_type}'")
     
     # Validate required fields
-    if not all([license_number, license_expiry, id_card_type, id_card_number]):
-        return jsonify({'success': False, 'message': 'All fields are required'}), 400
+    if not id_card_type:
+        print("DEBUG: ID card type missing!")
+        return jsonify({'success': False, 'message': 'ID card type is required'}), 400
     
     # Handle image uploads (base64 from camera OR file upload)
     # Check for base64 camera data first, fall back to file upload
+    print("DEBUG: Getting image data...")
     license_front_base64 = request.form.get('license_front_base64', '').strip()
     license_back_base64 = request.form.get('license_back_base64', '').strip()
     id_card_base64 = request.form.get('id_card_image_base64', '').strip()
     selfie_base64 = request.form.get('selfie_image_base64', '').strip()
+    
+    print(f"DEBUG: license_front_base64 length={len(license_front_base64)}")
+    print(f"DEBUG: license_back_base64 length={len(license_back_base64)}")
+    print(f"DEBUG: id_card_base64 length={len(id_card_base64)}")
+    print(f"DEBUG: selfie_base64 length={len(selfie_base64)}")
     
     # Also check for file uploads as fallback
     license_front_file = request.files.get('license_front')
@@ -1102,12 +1087,20 @@ def submit_verification():
     id_card_file = request.files.get('id_card_image')
     selfie_file = request.files.get('selfie_image')
     
+    print(f"DEBUG: license_front_file={license_front_file.filename if license_front_file else 'None'}")
+    print(f"DEBUG: license_back_file={license_back_file.filename if license_back_file else 'None'}")
+    print(f"DEBUG: id_card_file={id_card_file.filename if id_card_file else 'None'}")
+    print(f"DEBUG: selfie_file={selfie_file.filename if selfie_file else 'None'}")
+    
     # Validate that license front image is provided (required field)
     has_license_front = bool(license_front_base64) or (license_front_file and allowed_file(license_front_file.filename))
     if not has_license_front:
+        print("DEBUG: License front image missing!")
         return jsonify({'success': False, 'message': 'License front image is required'}), 400
     
+    print("DEBUG: Creating upload folder...")
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    print(f"DEBUG: UPLOAD_FOLDER exists: {os.path.exists(UPLOAD_FOLDER)}")
     
     license_front_path = None
     license_back_path = None
@@ -1115,8 +1108,11 @@ def submit_verification():
     selfie_path = None
     
     prefix = f"user_{session['user_id']}"
+    print(f"DEBUG: prefix={prefix}")
     
     # License Front Image
+    print("DEBUG: Processing license front image...")
+    print(f"DEBUG: type(allowed_file) = {type(allowed_file)}")
     if license_front_base64:
         filename, error = save_base64_upload(
             license_front_base64, UPLOAD_FOLDER, 
@@ -1213,19 +1209,70 @@ def submit_verification():
     # ============================================================
     # OCR VALIDATION - Extract data for admin review
     # ============================================================
+    print("DEBUG: Starting OCR validation...")
     ocr_result = None
+    name_mismatch = False
+    name_mismatch_details = []
+    
     try:
         front_full_path = os.path.join(UPLOAD_FOLDER, license_front_path) if license_front_path else None
         back_full_path = os.path.join(UPLOAD_FOLDER, license_back_path) if license_back_path else None
+        id_card_full_path = os.path.join(UPLOAD_FOLDER, id_card_path) if id_card_path else None
+        selfie_full_path = os.path.join(UPLOAD_FOLDER, selfie_path) if selfie_path else None
         
+        print(f"DEBUG: front_full_path={front_full_path}")
+        print(f"DEBUG: back_full_path={back_full_path}")
+        print(f"DEBUG: id_card_full_path={id_card_full_path}")
+        print(f"DEBUG: selfie_full_path={selfie_full_path}")
+        
+        # Extract name from License (front image)
+        license_name = None
         if front_full_path:
+            print("DEBUG: Calling LicenseOCRService.validate_license...")
             ocr_result = LicenseOCRService.validate_license(
                 front_image_path=front_full_path,
-                back_image_path=back_full_path,
-                expected_license_number=license_number,
-                expected_expiry=license_expiry
+                back_image_path=back_full_path
             )
+            print(f"DEBUG: OCR result={ocr_result}")
+            license_name = ocr_result.get('extracted_name') if ocr_result else None
             
+            # Extract text from ID card and selfie for name comparison
+            id_card_name = None
+            selfie_name = None
+            
+            if id_card_full_path:
+                print("DEBUG: Extracting text from ID card...")
+                id_card_text = LicenseOCRService.extract_text(id_card_full_path)
+                if id_card_text:
+                    id_card_name = LicenseOCRService.extract_name(id_card_text)
+                    print(f"DEBUG: ID card name: {id_card_name}")
+            
+            if selfie_full_path:
+                print("DEBUG: Extracting text from selfie...")
+                selfie_text = LicenseOCRService.extract_text(selfie_full_path)
+                if selfie_text:
+                    selfie_name = LicenseOCRService.extract_name(selfie_text)
+                    print(f"DEBUG: Selfie name: {selfie_name}")
+            
+            # Compare names across documents
+            print("DEBUG: Comparing names across documents...")
+            names_found = [n for n in [license_name, id_card_name, selfie_name] if n]
+            
+            if len(names_found) >= 2:
+                # Normalize names for comparison (uppercase, remove extra spaces)
+                normalized_names = [n.upper().replace('  ', ' ') for n in names_found]
+                print(f"DEBUG: Normalized names: {normalized_names}")
+                
+                # Check if all names match
+                if len(set(normalized_names)) > 1:
+                    name_mismatch = True
+                    name_mismatch_details = [f"License: {license_name}", f"ID Card: {id_card_name}", f"Selfie: {selfie_name}"]
+                    print(f"DEBUG: NAME MISMATCH! Details: {name_mismatch_details}")
+                else:
+                    print("DEBUG: All names match!")
+            else:
+                print("DEBUG: Not enough names extracted for comparison")
+        
     except Exception as e:
         print(f"OCR Error: {e}")
         ocr_result = {
@@ -1234,50 +1281,114 @@ def submit_verification():
             'errors': [str(e)]
         }
     
+    # Reject if names don't match
+    if name_mismatch:
+        # Clean up uploaded files
+        for f in [license_front_path, license_back_path, id_card_path, selfie_path]:
+            if f:
+                try:
+                    os.remove(os.path.join(UPLOAD_FOLDER, f))
+                except:
+                    pass
+        return jsonify({
+            'success': False, 
+            'message': 'Name mismatch across documents. Please ensure all documents show the same name.',
+            'details': name_mismatch_details
+        }), 400
+    
+    # Build OCR data for storage
+    print("DEBUG: Building OCR data...")
+    ocr_data = {
+        'confidence_score': ocr_result.get('confidence_score', 0) if ocr_result else 0,
+        'extracted_license_number': ocr_result.get('extracted_license_number') if ocr_result else None,
+        'extracted_expiry': ocr_result.get('extracted_expiry') if ocr_result else None,
+        'extracted_name': ocr_result.get('extracted_name') if ocr_result else None,
+        'license_match': ocr_result.get('license_match') if ocr_result else None,
+        'expiry_match': ocr_result.get('expiry_match') if ocr_result else None,
+        'name_match': not name_mismatch,
+        'is_expired': ocr_result.get('is_expired') if ocr_result else None,
+        'errors': ocr_result.get('errors', []) if ocr_result else []
+    }
+    
+    # Convert to JSON string for database storage
+    ocr_json = json.dumps(ocr_data)
+    print(f"DEBUG: OCR JSON={ocr_json[:200]}...")  # First 200 chars
+    
     # Insert into database with OCR results
-    cursor = conn.cursor()
+    print("DEBUG: Inserting into database...")
+    cursor = conn.cursor(dictionary=True)
     try:
         # Check if user already has pending verification
+        print("DEBUG: Checking for existing verification...")
         cursor.execute("""
-            SELECT id FROM verifications 
-            WHERE user_id = %s AND verification_status IN ('pending', 'approved')
+            SELECT id, verification_status, license_front_image, license_back_image, 
+                   id_card_image, selfie_image
+            FROM verifications 
+            WHERE user_id = %s AND verification_status = 'pending'
         """, (session['user_id'],))
         existing = cursor.fetchone()
         
+        # If pending verification exists, delete it and its files
         if existing:
-            return jsonify({'success': False, 'message': 'You already have a pending verification request'}), 400
-        
-        # Build OCR data for storage
-        ocr_data = {
-            'confidence_score': ocr_result.get('confidence_score', 0) if ocr_result else 0,
-            'extracted_license_number': ocr_result.get('extracted_license_number') if ocr_result else None,
-            'extracted_expiry': ocr_result.get('extracted_expiry') if ocr_result else None,
-            'license_match': ocr_result.get('license_match') if ocr_result else None,
-            'expiry_match': ocr_result.get('expiry_match') if ocr_result else None,
-            'is_expired': ocr_result.get('is_expired') if ocr_result else None,
-            'errors': ocr_result.get('errors', []) if ocr_result else []
-        }
+            print(f"DEBUG: Found existing pending verification! ID: {existing['id']}")
+            # Delete old image files
+            old_files = [
+                existing.get('license_front_image'),
+                existing.get('license_back_image'),
+                existing.get('id_card_image'),
+                existing.get('selfie_image')
+            ]
+            for old_file in old_files:
+                if old_file:
+                    old_path = os.path.join(UPLOAD_FOLDER, old_file)
+                    if os.path.exists(old_path):
+                        try:
+                            os.remove(old_path)
+                            print(f"DEBUG: Deleted old file: {old_file}")
+                        except Exception as e:
+                            print(f"DEBUG: Error deleting {old_file}: {e}")
+            
+            # Delete old verification record
+            cursor.execute("DELETE FROM verifications WHERE id = %s", (existing['id'],))
+            print(f"DEBUG: Deleted old verification record ID: {existing['id']}")
+            conn.commit()
         
         # Convert to JSON string for database storage
         ocr_json = json.dumps(ocr_data)
+        print(f"DEBUG: OCR JSON={ocr_json[:200]}...")  # First 200 chars
         
-        cursor.execute("""
-            INSERT INTO verifications (
-                user_id, license_number, license_expiry_date, 
-                license_front_image, license_back_image,
-                id_card_type, id_card_number, id_card_image, selfie_image,
-                verification_status, ocr_confidence_score, ocr_extracted_license, 
-                ocr_extracted_expiry, ocr_raw_data, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, NOW())
-        """, (
-            session['user_id'], license_number, license_expiry,
-            license_front_path, license_back_path,
-            id_card_type, id_card_number, id_card_path, selfie_path,
-            ocr_data['confidence_score'],
-            ocr_data['extracted_license_number'],
-            ocr_data['extracted_expiry'],
-            ocr_json
-        ))
+        # Insert into database with OCR results
+        print("DEBUG: Inserting into database...")
+        cursor = conn.cursor(dictionary=True)
+        try:
+            # Convert to JSON string for database storage
+            ocr_json = json.dumps(ocr_data)
+            print(f"DEBUG: OCR JSON (first 200 chars): {ocr_json[:200]}")
+            
+            print("DEBUG: Executing INSERT...")
+            cursor.execute("""
+                INSERT INTO verifications (
+                    user_id, license_front_image, license_back_image,
+                    id_card_type, id_card_image, selfie_image,
+                    verification_status, ocr_confidence_score, ocr_extracted_license, 
+                    ocr_extracted_expiry, ocr_extracted_name, ocr_raw_data, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, %s, NOW())
+            """, (
+                session['user_id'],
+                license_front_path, license_back_path,
+                id_card_type, id_card_path, selfie_path,
+                ocr_data.get('confidence_score', 0),
+                ocr_data.get('extracted_license_number'),
+                ocr_data.get('extracted_expiry'),
+                ocr_data.get('extracted_name'),
+                ocr_json
+            ))
+            print("DEBUG: INSERT successful!")
+        
+        except Exception as db_error:
+            print(f"DEBUG: Database error: {db_error}")
+            conn.rollback()
+            return jsonify({'success': False, 'message': f'Database error: {str(db_error)}'}), 500
         
         conn.commit()
         
@@ -1291,6 +1402,7 @@ def submit_verification():
         conn.commit()
         
         # Prepare response with OCR feedback for user
+        print("DEBUG: Preparing success response...")
         response_data = {
             'success': True, 
             'message': 'Verification documents submitted successfully! Admin will review your documents.',
@@ -1308,12 +1420,15 @@ def submit_verification():
             elif ocr_result.get('expiry_match') is False:
                 response_data['ocr_warning'] = 'Extracted expiry date does not match your input. Please verify.'
         
+        print(f"DEBUG: RETURNING SUCCESS: {response_data}")
         return jsonify(response_data)
         
     except Exception as e:
+        print(f"DEBUG: EXCEPTION: {e}")
         conn.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
     finally:
+        print("DEBUG: ===== EXITING submit_verification() =====")
         cursor.close()
         conn.close()
 

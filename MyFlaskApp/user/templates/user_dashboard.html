@@ -9,6 +9,7 @@
     
     
     <!-- Verification Status Section -->
+    {% if not is_verified %}
     <div class="verification-status" style="margin-bottom: 30px;">
         {% if verification_status == 'approved' %}
             <div class="status-badge verified">
@@ -35,6 +36,7 @@
             </div>
         {% endif %}
     </div>
+    {% endif %}
     
     <!-- Stats Cards -->
     <div class="stats-grid">
@@ -44,16 +46,91 @@
             <div class="stat-label">Total Bookings</div>
         </div>
         <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-play-circle"></i></div>
+            <div class="stat-number">{{ active_count|default(0) }}</div>
+            <div class="stat-label">Active</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-clock"></i></div>
+            <div class="stat-number">{{ pending_count|default(0) }}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+            <div class="stat-number">{{ confirmed_count|default(0) }}</div>
+            <div class="stat-label">Confirmed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-number">{{ completed_count|default(0) }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-ban"></i></div>
+            <div class="stat-number">{{ cancelled_count|default(0) }}</div>
+            <div class="stat-label">Cancelled</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-peso-sign"></i></div>
+            <div class="stat-number">₱{{ "%.2f"|format(total_spent|default(0)) }}</div>
+            <div class="stat-label">Total Spent</div>
+        </div>
+        <div class="stat-card">
             <div class="stat-icon"><i class="fas fa-star"></i></div>
             <div class="stat-number">{{ testimonial_count|default(0) }}</div>
             <div class="stat-label">Reviews Given</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-icon"><i class="fas fa-user"></i></div>
-            <div class="stat-number">Active</div>
-            <div class="stat-label">Account Status</div>
-        </div>
     </div>
+    
+    <!-- Upcoming Bookings Alert -->
+    {% if upcoming_bookings %}
+    <div class="alert alert-info" style="margin-bottom: 30px; background: #dbeafe; border-left: 4px solid #1e40af; padding: 15px 20px; border-radius: 10px;">
+        <h4 style="margin: 0 0 10px 0; color: #1e40af;"><i class="fas fa-calendar-alt"></i> Upcoming Bookings (Next 7 Days)</h4>
+        {% for booking in upcoming_bookings %}
+        <div style="padding: 10px; background: white; border-radius: 8px; margin-bottom: 8px;">
+            <strong>{{ booking.brand_name }} {{ booking.model }}</strong><br>
+            <small style="color: #666;">
+                <i class="fas fa-calendar"></i> {{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }} to {{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}
+                | <i class="fas fa-file-invoice"></i> {{ booking.booking_reference }}
+            </small>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Active Rentals Widget -->
+    {% if active_rentals %}
+    <div class="card" style="margin-bottom: 30px;">
+        <h3><i class="fas fa-clock"></i> Active Rentals</h3>
+        {% for rental in active_rentals %}
+        <div class="rental-card" style="background: #f8fafc; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid {% if rental.countdown_type == 'overdue' %}#dc2626{% elif rental.countdown_type == 'active' %}#059669{% else %}#d97706{% endif %};">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <div>
+                    <h4 style="margin: 0 0 5px 0;">{{ rental.brand_name }} {{ rental.model }}</h4>
+                    <p style="margin: 0; color: #666; font-size: 14px;">
+                        <i class="fas fa-id-card"></i> {{ rental.license_plate }} | 
+                        <i class="fas fa-file-invoice"></i> {{ rental.booking_reference }}
+                    </p>
+                    {% if rental.custom_pickup_address %}
+                    <p style="margin: 5px 0 0 0; font-size: 13px; color: #666;">
+                        <i class="fas fa-map-marker-alt"></i> Pickup: {{ rental.custom_pickup_address }}
+                    </p>
+                    {% endif %}
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: {% if rental.countdown_type == 'overdue' %}#dc2626{% elif rental.countdown_type == 'active' %}#059669{% else %}#d97706{% endif %};">
+                        {{ rental.status_message }}
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <button onclick="showExtensionForm('{{ rental.id }}')" class="btn-secondary" style="padding: 5px 15px; font-size: 12px; margin-right: 5px;">Extend</button>
+                        <a href="{{ url_for('user_bp.return_vehicle', booking_id=rental.id) }}" class="btn-primary" style="padding: 5px 15px; font-size: 12px;">Return</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
     
     <!-- Main Actions -->
     <div class="dashboard-grid">
@@ -108,10 +185,11 @@
                     <tr>
                         <th>Reference</th>
                         <th>Vehicle</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
+                        <th>Pickup/Return</th>
+                        <th>Dates</th>
                         <th>Total</th>
                         <th>Status</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -119,10 +197,37 @@
                     <tr>
                         <td><strong>{{ booking.booking_reference or 'N/A' }}</strong></td>
                         <td>{{ booking.brand_name }} {{ booking.model }}</td>
-                        <td>{{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }}</td>
-                        <td>{{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}</td>
-                        <td>${{ "%.2f"|format(booking.total_amount) }}</td>
+                        <td style="font-size: 12px;">
+                            <i class="fas fa-map-marker-alt" style="color: #059669;"></i> 
+                            {% if booking.custom_pickup_address %}
+                                (Custom) {{ booking.custom_pickup_address }}
+                            {% else %}
+                                {{ booking.pickup_location }}
+                            {% endif %}
+                            <br>
+                            <i class="fas fa-map-marker-alt" style="color: #dc2626;"></i> 
+                            {% if booking.custom_return_address %}
+                                (Custom) {{ booking.custom_return_address }}
+                            {% else %}
+                                {{ booking.return_location }}
+                            {% endif %}
+                        </td>
+                        <td>{{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }}<br>
+                            {{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}</td>
+                        <td>₱{{ "%.2f"|format(booking.total_amount) }}</td>
                         <td><span class="badge badge-{{ booking.status }}">{{ booking.status }}</span></td>
+                        <td>
+                            {% if booking.status == 'pending' or booking.status == 'confirmed' %}
+                            <a href="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" 
+                               class="btn-secondary" style="padding: 5px 10px; font-size: 11px;"
+                               onclick="return confirm('Cancel this booking?')">Cancel</a>
+                            {% elif booking.status == 'active' %}
+                            <button onclick="showExtensionForm('{{ booking.id }}')" 
+                               class="btn-secondary" style="padding: 5px 10px; font-size: 11px; margin-right: 3px;">Extend</button>
+                            <a href="{{ url_for('user_bp.return_vehicle', booking_id=booking.id) }}" 
+                               class="btn-primary" style="padding: 5px 10px; font-size: 11px;">Return</a>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -295,4 +400,51 @@
         }
     }
 </style>
+
+<script>
+function showExtensionForm(bookingId) {
+    const days = prompt('How many days would you like to extend? (Maximum 7 days)', '1');
+    
+    if (!days || days === null) {
+        return;
+    }
+    
+    const requestedDays = parseInt(days);
+    
+    if (isNaN(requestedDays) || requestedDays < 1 || requestedDays > 7) {
+        alert('Please enter a valid number of days between 1 and 7');
+        return;
+    }
+    
+    const reason = prompt('Reason for extension (optional)', '');
+    
+    if (confirm('Are you sure you want to request a ' + requestedDays + '-day extension? Additional charges may apply.')) {
+        fetch('/user/request-extension/' + bookingId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                requested_days: requestedDays,
+                reason: reason || ''
+            })
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                alert('Extension request submitted successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(function(error) {
+            console.error('Error:', error);
+            alert('An error occurred while submitting your request');
+        });
+    }
+}
+</script>
 {% endblock %}
