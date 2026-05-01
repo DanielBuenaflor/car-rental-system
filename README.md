@@ -1,267 +1,138 @@
 # Car Rental System
 
-A full-featured car rental booking system with web frontend (Flask) and desktop admin application (Java Swing).
+A car rental booking system with a Flask web app and a Java Swing desktop admin app.
 
-## System Overview
+## Requirements
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                  Car Rental System                       │
-├─────────────────────────────────────────────────────────┤
-│  ┌─────────────────┐    ┌──────────────────┐          │
-│  │  Web App        │    │  Desktop Admin   │          │
-│  │  (Flask)        │    │  (Java Swing)     │          │
-│  ├─────────────────┤    ├──────────────────┤          │
-│  │ - User Login    │    │ - Dashboard      │          │
-│  │ - Browse Fleet  │    │ - Vehicles CRUD │          │
-│  │ - Book Cars   │    │ - Bookings      │          │
-│  │ - Payments    │    │ - Users        │          │
-│  │ - My Bookings │    │ - Verifications│          │
-│  │ - Invoices   │    │ - Reports      │          │
-│  └────────┬──────┘    └────────┬───────┘          │
-│           │                    │                    │
-│           └──────────┬─────────┘                    │
-│                      ▼                               │
-│              ┌──────────────┐                       │
-│              │   MySQL DB   │                       │
-│              └─────────────┘                       │
-└─────────────────────────────────────────────────────────┘
-```
+- Python 3.10+
+- Java JDK 11+
+- MySQL 8.0
 
 ## Quick Start
 
-### Prerequisites
-
-| Component | Version | Purpose |
-|-----------|---------|---------|
-| Python | 3.10+ | Web app runtime |
-| Java JDK | 11+ | Desktop app runtime |
-| MySQL | 8.0 | Database |
-| Docker | Latest | Containerization |
-
----
-
-## System Setup Guide
-
-### Option 1: Docker Setup (Recommended)
-
-The easiest way to run the entire system.
+### 1. Clone the repository
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/DanielBuenaflor/car-rental-system.git
 cd car-rental-system
-
-# 2. Start all services with Docker
-docker-compose up -d
-
-# 3. Access the applications
-# Web App: http://localhost:5000
-# Adminer (DB): http://localhost:8080
-# ngrok: http://localhost:4040
 ```
 
-### Option 2: Manual Setup
+### 2. Set up the database
 
-#### Step 1: Database Setup (MySQL)
+```sql
+CREATE DATABASE car_rental_system;
+```
+
+Then initialize the schema:
 
 ```bash
-# Install MySQL 8.0
-# Create database
-CREATE DATABASE car_rental_system;
-
-# Initialize schema
 python init_schema.py
 ```
 
-#### Step 2: Web Application (Flask)
+### 3. Set up the Flask web app
 
 ```bash
-# 1. Navigate to project
-cd car-rental-system
-
-# 2. Create virtual environment
 python -m venv venv
-venv\Scripts\activate  # Windows
-
-# 3. Install dependencies
+venv\Scripts\activate
 pip install -r requirements.txt
-
-# 4. Configure environment
 copy .env.example .env
-# Edit .env with your settings
-
-# 5. Run the web app
 python app.py
-
-# Access: http://localhost:5000
 ```
 
-#### Step 3: Desktop Admin Application (Java)
+The web app runs at `http://localhost:5000`.
+
+### 4. Set up the Java admin app
 
 ```bash
-# 1. Navigate to JavaAdmin
 cd JavaAdmin
-
-# 2. Configure database connection
 copy src\main\resources\config.properties.example src\main\resources\config.properties
-# Edit config.properties with your database credentials
-
-# 3. Build the application
 build.bat
-
-# 4. Run the admin app
 run.bat
 ```
 
----
-
 ## Environment Configuration
 
-### Web App (.env)
+Example `.env` values:
 
 ```env
-# Database
-DB_HOST=db
+DB_HOST=localhost
 DB_USER=car_user
-DB_PASSWORD=john
+DB_PASSWORD=your_password_here
 DB_NAME=car_rental_system
 
-# Email
 MAIL_USERNAME=your_email@gmail.com
 MAIL_PASSWORD=your_app_password
 
-# Payment
 PAYMONGO_SECRET_KEY=sk_test_xxx
 PAYMONGO_PUBLIC_KEY=pk_test_xxx
+PAYMONGO_WEBHOOK_SECRET=whsk_xxx
 
-# Security
 SECRET_KEY=your_secret_key
-
-# Base URL
 BASE_URL=http://localhost:5000
 ```
 
-### Desktop Admin (config.properties)
+Java admin `config.properties` example:
 
 ```properties
-# Database Connection
 db.url=jdbc:mysql://localhost:3307/car_rental_system
 db.username=car_user
 db.password=your_password_here
 db.driver=com.mysql.cj.jdbc.Driver
 ```
 
-**Note:** If using Docker, change `localhost` to `db` in URLs.
-
----
-
-## Database Schema
-
-### Tables
-
-| Table | Description |
-|-------|-------------|
-| `users` | User accounts (customers & admins) |
-| `vehicle_brands` | Vehicle manufacturers |
-| `vehicles` | Available vehicles |
-| `bookings` | Rental bookings |
-| `payments` | Payment records |
-| `invoices` | Generated invoices |
-| `verifications` | User identity verification |
-| `testimonials` | Customer reviews |
-| `contact_queries` | Contact form submissions |
-| `subscribers` | Newsletter subscribers |
-
----
-
 ## Application Ports
 
-| Service | Port | URL |
-|--------|-----|-----|
-| Web App | 5000 | http://localhost:5000 |
-| MySQL | 3307 | localhost:3307 |
-| Adminer | 8080 | http://localhost:8080 |
-| ngrok | 4040 | http://localhost:4040 |
-
----
+- Web app: `http://localhost:5000`
+- MySQL: `localhost:3307`
 
 ## User Roles
 
-### Admin (role = 'admin')
-- Access admin dashboard
-- Manage vehicles, bookings, users
-- Approve verifications
-- View reports and analytics
-
-### User (role = 'user')
-- Browse vehicle fleet
-- Make bookings
-- Make payments
-- View booking history
-
----
+- `admin`: manages vehicles, bookings, users, verifications, and reports
+- `user`: browses vehicles, books cars, pays, and views booking history
 
 ## Development
 
-### Running in Development Mode
+Run Flask in development mode:
 
 ```bash
-# Web App
 FLASK_DEBUG=True python app.py
-
-# Desktop Admin
-# Just run run.bat
 ```
 
-### Database Updates
+Reinitialize the database:
 
 ```bash
-# Reinitialize database
 python init_schema.py --drop
 ```
 
----
-
 ## Troubleshooting
 
-### Connection Issues
+### MySQL connection failed
 
-**MySQL Connection Failed**
-- Check MySQL is running: `docker ps`
-- Verify credentials in .env
-- For Docker: Ensure DB_HOST=db
+- Make sure MySQL is running
+- Verify the credentials in `.env`
+- Confirm the app can reach `DB_HOST=localhost`
 
-**Java App Can't Connect**
-- Verify config.properties credentials
-- Check MySQL port (3307 in Docker)
+### Java app cannot connect
 
-### Build Issues
+- Verify `config.properties` credentials
+- Check that MySQL is listening on the configured port
 
-**Java Build Failed**
-- Install Java JDK (not JRE)
-- Add Java `bin` folder to PATH
+### Java build failed
 
----
+- Install Java JDK, not JRE
+- Add Java `bin` to `PATH`
 
 ## Technology Stack
 
-| Component | Technology |
-|-----------|------------|
-| Web Frontend | Flask, HTML, CSS, JavaScript |
-| Web Backend | Python |
-| Desktop App | Java Swing |
-| Database | MySQL 8.0 |
-| Container | Docker |
-| Payment | PayMongo/GCash |
-
----
+- Web frontend: Flask, HTML, CSS, JavaScript
+- Web backend: Python
+- Desktop app: Java Swing
+- Database: MySQL 8.0
+- Payment: PayMongo / GCash
 
 ## License
 
 MIT License
-
----
 
 ## Author
 

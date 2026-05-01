@@ -431,7 +431,7 @@ def test_webhook():
     }), 200
 
 
-# For local testing with ngrok
+# For optional local webhook testing
 @webhook_bp.route('/simulate-payment', methods=['POST'])
 def simulate_payment():
     """Simulate a successful payment for testing (development only)"""
