@@ -1218,6 +1218,28 @@
              display: inline-block;
          }
 
+         .notification-link {
+             position: relative;
+             display: inline-flex;
+             align-items: center;
+             gap: 10px;
+         }
+
+         .notification-badge {
+             display: inline-flex;
+             align-items: center;
+             justify-content: center;
+             min-width: 20px;
+             height: 20px;
+             padding: 0 6px;
+             border-radius: 999px;
+             background: #dc2626;
+             color: white;
+             font-size: 11px;
+             font-weight: 700;
+             line-height: 1;
+         }
+
          .user-name {
              display: flex;
              align-items: center;
@@ -1720,6 +1742,12 @@
                                 <i class="fas fa-tachometer-alt"></i> Admin Dashboard
                             </a>
                         {% else %}
+                            <a href="{{ url_for('user_bp.notifications') }}" class="notification-link">
+                                <i class="fas fa-bell"></i> Notifications
+                                {% if notification_unread_count > 0 %}
+                                    <span class="notification-badge">{{ notification_unread_count }}</span>
+                                {% endif %}
+                            </a>
                             <a href="{{ url_for('user_bp.user_dashboard') }}">
                                 <i class="fas fa-tachometer-alt"></i> My Dashboard
                             </a>

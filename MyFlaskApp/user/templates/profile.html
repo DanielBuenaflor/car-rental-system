@@ -2,6 +2,30 @@
 
 {% block title %}My Profile - CarRental Pro{% endblock %}
 
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/ph-address-selector.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof PhAddressSelector !== 'undefined') {
+        PhAddressSelector.init({
+            regionId: 'region',
+            provinceId: 'province',
+            cityId: 'city',
+            barangayId: 'barangay'
+        }, {
+            region: document.getElementById('initial_region').value,
+            province: document.getElementById('initial_province').value,
+            city: document.getElementById('initial_city').value,
+            barangay: document.getElementById('initial_barangay').value
+        });
+    } else {
+        console.error('PhAddressSelector utility not loaded');
+        document.getElementById('region').options[0].text = "Error: Utility not loaded";
+    }
+});
+</script>
+{% endblock %}
+
 {% block content %}
 <div style="max-width: 800px; margin: 40px auto;">
     <div class="card">
@@ -9,6 +33,15 @@
         
         <form method="POST" action="{{ url_for('user_bp.profile') }}">
             <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token', '') }}">
+            <input type="hidden" id="initial_region" value="{{ user.state or '' }}">
+            <input type="hidden" id="initial_province" value="{{ user.province or '' }}">
+            <input type="hidden" id="initial_city" value="{{ user.city or '' }}">
+            <input type="hidden" id="initial_barangay" value="{{ user.barangay or '' }}">
+            
+            <input type="hidden" name="region_name" id="region_name">
+            <input type="hidden" name="province_name" id="province_name">
+            <input type="hidden" name="city_name" id="city_name">
+            <input type="hidden" name="barangay_name" id="barangay_name">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div class="form-group">
                     <label>First Name *</label>
@@ -38,12 +71,31 @@
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div class="form-group">
-                    <label>City</label>
-                    <input type="text" name="city" value="{{ user.city or '' }}">
+                    <label>Region</label>
+                    <select id="region" name="region">
+                        <option value="">Select Region</option>
+                    </select>
                 </div>
                 <div class="form-group">
-                    <label>State</label>
-                    <input type="text" name="state" value="{{ user.state or '' }}">
+                    <label>Province</label>
+                    <select id="province" name="province" disabled>
+                        <option value="">Select Province</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>City/Municipality</label>
+                    <select id="city" name="city" disabled>
+                        <option value="">Select City/Municipality</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Barangay</label>
+                    <select id="barangay" name="barangay" disabled>
+                        <option value="">Select Barangay</option>
+                    </select>
                 </div>
             </div>
             
@@ -54,7 +106,7 @@
                 </div>
                 <div class="form-group">
                     <label>Country</label>
-                    <input type="text" name="country" value="{{ user.country or 'USA' }}">
+                    <input type="text" name="country" value="{{ user.country or 'Philippines' }}" readonly>
                 </div>
             </div>
             
@@ -79,6 +131,7 @@
             <span class="close" onclick="closePasswordModal()">&times;</span>
         </div>
         <form id="passwordForm">
+            <input type="hidden" id="passwordCsrfToken" value="{{ global_csrf_token }}">
             <div class="form-group">
                 <label>Current Password</label>
                 <input type="password" id="currentPassword" required>
@@ -205,7 +258,8 @@ document.getElementById('passwordForm').addEventListener('submit', function(e) {
     fetch('{{ url_for('user_bp.change_password') }}', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': document.getElementById('passwordCsrfToken').value
         },
         body: JSON.stringify({
             current_password: currentPassword,
