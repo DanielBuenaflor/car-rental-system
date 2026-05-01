@@ -5,6 +5,8 @@ import mysql.connector
 from flask_mail import Mail
 import os
 
+from MyFlaskApp.utils.csrf import generate_csrf_token
+
 mail = Mail() 
 load_dotenv()  # Load environment variables from .env file
 
@@ -70,6 +72,35 @@ def create_app():
     @app.route('/uploads/<path:filename>')
     def uploaded_file(filename):
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+    @app.context_processor
+    def inject_user_template_context():
+        """Provide shared user UI state to templates."""
+        csrf_token = session.get('csrf_token') or generate_csrf_token()
+        unread_count = 0
+
+        if session.get('loggedin') and session.get('role') != 'admin' and session.get('user_id'):
+            conn = get_db_connection()
+            if conn:
+                cursor = conn.cursor()
+                try:
+                    cursor.execute("""
+                        SELECT COUNT(*)
+                        FROM notifications
+                        WHERE user_id = %s AND is_read = FALSE
+                    """, (session['user_id'],))
+                    result = cursor.fetchone()
+                    unread_count = result[0] if result else 0
+                except mysql.connector.Error as e:
+                    print(f"Error loading notification count: {e}")
+                finally:
+                    cursor.close()
+                    conn.close()
+
+        return {
+            'notification_unread_count': unread_count,
+            'global_csrf_token': csrf_token
+        }
 
     # Register blueprints
     from MyFlaskApp.blueprints.base.base_bp import base_bp

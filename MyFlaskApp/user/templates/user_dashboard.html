@@ -123,7 +123,7 @@
                     </div>
                     <div style="margin-top: 8px;">
                         <button onclick="showExtensionForm('{{ rental.id }}')" class="btn-secondary" style="padding: 5px 15px; font-size: 12px; margin-right: 5px;">Extend</button>
-                        <a href="{{ url_for('user_bp.return_vehicle', booking_id=rental.id) }}" class="btn-primary" style="padding: 5px 15px; font-size: 12px;">Return</a>
+                        <a href="{{ url_for('user_bp.active_rentals') }}" class="btn-primary" style="padding: 5px 15px; font-size: 12px;">Return</a>
                     </div>
                 </div>
             </div>
@@ -174,6 +174,32 @@
             <button class="btn-primary" style="margin-top: 15px;">View Active Rentals</button>
         </div>
     </div>
+
+    <div class="card notifications-card" style="margin-top: 30px;">
+        <div class="notifications-header">
+            <h3><i class="fas fa-bell"></i> Recent Notifications</h3>
+            <a href="{{ url_for('user_bp.notifications') }}" class="btn-secondary" style="padding: 8px 16px; font-size: 12px;">View All</a>
+        </div>
+        {% if recent_notifications %}
+            <div class="notification-list">
+                {% for notification in recent_notifications %}
+                    <a href="{{ url_for('user_bp.open_notification', notification_id=notification.id) }}"
+                       class="notification-item {% if not notification.is_read %}unread{% endif %}">
+                        <div class="notification-meta">
+                            <strong>{{ notification.title }}</strong>
+                            <span>{{ notification.created_at.strftime('%Y-%m-%d %H:%M') if notification.created_at else 'Just now' }}</span>
+                        </div>
+                        <p>{{ notification.message }}</p>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="notification-empty">
+                <i class="fas fa-bell-slash"></i>
+                <span>No notifications yet.</span>
+            </div>
+        {% endif %}
+    </div>
     
     <!-- Recent Bookings -->
     {% if recent_bookings %}
@@ -218,13 +244,16 @@
                         <td><span class="badge badge-{{ booking.status }}">{{ booking.status }}</span></td>
                         <td>
                             {% if booking.status == 'pending' or booking.status == 'confirmed' %}
-                            <a href="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" 
-                               class="btn-secondary" style="padding: 5px 10px; font-size: 11px;"
-                               onclick="return confirm('Cancel this booking?')">Cancel</a>
+                            <form method="POST" action="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token_value or global_csrf_token }}">
+                                <button type="submit"
+                                   class="btn-secondary" style="padding: 5px 10px; font-size: 11px;"
+                                   onclick="return confirm('Cancel this booking?')">Cancel</button>
+                            </form>
                             {% elif booking.status == 'active' %}
                             <button onclick="showExtensionForm('{{ booking.id }}')" 
                                class="btn-secondary" style="padding: 5px 10px; font-size: 11px; margin-right: 3px;">Extend</button>
-                            <a href="{{ url_for('user_bp.return_vehicle', booking_id=booking.id) }}" 
+                            <a href="{{ url_for('user_bp.active_rentals') }}" 
                                class="btn-primary" style="padding: 5px 10px; font-size: 11px;">Return</a>
                             {% endif %}
                         </td>
@@ -347,6 +376,82 @@
         width: 100%;
         border-collapse: collapse;
     }
+
+    .notifications-card {
+        text-align: left;
+        cursor: default;
+    }
+
+    .notifications-card:hover {
+        transform: none;
+    }
+
+    .notifications-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .notification-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .notification-item {
+        display: block;
+        padding: 16px 18px;
+        border-radius: 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        text-decoration: none;
+        color: #1e293b;
+        transition: all 0.2s ease;
+    }
+
+    .notification-item:hover {
+        border-color: #93c5fd;
+        background: #eff6ff;
+        text-decoration: none;
+        color: #0f3b6f;
+    }
+
+    .notification-item.unread {
+        border-left: 4px solid #2563eb;
+        background: #eff6ff;
+    }
+
+    .notification-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+    }
+
+    .notification-meta span {
+        color: #64748b;
+        font-size: 12px;
+    }
+
+    .notification-item p {
+        margin: 0;
+        color: #475569;
+        font-size: 14px;
+    }
+
+    .notification-empty {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #64748b;
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 18px;
+    }
     
     .bookings-table th, .bookings-table td {
         padding: 12px;
@@ -397,6 +502,10 @@
         }
         .card i {
             font-size: 36px !important;
+        }
+        .notification-meta {
+            flex-direction: column;
+            gap: 4px;
         }
     }
 </style>

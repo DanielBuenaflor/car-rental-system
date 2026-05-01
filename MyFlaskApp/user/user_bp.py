@@ -5,6 +5,7 @@ import os
 import json
 import base64
 import re
+from urllib.parse import urlparse
 from functools import wraps
 from datetime import datetime, timedelta
 
@@ -66,6 +67,56 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def _is_safe_notification_link(link):
+    """Allow only internal app-relative notification links."""
+    if not link or not link.startswith('/') or link.startswith('//'):
+        return False
+
+    parsed = urlparse(link)
+    return not parsed.scheme and not parsed.netloc
+
+
+def _notifications_fallback_url():
+    return url_for('user_bp.notifications')
+
+
+def _notification_target_link(link):
+    return link if _is_safe_notification_link(link) else _notifications_fallback_url()
+
+
+def _load_notifications(cursor, user_id, limit):
+    cursor.execute("""
+        SELECT id, type, title, message, link, is_read, read_at, created_at
+        FROM notifications
+        WHERE user_id = %s
+        ORDER BY created_at DESC
+        LIMIT %s
+    """, (user_id, limit))
+    return cursor.fetchall()
+
+
+def _validate_notification_csrf():
+    token = request.form.get('csrf_token') or request.headers.get('X-CSRF-Token')
+    valid, error = validate_csrf_token(token)
+    if not valid:
+        return False, error
+
+    clear_csrf_token()
+    return True, None
+
+
+def _validate_state_change_csrf(clear_token=False):
+    """Validate CSRF token for form or JSON state-changing requests."""
+    token = request.form.get('csrf_token') or request.headers.get('X-CSRF-Token')
+    valid, error = validate_csrf_token(token)
+    if not valid:
+        return False, error
+
+    if clear_token:
+        clear_csrf_token()
+    return True, None
+
+
 # ============================================================================
 # BLUEPRINT CONFIGURATION
 # ============================================================================
@@ -118,6 +169,7 @@ def user_dashboard():
         'verification_status': 'not_submitted',
         'rejection_reason': None,
         'recent_bookings': [],
+        'recent_notifications': [],
         'csrf_token_value': generate_csrf_token()
     }
     conn = get_db_connection()
@@ -199,6 +251,8 @@ def user_dashboard():
             LIMIT 3
         """, (session['user_id'],))
         recent_bookings = cursor.fetchall()
+
+        recent_notifications = _load_notifications(cursor, session['user_id'], 5)
         
         # Get active rentals with countdown
         cursor.execute("""
@@ -256,11 +310,157 @@ def user_dashboard():
             verification_status=verification_status,
             rejection_reason=rejection_reason,
             recent_bookings=recent_bookings,
+            recent_notifications=recent_notifications,
             csrf_token_value=token
         )
     except Exception as e:
         print(f"Dashboard error: {e}")
         return render_template('user_dashboard.html', **default_context)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@user_bp.route('/notifications')
+@login_required
+def notifications():
+    """Display the user's notification inbox."""
+    conn = get_db_connection()
+    if not conn:
+        flash('Database connection error', 'error')
+        return render_template(
+            'notifications.html',
+            notifications=[],
+            session=session,
+            csrf_token_value=generate_csrf_token()
+        )
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        notifications_list = _load_notifications(cursor, session['user_id'], 50)
+        return render_template(
+            'notifications.html',
+            notifications=notifications_list,
+            session=session,
+            csrf_token_value=generate_csrf_token()
+        )
+    except Exception as e:
+        print(f"Notifications error: {e}")
+        flash('Error loading notifications', 'error')
+        return render_template(
+            'notifications.html',
+            notifications=[],
+            session=session,
+            csrf_token_value=generate_csrf_token()
+        )
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@user_bp.route('/notifications/<int:notification_id>/open')
+@login_required
+def open_notification(notification_id):
+    """Open a notification target and mark it as read."""
+    conn = get_db_connection()
+    if not conn:
+        flash('Database connection error', 'error')
+        return redirect(_notifications_fallback_url())
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT id, link, is_read
+            FROM notifications
+            WHERE id = %s AND user_id = %s
+        """, (notification_id, session['user_id']))
+        notification = cursor.fetchone()
+
+        if not notification:
+            flash('Notification not found', 'error')
+            return redirect(_notifications_fallback_url())
+
+        if not notification['is_read']:
+            cursor.execute("""
+                UPDATE notifications
+                SET is_read = TRUE, read_at = NOW()
+                WHERE id = %s AND user_id = %s
+            """, (notification_id, session['user_id']))
+            conn.commit()
+
+        return redirect(_notification_target_link(notification.get('link')))
+    except Exception as e:
+        print(f"Open notification error: {e}")
+        flash('Error opening notification', 'error')
+        return redirect(_notifications_fallback_url())
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@user_bp.route('/notifications/<int:notification_id>/read', methods=['POST'])
+@login_required
+def mark_notification_read(notification_id):
+    """Mark a single notification as read."""
+    valid, error = _validate_notification_csrf()
+    if not valid:
+        flash(error, 'error')
+        return redirect(_notifications_fallback_url())
+
+    next_url = request.form.get('next', '')
+
+    conn = get_db_connection()
+    if not conn:
+        flash('Database connection error', 'error')
+        return redirect(_notifications_fallback_url())
+
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE notifications
+            SET is_read = TRUE, read_at = NOW()
+            WHERE id = %s AND user_id = %s AND is_read = FALSE
+        """, (notification_id, session['user_id']))
+        conn.commit()
+        return redirect(next_url if _is_safe_notification_link(next_url) else _notifications_fallback_url())
+    except Exception as e:
+        conn.rollback()
+        print(f"Mark notification read error: {e}")
+        flash('Error updating notification', 'error')
+        return redirect(_notifications_fallback_url())
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@user_bp.route('/notifications/read-all', methods=['POST'])
+@login_required
+def mark_all_notifications_read():
+    """Mark all notifications for the current user as read."""
+    valid, error = _validate_notification_csrf()
+    if not valid:
+        flash(error, 'error')
+        return redirect(_notifications_fallback_url())
+
+    conn = get_db_connection()
+    if not conn:
+        flash('Database connection error', 'error')
+        return redirect(_notifications_fallback_url())
+
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE notifications
+            SET is_read = TRUE, read_at = NOW()
+            WHERE user_id = %s AND is_read = FALSE
+        """, (session['user_id'],))
+        conn.commit()
+        return redirect(_notifications_fallback_url())
+    except Exception as e:
+        conn.rollback()
+        print(f"Mark all notifications read error: {e}")
+        flash('Error updating notifications', 'error')
+        return redirect(_notifications_fallback_url())
     finally:
         cursor.close()
         conn.close()
@@ -280,22 +480,51 @@ def profile():
     if request.method == 'POST':
         # Update profile
         try:
+            valid, error = _validate_state_change_csrf(clear_token=True)
+            if not valid:
+                flash(error, 'error')
+                return redirect(url_for('user_bp.profile'))
+
             first_name = request.form.get('first_name', '').strip()
             last_name = request.form.get('last_name', '').strip()
             phone = request.form.get('phone', '').strip()
             address = request.form.get('address', '').strip()
-            city = request.form.get('city', '').strip()
-            state = request.form.get('state', '').strip()
+            
+            # Extract address dropdown names (we'll ensure JS sends names or we'll get them from the text)
+            # For now, let's assume JS is updated to send these names
+            region = request.form.get('region_name', '').strip()
+            province = request.form.get('province_name', '').strip()
+            city = request.form.get('city_name', '').strip()
+            barangay = request.form.get('barangay_name', '').strip()
+            
+            state = region # Map Region to State for legacy compatibility
+            
             postal_code = request.form.get('postal_code', '').strip()
             country = request.form.get('country', '').strip()
+
+            if not first_name or not last_name:
+                flash('First name and last name are required', 'error')
+                return redirect(url_for('user_bp.profile'))
+
+            if len(first_name) > 100 or len(last_name) > 100:
+                flash('Name fields are too long', 'error')
+                return redirect(url_for('user_bp.profile'))
+
+            if phone and not re.match(r'^[0-9+\-\s()]{7,20}$', phone):
+                flash('Please enter a valid phone number', 'error')
+                return redirect(url_for('user_bp.profile'))
+
+            if postal_code and len(postal_code) > 20:
+                flash('Postal code is too long', 'error')
+                return redirect(url_for('user_bp.profile'))
             
             cursor.execute("""
                 UPDATE users 
                 SET first_name = %s, last_name = %s, phone = %s, 
-                    address = %s, city = %s, state = %s, 
+                    address = %s, city = %s, province = %s, barangay = %s, state = %s, 
                     postal_code = %s, country = %s
                 WHERE id = %s
-            """, (first_name, last_name, phone, address, city, state, postal_code, country, 
+            """, (first_name, last_name, phone, address, city, province, barangay, state, postal_code, country, 
                   session['user_id']))
             conn.commit()
             
@@ -332,7 +561,11 @@ def profile():
 @login_required
 def change_password():
     """Change user password (AJAX endpoint)"""
-    data = request.get_json()
+    valid, error = _validate_state_change_csrf()
+    if not valid:
+        return jsonify({'success': False, 'message': error}), 403
+
+    data = request.get_json() or {}
     current_password = data.get('current_password')
     new_password = data.get('new_password')
     
@@ -341,6 +574,13 @@ def change_password():
     
     if len(new_password) < 8:
         return jsonify({'success': False, 'message': 'Password must be at least 8 characters'})
+
+    password_pattern = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
+    if not re.match(password_pattern, new_password):
+        return jsonify({
+            'success': False,
+            'message': 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+        })
     
     conn = get_db_connection()
     if not conn:
@@ -363,8 +603,8 @@ def change_password():
         
         return jsonify({'success': True, 'message': 'Password changed successfully'})
         
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
+    except Exception:
+        return jsonify({'success': False, 'message': 'Unable to change password right now'})
     finally:
         cursor.close()
         conn.close()
@@ -417,7 +657,8 @@ def book_vehicle_page(vehicle_id):
             verification_status=verification_status,
             rejection_reason=rejection_reason,
             today_date=date.today().strftime('%Y-%m-%d'),
-            session=session
+            session=session,
+            csrf_token_value=generate_csrf_token()
         )
         
     except Exception as e:
@@ -471,7 +712,7 @@ def active_rentals():
     try:
         # Get active rentals for the user
         cursor.execute("""
-            SELECT b.*, v.model, v.license_plate, vb.name as brand_name,
+            SELECT b.*, v.model, v.license_plate, v.current_odometer, vb.name as brand_name,
                    rt.pickup_time, rt.expected_return_time, rt.tracking_status,
                    rt.pickup_odometer_reading, rt.fuel_level_at_pickup
             FROM bookings b
@@ -482,6 +723,12 @@ def active_rentals():
             ORDER BY b.start_date ASC
         """, (session['user_id'],))
         active_rentals = cursor.fetchall()
+
+        for rental in active_rentals:
+            pickup_odometer = rental.get('pickup_odometer_reading')
+            current_odometer = rental.get('current_odometer')
+            baseline = pickup_odometer if pickup_odometer is not None else current_odometer
+            rental['minimum_return_odometer'] = int(baseline) if baseline is not None else 0
         
         # Calculate countdown for each rental
         now = datetime.now()
@@ -784,8 +1031,11 @@ def verification_page():
 @login_required
 def book_vehicle():
     """Book a vehicle (only for verified users)"""
-    
-    data = request.get_json()
+    valid, error = _validate_state_change_csrf()
+    if not valid:
+        return jsonify({'success': False, 'message': error}), 403
+
+    data = request.get_json() or {}
     vehicle_id = data.get('vehicle_id')
     start_date = data.get('start_date')
     end_date = data.get('end_date')
@@ -829,6 +1079,9 @@ def book_vehicle():
         start = datetime.strptime(start_date, '%Y-%m-%d')
         end = datetime.strptime(end_date, '%Y-%m-%d')
         days = (end - start).days
+
+        if start.date() < datetime.now().date():
+            return jsonify({'success': False, 'message': 'Start date cannot be in the past'})
         
         if days <= 0:
             return jsonify({'success': False, 'message': 'End date must be after start date'})
@@ -917,6 +1170,11 @@ def book_vehicle():
 @login_required
 def cancel_booking(booking_id):
     """Cancel a booking"""
+    valid, error = _validate_state_change_csrf(clear_token=True)
+    if not valid:
+        flash(error, 'error')
+        return redirect(url_for('user_bp.my_bookings'))
+
     conn = get_db_connection()
     if not conn:
         flash('Database error. Please try again.', 'error')
@@ -951,7 +1209,11 @@ def cancel_booking(booking_id):
 @login_required
 def request_extension(booking_id):
     """Request rental extension"""
-    data = request.get_json()
+    valid, error = _validate_state_change_csrf()
+    if not valid:
+        return jsonify({'success': False, 'message': error}), 403
+
+    data = request.get_json() or {}
     requested_days = data.get('requested_days')
     reason = data.get('reason', '')
     
@@ -1023,13 +1285,25 @@ def request_extension(booking_id):
 @login_required
 def return_vehicle(booking_id):
     """Mark vehicle as returned"""
-    data = request.get_json()
+    valid, error = _validate_state_change_csrf()
+    if not valid:
+        return jsonify({'success': False, 'message': error}), 403
+
+    data = request.get_json() or {}
     return_odometer = data.get('odometer')
     fuel_level = data.get('fuel_level')
     condition_notes = data.get('condition_notes', '')
     
-    if not return_odometer or not fuel_level:
+    if return_odometer is None or return_odometer == '' or not fuel_level:
         return jsonify({'success': False, 'message': 'Please provide odometer reading and fuel level'})
+
+    try:
+        return_odometer = int(return_odometer)
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Odometer reading must be a whole number'})
+
+    if return_odometer <= 0:
+        return jsonify({'success': False, 'message': 'Odometer reading must be greater than zero'})
     
     conn = get_db_connection()
     if not conn:
@@ -1037,6 +1311,39 @@ def return_vehicle(booking_id):
     
     cursor = conn.cursor(dictionary=True)
     try:
+        cursor.execute("""
+            SELECT b.id, b.vehicle_id, rt.pickup_odometer_reading, v.current_odometer
+            FROM bookings b
+            JOIN vehicles v ON b.vehicle_id = v.id
+            LEFT JOIN rental_tracking rt ON b.id = rt.booking_id
+            WHERE b.id = %s AND b.user_id = %s AND b.status = 'active'
+        """, (booking_id, session['user_id']))
+        booking = cursor.fetchone()
+
+        if not booking:
+            cursor.execute("""
+                SELECT id
+                FROM bookings
+                WHERE id = %s AND user_id = %s
+            """, (booking_id, session['user_id']))
+            existing_booking = cursor.fetchone()
+
+            if existing_booking:
+                return jsonify({'success': False, 'message': 'This booking is not active yet and cannot be returned'})
+
+            return jsonify({'success': False, 'message': 'Booking not found'})
+
+        minimum_return_odometer = booking['pickup_odometer_reading']
+        if minimum_return_odometer is None:
+            minimum_return_odometer = booking['current_odometer']
+        minimum_return_odometer = int(minimum_return_odometer) if minimum_return_odometer is not None else 0
+
+        if return_odometer < minimum_return_odometer:
+            return jsonify({
+                'success': False,
+                'message': f'Odometer reading cannot be lower than {minimum_return_odometer} km'
+            })
+
         # Update booking
         cursor.execute("""
             UPDATE bookings 
@@ -1045,13 +1352,13 @@ def return_vehicle(booking_id):
         """, (booking_id, session['user_id']))
         
         if cursor.rowcount == 0:
-            return jsonify({'success': False, 'message': 'Booking not found or already returned'})
+            return jsonify({'success': False, 'message': 'This booking is not active yet and cannot be returned'})
         
         # Update rental tracking
         cursor.execute("""
             UPDATE rental_tracking 
             SET actual_return_time = NOW(), return_odometer_reading = %s, 
-                fuel_level_at_return = %s, condition_notes = %s, tracking_status = 'returned'
+                fuel_level_at_return = %s, condition_at_return = %s, tracking_status = 'returned'
             WHERE booking_id = %s
         """, (return_odometer, fuel_level, condition_notes, booking_id))
         
@@ -1112,15 +1419,27 @@ def get_vehicle(vehicle_id):
 @login_required
 def submit_testimonial():
     """Submit a testimonial (users can submit up to 10 testimonials)"""
-    data = request.get_json()
+    valid, error = _validate_state_change_csrf()
+    if not valid:
+        return jsonify({'success': False, 'message': error}), 403
+
+    data = request.get_json() or {}
     rating = data.get('rating')
     comment = data.get('comment', '').strip()
     
     if not rating or not comment:
         return jsonify({'success': False, 'message': 'Rating and comment are required'})
-    
+
+    try:
+        rating = int(rating)
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Rating must be a whole number between 1 and 5'})
+
     if rating < 1 or rating > 5:
         return jsonify({'success': False, 'message': 'Rating must be between 1 and 5'})
+
+    if len(comment) > 2000:
+        return jsonify({'success': False, 'message': 'Review is too long'})
     
     conn = get_db_connection()
     if not conn:

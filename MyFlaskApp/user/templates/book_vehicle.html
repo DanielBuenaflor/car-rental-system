@@ -176,7 +176,30 @@
                     </div>
                     
                     <div id="pickup-custom" class="location-section">
-                        <input type="text" id="custom_pickup_address" name="custom_pickup_address" class="custom-address-input" placeholder="Enter pickup address (hotel, home, etc.)">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <select id="pickup_region" class="form-control">
+                                <option value="">Select Region</option>
+                            </select>
+                            <select id="pickup_province" class="form-control" disabled>
+                                <option value="">Select Province</option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <select id="pickup_city" class="form-control" disabled>
+                                <option value="">Select City/Municipality</option>
+                            </select>
+                            <select id="pickup_barangay" class="form-control" disabled>
+                                <option value="">Select Barangay</option>
+                            </select>
+                        </div>
+                        <input type="hidden" id="pickup_region_name">
+                        <input type="hidden" id="pickup_province_name">
+                        <input type="hidden" id="pickup_city_name">
+                        <input type="hidden" id="pickup_barangay_name">
+                        
+                        <input type="text" id="custom_pickup_street" class="custom-address-input" placeholder="House No., Street, Building">
+                        <input type="hidden" id="custom_pickup_address" name="custom_pickup_address">
+                        
                         <div id="customPickupMap"></div>
                         <input type="hidden" id="custom_pickup_lat" name="custom_pickup_lat" value="">
                         <input type="hidden" id="custom_pickup_lng" name="custom_pickup_lng" value="">
@@ -202,7 +225,30 @@
                     </div>
                     
                     <div id="return-custom" class="location-section">
-                        <input type="text" id="custom_return_address" name="custom_return_address" class="custom-address-input" placeholder="Enter return address">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <select id="return_region" class="form-control">
+                                <option value="">Select Region</option>
+                            </select>
+                            <select id="return_province" class="form-control" disabled>
+                                <option value="">Select Province</option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <select id="return_city" class="form-control" disabled>
+                                <option value="">Select City/Municipality</option>
+                            </select>
+                            <select id="return_barangay" class="form-control" disabled>
+                                <option value="">Select Barangay</option>
+                            </select>
+                        </div>
+                        <input type="hidden" id="return_region_name">
+                        <input type="hidden" id="return_province_name">
+                        <input type="hidden" id="return_city_name">
+                        <input type="hidden" id="return_barangay_name">
+                        
+                        <input type="text" id="custom_return_street" class="custom-address-input" placeholder="House No., Street, Building">
+                        <input type="hidden" id="custom_return_address" name="custom_return_address">
+                        
                         <div id="customReturnMap"></div>
                         <input type="hidden" id="custom_return_lat" name="custom_return_lat" value="">
                         <input type="hidden" id="custom_return_lng" name="custom_return_lng" value="">
@@ -609,19 +655,30 @@
         const isCustomPickup = document.querySelector('#pickup-map')?.classList.contains('active') === false;
         const isCustomReturn = document.querySelector('#return-map')?.classList.contains('active') === false;
         
+        let customPickupAddress = null;
+        if (isCustomPickup) {
+            customPickupAddress = concatenateAddress('pickup');
+        }
+        
+        let customReturnAddress = null;
+        if (isCustomReturn) {
+            customReturnAddress = concatenateAddress('return');
+        }
+        
         const bookingData = {
             vehicle_id: vehicleId,
             start_date: startDate,
             end_date: endDate,
             pickup_time: pickupTime || null,
             return_time: returnTime || null,
-            pickup_location: pickupLocation,
-            return_location: returnLocation,
+            pickup_location: isCustomPickup ? customPickupAddress : pickupLocation,
+            return_location: isCustomReturn ? customReturnAddress : returnLocation,
             pickup_location_id: pickupLocationId || null,
             return_location_id: returnLocationId || null,
             is_custom_pickup: isCustomPickup,
             is_custom_return: isCustomReturn,
-            custom_pickup_address: document.getElementById('custom_pickup_address')?.value || null,
+            custom_pickup_address: customPickupAddress,
+            custom_return_address: customReturnAddress,
             custom_pickup_lat: document.getElementById('custom_pickup_lat')?.value || null,
             custom_pickup_lng: document.getElementById('custom_pickup_lng')?.value || null,
             one_way_fee: window.currentOneWayFee || currentOneWayFee,
@@ -633,7 +690,7 @@
         const loadingIndicator = document.getElementById('loadingIndicator');
         
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<<ii class="fas fa-spinner fa-spin"></i> Processing...';
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         loadingIndicator.style.display = 'block';
         
         try {
@@ -641,6 +698,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token_value or global_csrf_token }}'
                 },
                 body: JSON.stringify(bookingData)
             });
@@ -678,4 +736,43 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/location-map.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ph-address-selector.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof PhAddressSelector !== 'undefined') {
+        // Initialize Address Selectors
+        PhAddressSelector.init({
+            regionId: 'pickup_region',
+            provinceId: 'pickup_province',
+            cityId: 'pickup_city',
+            barangayId: 'pickup_barangay'
+        });
+        
+        PhAddressSelector.init({
+            regionId: 'return_region',
+            provinceId: 'return_province',
+            cityId: 'return_city',
+            barangayId: 'return_barangay'
+        });
+    } else {
+        console.error('PhAddressSelector utility not loaded');
+    }
+});
+
+function concatenateAddress(prefix) {
+    const street = document.getElementById(`custom_${prefix}_street`).value.trim();
+    const brgy = document.getElementById(`${prefix}_barangay_name`).value;
+    const city = document.getElementById(`${prefix}_city_name`).value;
+    const prov = document.getElementById(`${prefix}_province_name`).value;
+    const region = document.getElementById(`${prefix}_region_name`).value;
+    
+    let full = street;
+    if (brgy) full += `, Brgy. ${brgy}`;
+    if (city) full += `, ${city}`;
+    if (prov) full += `, ${prov}`;
+    if (region) full += `, ${region}`;
+    
+    return full;
+}
+</script>
 {% endblock %}

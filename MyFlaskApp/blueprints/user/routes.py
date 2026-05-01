@@ -913,7 +913,7 @@ def return_vehicle(booking_id):
         cursor.execute("""
             UPDATE rental_tracking 
             SET actual_return_time = NOW(), return_odometer_reading = %s, 
-                fuel_level_at_return = %s, condition_notes = %s, tracking_status = 'returned'
+                fuel_level_at_return = %s, condition_at_return = %s, tracking_status = 'returned'
             WHERE booking_id = %s
         """, (return_odometer, fuel_level, condition_notes, booking_id))
         

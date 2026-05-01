@@ -210,7 +210,7 @@
                         <td>
                             {% if booking.status in ['pending', 'confirmed'] %}
                             <form method="POST" action="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" style="display:inline;">
-                                <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+                                <input type="hidden" name="csrf_token" value="{{ global_csrf_token }}">
                                 <button type="submit" class="btn-sm btn-danger">
                                     Cancel
                                 </button>
