@@ -43,8 +43,6 @@ db.password=your_password
 db.driver=com.mysql.cj.jdbc.Driver
 ```
 
-**Note:** If using Docker, change `localhost` to the container name (e.g., `db`)
-
 ### 3. Build
 
 Run the build script:
@@ -92,7 +90,6 @@ JavaAdmin/
 ### Connection Error
 - Make sure MySQL is running
 - Check `config.properties` credentials are correct
-- If using Docker, ensure container port is exposed (e.g., `-p 3307:3306`)
 
 ### Build Error
 - Install Java JDK (not JRE)
