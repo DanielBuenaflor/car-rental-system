@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="card">
         <h2 style="margin-bottom: 20px;">My Profile</h2>
         
-        <form method="POST" action="{{ url_for('user_bp.profile') }}">
+        <form method="POST" action="{{ url_for('user_bp.profile') }}" id="profileForm">
             <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token', '') }}">
             <input type="hidden" id="initial_region" value="{{ user.state or '' }}">
             <input type="hidden" id="initial_province" value="{{ user.province or '' }}">
@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             
             <div class="form-actions">
-                <button type="submit" class="btn-primary">Update Profile</button>
+                <button type="button" class="btn-primary" onclick="handleProfileUpdate()">Update Profile</button>
                 <button type="button" class="btn-secondary" onclick="showPasswordModal()">Change Password</button>
                 <a href="{{ url_for('user_bp.user_dashboard') }}" class="btn-secondary">Cancel</a>
             </div>
@@ -226,6 +226,18 @@ function closePasswordModal() {
     document.getElementById('passwordForm').reset();
 }
 
+function handleProfileUpdate() {
+    openConfirmModal({
+        title: 'Update Profile',
+        message: 'Are you sure you want to save the changes to your profile?',
+        confirmText: 'Save Changes',
+        confirmClass: 'confirm-btn-primary',
+        onConfirm: function() {
+            document.getElementById('profileForm').submit();
+        }
+    });
+}
+
 document.getElementById('passwordForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -255,29 +267,37 @@ document.getElementById('passwordForm').addEventListener('submit', function(e) {
         return;
     }
     
-    fetch('{{ url_for('user_bp.change_password') }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': document.getElementById('passwordCsrfToken').value
-        },
-        body: JSON.stringify({
-            current_password: currentPassword,
-            new_password: newPassword
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Password changed successfully');
-            closePasswordModal();
-        } else {
-            alert(data.message || 'Error changing password');
+    openConfirmModal({
+        title: 'Change Password',
+        message: 'Are you sure you want to change your password? You will need to use the new password for your next login.',
+        confirmText: 'Change Password',
+        confirmClass: 'confirm-btn-primary',
+        onConfirm: function() {
+            fetch('{{ url_for('user_bp.change_password') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': document.getElementById('passwordCsrfToken').value
+                },
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Password changed successfully');
+                    closePasswordModal();
+                } else {
+                    alert(data.message || 'Error changing password');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred');
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred');
     });
 });
 </script>

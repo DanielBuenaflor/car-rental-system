@@ -3,9 +3,15 @@
 // ============================================
 
 function logoutUser() {
-    if (confirm('Are you sure you want to log out?')) {
-        window.location.href = '/logout';
-    }
+    openConfirmModal({
+        title: 'Logout',
+        message: 'Are you sure you want to log out of your account?',
+        confirmText: 'Logout',
+        confirmClass: 'confirm-btn-danger',
+        onConfirm: function() {
+            window.location.href = '/logout';
+        }
+    });
 }
 
 function toggleMobileMenu() {
