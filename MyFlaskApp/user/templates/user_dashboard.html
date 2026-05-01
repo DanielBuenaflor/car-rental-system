@@ -244,11 +244,11 @@
                         <td><span class="badge badge-{{ booking.status }}">{{ booking.status }}</span></td>
                         <td>
                             {% if booking.status == 'pending' or booking.status == 'confirmed' %}
-                            <form method="POST" action="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" style="display: inline;">
+                            <form method="POST" action="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" style="display: inline;" id="cancelForm-{{ booking.id }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token_value or global_csrf_token }}">
-                                <button type="submit"
+                                <button type="button"
                                    class="btn-secondary" style="padding: 5px 10px; font-size: 11px;"
-                                   onclick="return confirm('Cancel this booking?')">Cancel</button>
+                                   onclick="handleCancelBooking('{{ booking.id }}')">Cancel</button>
                             </form>
                             {% elif booking.status == 'active' %}
                             <button onclick="showExtensionForm('{{ booking.id }}')" 
@@ -511,6 +511,18 @@
 </style>
 
 <script>
+function handleCancelBooking(bookingId) {
+    openConfirmModal({
+        title: 'Cancel Booking',
+        message: 'Are you sure you want to cancel this booking? This action cannot be undone.',
+        confirmText: 'Cancel Booking',
+        confirmClass: 'confirm-btn-danger',
+        onConfirm: function() {
+            document.getElementById('cancelForm-' + bookingId).submit();
+        }
+    });
+}
+
 function showExtensionForm(bookingId) {
     const days = prompt('How many days would you like to extend? (Maximum 7 days)', '1');
     
@@ -527,33 +539,39 @@ function showExtensionForm(bookingId) {
     
     const reason = prompt('Reason for extension (optional)', '');
     
-    if (confirm('Are you sure you want to request a ' + requestedDays + '-day extension? Additional charges may apply.')) {
-        fetch('/user/request-extension/' + bookingId, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                requested_days: requestedDays,
-                reason: reason || ''
+    openConfirmModal({
+        title: 'Request Extension',
+        message: 'Are you sure you want to request a ' + requestedDays + '-day extension? Additional charges may apply.',
+        confirmText: 'Submit Request',
+        confirmClass: 'confirm-btn-primary', // Note: Need to ensure this class exists or use a default
+        onConfirm: function() {
+            fetch('/user/request-extension/' + bookingId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    requested_days: requestedDays,
+                    reason: reason || ''
+                })
             })
-        })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(data) {
-            if (data.success) {
-                alert('Extension request submitted successfully!');
-                location.reload();
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(function(error) {
-            console.error('Error:', error);
-            alert('An error occurred while submitting your request');
-        });
-    }
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success) {
+                    alert('Extension request submitted successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(function(error) {
+                console.error('Error:', error);
+                alert('An error occurred while submitting your request');
+            });
+        }
+    });
 }
 </script>
 {% endblock %}

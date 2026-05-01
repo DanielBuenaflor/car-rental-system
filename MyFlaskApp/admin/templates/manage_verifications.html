@@ -525,17 +525,25 @@ function viewDocuments(verificationId) {
 }
 
 function approveVerification() {
-    fetch(`{{ url_for('admin_bp.api_approve_verification', verification_id=0) }}`.replace('0', currentVerificationId), {
-        method: 'POST'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Verification approved successfully');
-            closeModal();
-            location.reload();
-        } else {
-            alert('Error approving verification: ' + (data.message || 'Unknown error'));
+    openConfirmModal({
+        title: 'Approve Verification',
+        message: 'Are you sure you want to approve this identity verification?',
+        confirmText: 'Approve',
+        confirmClass: 'confirm-btn-success',
+        onConfirm: function() {
+            fetch(`{{ url_for('admin_bp.api_approve_verification', verification_id=0) }}`.replace('0', currentVerificationId), {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Verification approved successfully');
+                    closeModal();
+                    location.reload();
+                } else {
+                    alert('Error approving verification: ' + (data.message || 'Unknown error'));
+                }
+            });
         }
     });
 }
@@ -561,19 +569,27 @@ function rejectVerification() {
         return;
     }
     
-    fetch(`{{ url_for('admin_bp.api_reject_verification', verification_id=0) }}`.replace('0', currentVerificationId), {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ reason: reason })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Verification rejected successfully');
-            closeModal();
-            location.reload();
-        } else {
-            alert('Error rejecting verification: ' + (data.message || 'Unknown error'));
+    openConfirmModal({
+        title: 'Reject Verification',
+        message: 'Are you sure you want to reject this identity verification with reason: ' + reason + '?',
+        confirmText: 'Reject',
+        confirmClass: 'confirm-btn-danger',
+        onConfirm: function() {
+            fetch(`{{ url_for('admin_bp.api_reject_verification', verification_id=0) }}`.replace('0', currentVerificationId), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ reason: reason })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Verification rejected successfully');
+                    closeModal();
+                    location.reload();
+                } else {
+                    alert('Error rejecting verification: ' + (data.message || 'Unknown error'));
+                }
+            });
         }
     });
 }

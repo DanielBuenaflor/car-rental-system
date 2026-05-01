@@ -372,24 +372,33 @@ function viewBooking(bookingId) {
 
 function updateBookingStatus() {
     const newStatus = document.getElementById('updateStatus').value;
-    fetch(`{{ url_for('admin_bp.api_update_booking', booking_id=0) }}`.replace('0', currentBookingId), {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({status: newStatus})
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Booking status updated successfully');
-            closeModal();
-            loadBookings();
-        } else {
-            alert('Error updating booking status: ' + (data.message || 'Unknown error'));
+    
+    openConfirmModal({
+        title: 'Update Booking Status',
+        message: 'Are you sure you want to change the booking status to "' + newStatus + '"?',
+        confirmText: 'Update Status',
+        confirmClass: newStatus === 'cancelled' ? 'confirm-btn-danger' : 'confirm-btn-primary',
+        onConfirm: function() {
+            fetch(`{{ url_for('admin_bp.api_update_booking', booking_id=0) }}`.replace('0', currentBookingId), {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({status: newStatus})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Booking status updated successfully');
+                    closeModal();
+                    loadBookings();
+                } else {
+                    alert('Error updating booking status: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating booking status');
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error updating booking status');
     });
 }
 

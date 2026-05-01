@@ -289,37 +289,51 @@ function escapeHtml(text) {
 }
 
 function approveTestimonial(testimonialId) {
-    fetch(`{{ url_for('admin_bp.api_approve_testimonial', testimonial_id=0) }}`.replace('0', testimonialId), {
-        method: 'POST'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Testimonial approved successfully');
-            loadTestimonials();
-            filterTestimonials('pending');
-        } else {
-            alert('Error approving testimonial: ' + (data.message || 'Unknown error'));
+    openConfirmModal({
+        title: 'Approve Testimonial',
+        message: 'Are you sure you want to approve this testimonial and make it visible on the website?',
+        confirmText: 'Approve',
+        confirmClass: 'confirm-btn-success',
+        onConfirm: function() {
+            fetch(`{{ url_for('admin_bp.api_approve_testimonial', testimonial_id=0) }}`.replace('0', testimonialId), {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Testimonial approved successfully');
+                    loadTestimonials();
+                    filterTestimonials('pending');
+                } else {
+                    alert('Error approving testimonial: ' + (data.message || 'Unknown error'));
+                }
+            });
         }
     });
 }
 
 function rejectTestimonial(testimonialId) {
-    if (confirm('Are you sure you want to reject this testimonial?')) {
-        fetch(`{{ url_for('admin_bp.api_reject_testimonial', testimonial_id=0) }}`.replace('0', testimonialId), {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Testimonial rejected successfully');
-                loadTestimonials();
-                filterTestimonials('pending');
-            } else {
-                alert('Error rejecting testimonial: ' + (data.message || 'Unknown error'));
-            }
-        });
-    }
+    openConfirmModal({
+        title: 'Reject Testimonial',
+        message: 'Are you sure you want to reject this testimonial?',
+        confirmText: 'Reject',
+        confirmClass: 'confirm-btn-warning',
+        onConfirm: function() {
+            fetch(`{{ url_for('admin_bp.api_reject_testimonial', testimonial_id=0) }}`.replace('0', testimonialId), {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Testimonial rejected successfully');
+                    loadTestimonials();
+                    filterTestimonials('pending');
+                } else {
+                    alert('Error rejecting testimonial: ' + (data.message || 'Unknown error'));
+                }
+            });
+        }
+    });
 }
 
 function deleteTestimonial(testimonialId) {
