@@ -514,6 +514,7 @@
             <span class="close" onclick="closeModal()">&times;</span>
         </div>
         <form id="testimonialForm" onsubmit="submitTestimonial(event)">
+            <input type="hidden" id="testimonialCsrfToken" value="{{ global_csrf_token }}">
             <div class="form-group">
                 <label><i class="fas fa-star"></i> Your Rating</label>
                 <div class="rating-input">
@@ -602,6 +603,7 @@ function submitTestimonial(event) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRF-Token': document.getElementById('testimonialCsrfToken').value
         },
         body: JSON.stringify({
             rating: parseInt(rating),

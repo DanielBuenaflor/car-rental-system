@@ -101,6 +101,25 @@
         border: 1px solid #cbd5e1;
         border-radius: 8px;
     }
+    .field-error {
+        display: none;
+        margin-top: 6px;
+        color: #dc2626;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    .field-error.visible {
+        display: block;
+    }
+    .input-invalid {
+        border-color: #dc2626 !important;
+        background: #fef2f2;
+    }
+    .btn-disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
 </style>
 {% endblock %}
 
@@ -144,17 +163,21 @@
                     <button class="btn-secondary" onclick="showExtensionForm({{ rental.id }})">
                         <i class="fas fa-calendar-plus"></i> Request Extension
                     </button>
-                {% elif rental.countdown_type == 'active' %}
+                {% elif rental.status == 'active' and rental.countdown_type == 'active' %}
                     <button class="btn-secondary" onclick="showExtensionForm({{ rental.id }})">
                         <i class="fas fa-calendar-plus"></i> Request Extension
                     </button>
                     <button class="btn-primary" onclick="showReturnForm({{ rental.id }})">
                         <i class="fas fa-undo-alt"></i> Return Vehicle
                     </button>
-                {% elif rental.countdown_type == 'overdue' %}
+                {% elif rental.status == 'active' and rental.countdown_type == 'overdue' %}
                     <button class="btn-danger" onclick="showReturnForm({{ rental.id }})">
                         <i class="fas fa-undo-alt"></i> Return Vehicle Now
                     </button>
+                {% elif rental.status == 'confirmed' %}
+                    <div style="padding: 10px 14px; background: #fff7ed; color: #9a3412; border-radius: 12px; font-size: 14px; font-weight: 500;">
+                        <i class="fas fa-hourglass-half"></i> Booking confirmed, awaiting activation before return is available.
+                    </div>
                 {% endif %}
             </div>
             
@@ -176,11 +199,20 @@
             </div>
             
             <!-- Return Form -->
+            {% if rental.status == 'active' %}
             <div class="return-form" id="return-form-{{ rental.id }}">
                 <h4>Return Vehicle</h4>
                 <div class="form-group">
                     <label>Current Odometer Reading (km)</label>
-                    <input type="number" id="return-odometer-{{ rental.id }}" required>
+                    <input type="number"
+                           id="return-odometer-{{ rental.id }}"
+                           min="{{ rental.minimum_return_odometer }}"
+                           data-min-odometer="{{ rental.minimum_return_odometer }}"
+                           inputmode="numeric"
+                           max="999999"
+                           required>
+                    <small style="color: #64748b;">Minimum allowed: {{ rental.minimum_return_odometer }} km</small>
+                    <div class="field-error" id="return-odometer-error-{{ rental.id }}"></div>
                 </div>
                 <div class="form-group">
                     <label>Fuel Level</label>
@@ -197,10 +229,11 @@
                     <textarea id="return-notes-{{ rental.id }}" rows="2" placeholder="Any damage or issues?"></textarea>
                 </div>
                 <div class="action-buttons">
-                    <button class="btn-primary" onclick="submitReturn({{ rental.id }})">Confirm Return</button>
+                    <button class="btn-primary btn-disabled" id="return-submit-{{ rental.id }}" onclick="submitReturn({{ rental.id }})" disabled>Confirm Return</button>
                     <button class="btn-secondary" onclick="hideReturnForm({{ rental.id }})">Cancel</button>
                 </div>
             </div>
+            {% endif %}
         </div>
         {% endfor %}
     {% else %}
@@ -226,10 +259,58 @@ function hideExtensionForm(bookingId) {
 function showReturnForm(bookingId) {
     document.getElementById(`return-form-${bookingId}`).style.display = 'block';
     document.getElementById(`extension-form-${bookingId}`).style.display = 'none';
+    validateReturnOdometer(bookingId);
 }
 
 function hideReturnForm(bookingId) {
     document.getElementById(`return-form-${bookingId}`).style.display = 'none';
+}
+
+function setReturnValidationState(bookingId, message) {
+    const errorElement = document.getElementById(`return-odometer-error-${bookingId}`);
+    const inputElement = document.getElementById(`return-odometer-${bookingId}`);
+    const submitButton = document.getElementById(`return-submit-${bookingId}`);
+    const isValid = !message;
+
+    errorElement.textContent = message || '';
+    errorElement.classList.toggle('visible', !isValid);
+    inputElement.classList.toggle('input-invalid', !isValid);
+    submitButton.disabled = !isValid;
+    submitButton.classList.toggle('btn-disabled', !isValid);
+}
+
+function validateReturnOdometer(bookingId) {
+    const odometerInput = document.getElementById(`return-odometer-${bookingId}`);
+    const minimumOdometer = parseInt(odometerInput.dataset.minOdometer || '0', 10);
+    let sanitizedValue = (odometerInput.value || '').replace(/\D/g, '');
+
+    if (sanitizedValue.length > 6) {
+        sanitizedValue = sanitizedValue.slice(0, 6);
+    }
+
+    if (odometerInput.value !== sanitizedValue) {
+        odometerInput.value = sanitizedValue;
+    }
+
+    if (!sanitizedValue) {
+        setReturnValidationState(bookingId, 'Please enter odometer reading');
+        return false;
+    }
+
+    const parsedOdometer = parseInt(sanitizedValue, 10);
+
+    if (Number.isNaN(parsedOdometer) || parsedOdometer <= 0) {
+        setReturnValidationState(bookingId, 'Please enter a valid odometer reading greater than zero');
+        return false;
+    }
+
+    if (parsedOdometer < minimumOdometer) {
+        setReturnValidationState(bookingId, `Odometer reading cannot be lower than ${minimumOdometer} km`);
+        return false;
+    }
+
+    setReturnValidationState(bookingId, '');
+    return true;
 }
 
 function submitExtension(bookingId) {
@@ -252,6 +333,7 @@ function submitExtension(bookingId) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ global_csrf_token }}'
                 },
                 body: JSON.stringify({
                     requested_days: parseInt(days),
@@ -272,19 +354,22 @@ function submitExtension(bookingId) {
 }
 
 function submitReturn(bookingId) {
-    const odometer = document.getElementById(`return-odometer-${bookingId}`).value;
+    const odometerInput = document.getElementById(`return-odometer-${bookingId}`);
+    const odometer = odometerInput.value;
     const fuelLevel = document.getElementById(`return-fuel-${bookingId}`).value;
     const notes = document.getElementById(`return-notes-${bookingId}`).value;
     
-    if (!odometer) {
-        alert('Please enter odometer reading');
+    if (!validateReturnOdometer(bookingId)) {
+        odometerInput.focus();
         return;
     }
+
+    const parsedOdometer = parseInt(odometer, 10);
     
     openConfirmModal({
         icon: 'warning',
         title: 'Confirm Vehicle Return',
-        message: `Are you sure you want to return this vehicle? Final odometer: ${odometer} km, Fuel: ${fuelLevel}%`,
+        message: `Are you sure you want to return this vehicle? Final odometer: ${parsedOdometer} km, Fuel: ${fuelLevel}`,
         confirmText: 'Yes, Return Vehicle',
         confirmClass: 'confirm-btn-warning',
         onConfirm: function() {
@@ -292,9 +377,10 @@ function submitReturn(bookingId) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ global_csrf_token }}'
                 },
                 body: JSON.stringify({
-                    odometer: parseInt(odometer),
+                    odometer: parsedOdometer,
                     fuel_level: fuelLevel,
                     condition_notes: notes
                 })
@@ -311,6 +397,19 @@ function submitReturn(bookingId) {
         }
     });
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[id^="return-odometer-"]').forEach(function(input) {
+        const bookingId = input.id.replace('return-odometer-', '');
+        input.addEventListener('input', function() {
+            validateReturnOdometer(bookingId);
+        });
+        input.addEventListener('blur', function() {
+            validateReturnOdometer(bookingId);
+        });
+        validateReturnOdometer(bookingId);
+    });
+});
 
 // Auto-refresh countdown every minute
 setInterval(function() {
