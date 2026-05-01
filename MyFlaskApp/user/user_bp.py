@@ -17,8 +17,7 @@ from MyFlaskApp.payment.invoice_service import InvoiceService
 from MyFlaskApp.utils.ocr_service import LicenseOCRService
 from MyFlaskApp.utils.secure_upload import save_upload, save_base64_upload, ALLOWED_IMAGE_EXTENSIONS
 from MyFlaskApp.utils.secure_db import fetch_one, execute_query, DatabaseError
-from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clear_csrf_token
-
+from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clear_csrf_token, require_csrf
 
 # ============================================================================
 # CONFIGURATION
@@ -103,22 +102,70 @@ def login_required(f):
 @login_required
 def user_dashboard():
     """User dashboard page with statistics and recent activity"""
+    default_context = {
+        'session': session,
+        'is_verified': False,
+        'booking_count': 0,
+        'active_count': 0,
+        'pending_count': 0,
+        'confirmed_count': 0,
+        'completed_count': 0,
+        'cancelled_count': 0,
+        'total_spent': 0,
+        'upcoming_bookings': [],
+        'active_rentals': [],
+        'testimonial_count': 0,
+        'verification_status': 'not_submitted',
+        'rejection_reason': None,
+        'recent_bookings': [],
+        'csrf_token_value': generate_csrf_token()
+    }
     conn = get_db_connection()
     if not conn:
-        return render_template('user_dashboard.html', session=session)
+        return render_template('user_dashboard.html', **default_context)
     
     cursor = conn.cursor(dictionary=True)
     try:
-        # Get user stats
-        cursor.execute("SELECT COUNT(*) as count FROM bookings WHERE user_id = %s", 
-                      (session['user_id'],))
-        booking_count = cursor.fetchone()['count']
-        
+        # Get user stats (total, status breakdown)
         cursor.execute("""
-            SELECT COUNT(*) as count FROM testimonials 
-            WHERE user_id = %s AND status = 'approved'
+            SELECT 
+                COUNT(*) as booking_count,
+                SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_count,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+                SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed_count,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count
+            FROM bookings 
+            WHERE user_id = %s
         """, (session['user_id'],))
-        testimonial_count = cursor.fetchone()['count']
+        status_stats = cursor.fetchone() or {}
+        booking_count = status_stats.get('booking_count', 0) or 0
+        active_count = status_stats.get('active_count', 0) or 0
+        pending_count = status_stats.get('pending_count', 0) or 0
+        confirmed_count = status_stats.get('confirmed_count', 0) or 0
+        completed_count = status_stats.get('completed_count', 0) or 0
+        cancelled_count = status_stats.get('cancelled_count', 0) or 0
+        
+        # Get total spent (completed and active bookings)
+        cursor.execute("""
+            SELECT COALESCE(SUM(total_amount), 0) as total_spent
+            FROM bookings 
+            WHERE user_id = %s AND status IN ('completed', 'active')
+        """, (session['user_id'],))
+        total_spent_row = cursor.fetchone() or {}
+        total_spent = total_spent_row.get('total_spent', 0) or 0
+        
+        # Get upcoming bookings (next 7 days)
+        cursor.execute("""
+            SELECT b.*, v.model, v.license_plate, vb.name as brand_name
+            FROM bookings b
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE b.user_id = %s AND b.status = 'pending' 
+            AND b.start_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+            ORDER BY b.start_date ASC
+        """, (session['user_id'],))
+        upcoming_bookings = cursor.fetchall()
         
         # Get verification status
         cursor.execute("""
@@ -127,13 +174,23 @@ def user_dashboard():
             WHERE user_id = %s 
             ORDER BY created_at DESC LIMIT 1
         """, (session['user_id'],))
-        verification = cursor.fetchone()
-        verification_status = verification['verification_status'] if verification else 'not_submitted'
-        rejection_reason = verification['rejection_reason'] if verification else None
+        verification = cursor.fetchone() or {}
+        verification_status = verification.get('verification_status', 'not_submitted')
+        rejection_reason = verification.get('rejection_reason')
+        is_verified = verification_status == 'approved'
         
-        # Get recent bookings
+        # Get testimonial count
         cursor.execute("""
-            SELECT b.*, v.model, v.brand_id, vb.name as brand_name
+            SELECT COUNT(*) as count FROM testimonials 
+            WHERE user_id = %s AND status = 'approved'
+        """, (session['user_id'],))
+        testimonial_row = cursor.fetchone() or {}
+        testimonial_count = testimonial_row.get('count', 0) or 0
+        
+        # Get recent bookings (with custom addresses)
+        cursor.execute("""
+            SELECT b.*, v.model, v.brand_id, vb.name as brand_name,
+                   b.custom_pickup_address, b.custom_return_address
             FROM bookings b
             JOIN vehicles v ON b.vehicle_id = v.id
             JOIN vehicle_brands vb ON v.brand_id = vb.id
@@ -143,18 +200,67 @@ def user_dashboard():
         """, (session['user_id'],))
         recent_bookings = cursor.fetchall()
         
+        # Get active rentals with countdown
+        cursor.execute("""
+            SELECT b.*, v.model, v.license_plate, vb.name as brand_name,
+                   rt.pickup_time, rt.expected_return_time, rt.tracking_status,
+                   rt.pickup_odometer_reading, rt.fuel_level_at_pickup,
+                   b.custom_pickup_address, b.custom_return_address
+            FROM bookings b
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            LEFT JOIN rental_tracking rt ON b.id = rt.booking_id
+            WHERE b.user_id = %s AND b.status IN ('confirmed', 'active')
+            ORDER BY b.start_date ASC
+        """, (session['user_id'],))
+        active_rentals = cursor.fetchall()
+        
+        # Calculate countdown for each active rental
+        now = datetime.now()
+        for rental in active_rentals:
+            if rental['start_date']:
+                start = rental['start_date']
+                if now < start:
+                    days_left = (start - now).days
+                    hours_left = (start - now).seconds // 3600
+                    rental['status_message'] = f"Starts in {days_left} days, {hours_left} hours"
+                    rental['countdown_type'] = 'upcoming'
+                elif rental['end_date']:
+                    end = rental['end_date']
+                    if now < end:
+                        days_left = (end - now).days
+                        hours_left = (end - now).seconds // 3600
+                        rental['status_message'] = f"Ends in {days_left} days, {hours_left} hours"
+                        rental['countdown_type'] = 'active'
+                    else:
+                        rental['status_message'] = "OVERDUE - Please return vehicle"
+                        rental['countdown_type'] = 'overdue'
+        
+        # Generate CSRF token for dashboard
+        token = generate_csrf_token()
+        
         return render_template(
             'user_dashboard.html',
             session=session,
+            is_verified=is_verified,
             booking_count=booking_count,
+            active_count=active_count,
+            pending_count=pending_count,
+            confirmed_count=confirmed_count,
+            completed_count=completed_count,
+            cancelled_count=cancelled_count,
+            total_spent=total_spent,
+            upcoming_bookings=upcoming_bookings,
+            active_rentals=active_rentals,
             testimonial_count=testimonial_count,
             verification_status=verification_status,
             rejection_reason=rejection_reason,
-            recent_bookings=recent_bookings
+            recent_bookings=recent_bookings,
+            csrf_token_value=token
         )
     except Exception as e:
         print(f"Dashboard error: {e}")
-        return render_template('user_dashboard.html', session=session)
+        return render_template('user_dashboard.html', **default_context)
     finally:
         cursor.close()
         conn.close()
@@ -636,6 +742,10 @@ def invoice_pdf(invoice_id):
 @user_bp.route('/verification')
 @login_required
 def verification_page():
+    # Debug: Write to file to ensure output isn't suppressed
+    with open('D:\\verification_debug.log', 'a') as f:
+        f.write(f"[{datetime.now()}] ENTERING verification_page()\n")
+    print("DEBUG: ===== ENTERING verification_page() =====")
     """Show verification page"""
     conn = get_db_connection()
     if not conn:
@@ -652,6 +762,12 @@ def verification_page():
         """, (session['user_id'],))
         verification = cursor.fetchone()
         
+        # Generate CSRF token and store in session
+        token = generate_csrf_token()
+        print(f"DEBUG: Token generated: {token}")  # Should appear in terminal now!
+        print(f"DEBUG: Session token: {session.get('csrf_token')}")
+        
+        # Pass session to template (template will read csrf_token from session)
         return render_template('verification.html', 
                                verification=verification, 
                                session=session)
@@ -1054,7 +1170,14 @@ def submit_testimonial():
 # ============================================================================
 @user_bp.route('/submit-verification', methods=['POST'])
 @login_required
+@require_csrf
 def submit_verification():
+    # Debug: Write to file
+    with open('D:\\verification_debug.log', 'a') as f:
+        f.write(f"[{datetime.now()}] ENTERING submit_verification()\n")
+        f.write(f"[{datetime.now()}] Form keys: {list(request.form.keys())}\n")
+        f.write(f"[{datetime.now()}] csrf_token: {request.form.get('csrf_token')}\n")
+    print("DEBUG: ===== ENTERING submit_verification() =====")
     """Submit verification documents with OCR extraction for admin review"""
     
     # Check if already verified
@@ -1076,14 +1199,18 @@ def submit_verification():
         cursor.close()
     
     # Get form data
-    license_number = request.form.get('license_number', '').strip()
-    license_expiry = request.form.get('license_expiry', '').strip()
     id_card_type = request.form.get('id_card_type', '').strip()
-    id_card_number = request.form.get('id_card_number', '').strip()
+    
+    # DEBUG: Log received data
+    print(f"DEBUG: id_card_type={id_card_type}")
+    print(f"DEBUG: license_front_base64 length={len(request.form.get('license_front_base64', ''))}")
+    print(f"DEBUG: license_back_base64 length={len(request.form.get('license_back_base64', ''))}")
+    print(f"DEBUG: id_card_image_base64 length={len(request.form.get('id_card_image_base64', ''))}")
+    print(f"DEBUG: selfie_image_base64 length={len(request.form.get('selfie_image_base64', ''))}")
     
     # Validate required fields
-    if not all([license_number, license_expiry, id_card_type, id_card_number]):
-        return jsonify({'success': False, 'message': 'All fields are required'}), 400
+    if not id_card_type:
+        return jsonify({'success': False, 'message': 'ID card type is required'}), 400
     
     # Handle image uploads (base64 from camera OR file upload)
     # Check for base64 camera data first, fall back to file upload
@@ -1097,6 +1224,12 @@ def submit_verification():
     license_back_file = request.files.get('license_back')
     id_card_file = request.files.get('id_card_image')
     selfie_file = request.files.get('selfie_image')
+    
+    # DEBUG: Log file uploads
+    print(f"DEBUG: license_front_file={license_front_file.filename if license_front_file else 'None'}")
+    print(f"DEBUG: license_back_file={license_back_file.filename if license_back_file else 'None'}")
+    print(f"DEBUG: id_card_file={id_card_file.filename if id_card_file else 'None'}")
+    print(f"DEBUG: selfie_file={selfie_file.filename if selfie_file else 'None'}")
     
     # Validate that license front image is provided (required field)
     has_license_front = bool(license_front_base64) or (license_front_file and allowed_file(license_front_file.filename))
@@ -1217,9 +1350,7 @@ def submit_verification():
         if front_full_path:
             ocr_result = LicenseOCRService.validate_license(
                 front_image_path=front_full_path,
-                back_image_path=back_full_path,
-                expected_license_number=license_number,
-                expected_expiry=license_expiry
+                back_image_path=back_full_path
             )
             
     except Exception as e:
@@ -1247,10 +1378,11 @@ def submit_verification():
         ocr_data = {
             'confidence_score': ocr_result.get('confidence_score', 0) if ocr_result else 0,
             'extracted_license_number': ocr_result.get('extracted_license_number') if ocr_result else None,
+            'extracted_id_number': ocr_result.get('extracted_id_number') if ocr_result else None,
             'extracted_expiry': ocr_result.get('extracted_expiry') if ocr_result else None,
-            'license_match': ocr_result.get('license_match') if ocr_result else None,
-            'expiry_match': ocr_result.get('expiry_match') if ocr_result else None,
-            'is_expired': ocr_result.get('is_expired') if ocr_result else None,
+            'license_match': None,
+            'expiry_match': None,
+            'is_expired': None,
             'errors': ocr_result.get('errors', []) if ocr_result else []
         }
         
@@ -1259,16 +1391,15 @@ def submit_verification():
         
         cursor.execute("""
             INSERT INTO verifications (
-                user_id, license_number, license_expiry_date, 
-                license_front_image, license_back_image,
-                id_card_type, id_card_number, id_card_image, selfie_image,
+                user_id, license_front_image, license_back_image,
+                id_card_type, id_card_image, selfie_image,
                 verification_status, ocr_confidence_score, ocr_extracted_license, 
                 ocr_extracted_expiry, ocr_raw_data, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, NOW())
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, NOW())
         """, (
-            session['user_id'], license_number, license_expiry,
+            session['user_id'],
             license_front_path, license_back_path,
-            id_card_type, id_card_number, id_card_path, selfie_path,
+            id_card_type, id_card_path, selfie_path,
             ocr_data['confidence_score'],
             ocr_data['extracted_license_number'],
             ocr_data['extracted_expiry'],

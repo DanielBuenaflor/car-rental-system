@@ -48,7 +48,7 @@ def create_app():
     
     # Change this - uploads folder is now inside base
     app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'base', 'uploads')
-    app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload size
+    app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # Increased to 100MB to handle compressed base64 images
     
     mail.init_app(app)
     
@@ -74,7 +74,7 @@ def create_app():
     # Register blueprints
     from MyFlaskApp.blueprints.base.base_bp import base_bp
     from MyFlaskApp.blueprints.auth.routes import auth_bp
-    from MyFlaskApp.blueprints.user.routes import user_bp
+    from MyFlaskApp.user.user_bp import user_bp
     from MyFlaskApp.blueprints.admin.routes import admin_bp
     from MyFlaskApp.payment.payment_bp import payment_bp
     from MyFlaskApp.payment.webhooks import webhook_bp
