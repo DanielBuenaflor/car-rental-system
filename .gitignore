@@ -36,3 +36,6 @@ MyFlaskApp/base/static/
 *.sqlite
 
 # Secrets (keys should never be committed)
+
+# Conductor (Internal planning and tool state)
+/conductor/
