@@ -25,6 +25,7 @@ Usage:
 import os
 import re
 import uuid
+import io
 from PIL import Image
 from werkzeug.utils import secure_filename as werkzeug_secure_filename
 from typing import Dict, Optional, Tuple, Union, List, Set
@@ -95,6 +96,57 @@ def generate_safe_filename(prefix: str = "file", extension: str = "jpg") -> str:
     return f"{prefix}_{random_suffix}.{safe_ext}"
 
 
+def validate_magic_bytes_from_stream(file, expected_type: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate file content matches expected type via magic bytes.
+    Works with both FileStorage objects (in memory) and file paths.
+    
+    Input:
+        file: FileStorage object or file path
+        expected_type: Expected file type (png, jpg, gif, webp, pdf)
+        
+    Output:
+        Tuple of (is_valid, error_message)
+    """
+    try:
+        if hasattr(file, 'seek') and hasattr(file, 'read'):
+            # FileStorage object - read from memory
+            file.seek(0)
+            header = file.read(16)
+            file.seek(0)
+        else:
+            # File path - read from disk
+            with open(file, 'rb') as f:
+                header = f.read(16)
+        
+        expected_type = expected_type.lower()
+        
+        if expected_type in ('jpg', 'jpeg'):
+            if header[:3] != MAGIC_BYTES['jpg']:
+                return False, f"File is not a valid JPEG image"
+        elif expected_type == 'png':
+            if header[:8] != MAGIC_BYTES['png']:
+                return False, f"File is not a valid PNG image"
+        elif expected_type == 'gif':
+            if header[:6] not in (MAGIC_BYTES['gif'], MAGIC_BYTES['gif89']):
+                return False, f"File is not a valid GIF image"
+        elif expected_type == 'webp':
+            if header[:4] != MAGIC_BYTES['webp']:
+                return False, f"File is not a valid WebP image"
+        elif expected_type == 'bmp':
+            if header[:2] != MAGIC_BYTES['bmp']:
+                return False, f"File is not a valid BMP image"
+        elif expected_type == 'pdf':
+            if header[:4] != MAGIC_BYTES['pdf']:
+                return False, f"File is not a valid PDF document"
+        else:
+            return False, f"Unsupported file type for magic bytes check"
+        
+        return True, None
+    except Exception as e:
+        return False, f"Magic bytes validation error: {str(e)}"
+
+
 def validate_magic_bytes(file_path: str, expected_type: str) -> bool:
     """
     Validate file content matches expected type via magic bytes.
@@ -106,26 +158,8 @@ def validate_magic_bytes(file_path: str, expected_type: str) -> bool:
     Output:
         True if magic bytes match
     """
-    try:
-        with open(file_path, 'rb') as f:
-            header = f.read(16)
-        
-        if expected_type.lower() in ('jpg', 'jpeg'):
-            return header[:3] == MAGIC_BYTES['jpg']
-        elif expected_type.lower() == 'png':
-            return header[:8] == MAGIC_BYTES['png']
-        elif expected_type.lower() == 'gif':
-            return header[:6] in (MAGIC_BYTES['gif'], MAGIC_BYTES['gif89'])
-        elif expected_type.lower() == 'webp':
-            return header[:4] == MAGIC_BYTES['webp']
-        elif expected_type.lower() == 'pdf':
-            return header[:4] == MAGIC_BYTES['pdf']
-        elif expected_type.lower() == 'bmp':
-            return header[:2] == MAGIC_BYTES['bmp']
-        
-        return False
-    except Exception:
-        return False
+    valid, _ = validate_magic_bytes_from_stream(file_path, expected_type)
+    return valid
 
 
 def get_file_extension(filename: str) -> Optional[str]:
@@ -207,11 +241,12 @@ def validate_file_size(file_or_path: Union[object, str], max_size_mb: int = MAX_
 
 
 def validate_image_dimensions(file_or_path: Union[object, str], 
-                           max_dimension: int = MAX_IMAGE_DIMENSION,
-                           min_dimension: int = MIN_IMAGE_DIMENSION) -> Tuple[bool, Optional[str]]:
+                            max_dimension: int = MAX_IMAGE_DIMENSION,
+                            min_dimension: int = MIN_IMAGE_DIMENSION) -> Tuple[bool, Optional[str]]:
     """
     Validate image dimensions are within acceptable range.
     Note: This requires the file to be a valid image.
+    Uses PIL to verify the image can be opened and read.
     
     Input:
         file_or_path: FileStorage object or file path
@@ -223,13 +258,21 @@ def validate_image_dimensions(file_or_path: Union[object, str],
     """
     try:
         if hasattr(file_or_path, 'seek'):
+            # FileStorage object - read into BytesIO to avoid stream issues
             file_or_path.seek(0)
-            img = Image.open(file_or_path)
+            file_data = file_or_path.read()
             file_or_path.seek(0)
+            img = Image.open(io.BytesIO(file_data))
         else:
             img = Image.open(file_or_path)
         
+        # Try to load the image to verify it's valid
+        # This will raise an exception if the image is invalid
+        img.load()
+        
         width, height = img.size
+        
+        img.close()
         
         if width > max_dimension or height > max_dimension:
             return False, f"Image too large. Maximum dimension: {max_dimension}px"
@@ -237,7 +280,10 @@ def validate_image_dimensions(file_or_path: Union[object, str],
         if width < min_dimension or height < min_dimension:
             return False, f"Image too small. Minimum dimension: {min_dimension}px"
         
-        img.close()
+        # Reset file pointer after reading
+        if hasattr(file_or_path, 'seek'):
+            file_or_path.seek(0)
+        
         return True, None
     except Exception as e:
         return False, f"Invalid image file: {str(e)}"
@@ -279,6 +325,12 @@ def validate_upload(file,
     if not valid:
         return {'valid': False, 'error': error, 'extension': ext, 'size': 0}
     
+    # Check magic bytes to verify file content matches extension
+    if check_magic_bytes and ext in MAGIC_BYTES:
+        valid, error = validate_magic_bytes_from_stream(file, ext)
+        if not valid:
+            return {'valid': False, 'error': error, 'extension': ext, 'size': 0}
+    
     if check_dimensions and ext in {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'}:
         valid, error = validate_image_dimensions(file)
         if not valid:
@@ -300,7 +352,7 @@ def save_upload(file,
                max_size_mb: int = MAX_FILE_SIZE_MB,
                prefix: str = "file",
                check_dimensions: bool = True,
-               check_magic_bytes: bool = False,
+               check_magic_bytes: bool = True,
                generate_unique_name: bool = True) -> Tuple[Optional[str], Optional[str]]:
     """
     Save uploaded file with full validation and sanitization.
@@ -321,7 +373,7 @@ def save_upload(file,
     if allowed_extensions is None:
         allowed_extensions = ALLOWED_IMAGE_EXTENSIONS
     
-    validation = validate_upload(file, allowed_extensions, max_size_mb, check_dimensions)
+    validation = validate_upload(file, allowed_extensions, max_size_mb, check_dimensions, check_magic_bytes)
     if not validation['valid']:
         return None, validation['error']
     

@@ -4,13 +4,64 @@
 
 {% block extra_css %}
 <style>
-    /* ============================================================================
+    /* ===========================================================================
        MAIN CONTAINER
-       ============================================================================ */
+       =========================================================================== */
     .image-manager {
         max-width: 1400px;
         margin: 0 auto;
         padding: 20px 0;
+    }
+    
+    /* ===========================================================================
+       HEADER SECTION
+       =========================================================================== */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    
+    .page-header h2 {
+        margin: 0;
+        color: #1f3a5f;
+    }
+    
+    /* Upload Box Styles */
+    .upload-box {
+        border: 2px dashed #007bff;
+        border-radius: 8px;
+        background: #f8f9fa;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .upload-box:hover {
+        background: #e9ecef;
+        border-color: #0056b3;
+    }
+    .upload-box img {
+        max-width: 200px;
+        max-height: 150px;
+        border-radius: 8px;
+        margin-top: 10px;
+        object-fit: cover;
+    }
+
+    /* Security hint */
+    .security-hint {
+        font-size: 10px;
+        color: #28a745;
+        margin-top: 5px;
     }
     
     /* ============================================================================
@@ -682,29 +733,29 @@
     
     <!-- Image Manager Content -->
     <div id="imageManagerContent">
-        {% if selected_vehicle_id %}
-            <div class="loading">
-                <i class="fas fa-spinner"></i>
-                <p>Loading vehicle images...</p>
+        {% if selected_vehicle %}
+        <!-- Upload Section -->
+        <div class="upload-container">
+            <div class="upload-title">
+                <i class="fas fa-cloud-upload-alt"></i>
+                Upload New Images
             </div>
+        </div>
         {% else %}
-            <div class="empty-state">
-                <i class="fas fa-camera"></i>
-                <p>No vehicle selected</p>
-                <small>Please select a vehicle from the dropdown above to manage its images</small>
-                {% if search %}
-                <p style="margin-top: 20px;">No vehicles found matching "{{ search }}"</p>
-                {% endif %}
-            </div>
+        <div class="empty-state">
+            <i class="fas fa-camera"></i>
+            <p>No vehicle selected</p>
+            <small>Please select a vehicle from the dropdown above to manage its images</small>
+        </div>
         {% endif %}
     </div>
-</div>
+    </div>
 
 <script>
 let allVehicles = {{ all_vehicles|tojson }};
 let currentVehicleId = {{ selected_vehicle_id|tojson }};
 let selectedFiles = [];
-let vehicleName = '';
+let vehicleName = {{ (selected_vehicle.brand_name + ' ' + selected_vehicle.model)|tojson if selected_vehicle else '' }};
 
 // Show notification
 function showNotification(message, type = 'success') {
@@ -778,11 +829,12 @@ function displayGallery(vehicleId, data) {
                 <i class="fas fa-cloud-upload-alt"></i>
                 Upload New Images for ${vehicleName}
             </div>
-            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <p>Click to select images</p>
-                <small>Supported formats: PNG, JPG, JPEG, GIF, WEBP (Max 5MB each)</small>
-                <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+            <div class="security-hint" style="margin-bottom: 15px;"><i class="fas fa-shield-alt"></i> Safe upload: Only image files can be selected - no file deletion possible</div>
+            <div class="upload-box" onclick="document.getElementById('galleryDropzoneInput').click()">
+                <i class="fas fa-car" style="font-size: 32px; color: #007bff; margin-bottom: 10px;"></i><br>
+                <span id="galleryDropzoneText">Click to select car photos</span><br>
+                <small style="color: #999; font-size: 11px;">Multiple images • JPG, PNG, GIF, WebP, BMP • Max 5MB each</small>
+                <input type="file" id="galleryDropzoneInput" accept="image/jpeg,image/png,image/gif,image/webp,image/bmp" multiple style="display: none;" onchange="previewVehicleImages(event)">
             </div>
             <div id="selectedFilesContainer" class="selected-files">
                 <h4>Selected Files (<span id="fileCount">0</span>)</h4>
@@ -919,18 +971,19 @@ function removeFile(index) {
 
 // Save images to database
 function saveImages() {
-    if (selectedFiles.length === 0) {
-        showNotification('No images selected to upload', 'error');
+    const fileInput = document.getElementById('galleryDropzoneInput');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        showNotification('Please select at least one image to upload', 'error');
         return;
     }
-    
+
     const saveBtn = document.getElementById('saveImagesBtn');
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
     
     const formData = new FormData();
-    for (let i = 0; i < selectedFiles.length; i++) {
-        formData.append('gallery_images', selectedFiles[i]);
+    for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('gallery_images', fileInput.files[i]);
     }
     
     fetch(`/admin/api/vehicles/${currentVehicleId}/upload-images`, {
@@ -940,26 +993,28 @@ function saveImages() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showNotification(`Successfully uploaded ${selectedFiles.length} image(s)`, 'success');
-            // Clear selected files
-            selectedFiles = [];
-            document.getElementById('selectedFilesContainer').style.display = 'none';
-            document.getElementById('fileInput').value = '';
+            showNotification(`Successfully uploaded ${fileInput.files.length} image(s)`, 'success');
+            // Clear file input
+            fileInput.value = '';
+            const textSpan = document.getElementById('galleryDropzoneText');
+            if (textSpan) textSpan.textContent = 'Click to select car photos';
+            const previewDiv = document.getElementById('selectedFilesContainer');
+            if (previewDiv) previewDiv.innerHTML = '<h4>Selected Files (<span id="fileCount">0</span>)</h4><div id="fileList" class="file-list"></div>';
             // Reload gallery
             loadVehicleImages(currentVehicleId);
         } else {
-            showNotification('Error uploading images: ' + (data.message || 'Unknown error'), 'error');
+            showNotification('Error: ' + (data.message || 'Upload failed'), 'error');
         }
         saveBtn.disabled = false;
         saveBtn.innerHTML = '<i class="fas fa-save"></i> Save to Database';
     })
     .catch(error => {
         console.error('Error:', error);
-        showNotification('Error uploading images', 'error');
+        showNotification('Error uploading images. Please try again.', 'error');
         saveBtn.disabled = false;
         saveBtn.innerHTML = '<i class="fas fa-save"></i> Save to Database';
     });
-}
+    }
 
 // Set as primary image
 function setAsPrimary(vehicleId, imagePath) {
@@ -1035,6 +1090,55 @@ document.getElementById('vehicleSelect').addEventListener('change', function() {
         window.history.pushState({}, '', url);
     }
 });
+
+// Image Preview Function
+function previewVehicleImages(event) {
+    const files = event.target.files;
+    const previewDiv = document.getElementById('selectedFilesContainer');
+    const textSpan = document.getElementById('galleryDropzoneText');
+
+    previewDiv.innerHTML = '';
+    if (files.length === 0) return;
+
+    textSpan.textContent = 'Change photos';
+    let fileListHTML = '<h4>Selected Files (<span id="fileCount">0</span>)</h4><div id="fileList" class="file-list">';
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+        if (!validTypes.includes(file.type)) {
+            alert(`Invalid file type: ${file.name}. Only JPG, PNG, GIF, WebP, BMP allowed.`);
+            continue;
+        }
+
+        // Validate file size
+        if (file.size > 5 * 1024 * 1024) {
+            alert(`File too large: ${file.name}. Max 5MB allowed.`);
+            continue;
+        }
+
+        fileListHTML += `
+            <div class="file-item">
+                <i class="fas fa-image"></i>
+                <span>${file.name} (${Math.round(file.size/1024)}KB)</span>
+            </div>
+        `;
+
+        // Show preview thumbnail
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.style.cssText = 'width: 80px; height: 60px; object-fit: cover; border-radius: 8px; margin: 5px;';
+            previewDiv.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+    }
+    fileListHTML += '</div>';
+    document.getElementById('fileCount').textContent = files.length;
+}
 
 // Load images if vehicle is pre-selected
 if (currentVehicleId) {
