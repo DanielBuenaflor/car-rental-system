@@ -581,12 +581,26 @@ document.getElementById('vehicleForm').addEventListener('submit', function(e) {
                     method: 'POST',
                     body: formData
                 })
-                .catch(error => console.error('Image upload error:', error));
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Images uploaded successfully');
+                    }
+                    alert(vehicleId ? 'Vehicle updated successfully' : 'Vehicle posted successfully');
+                    closeModal();
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error('Image upload error:', error);
+                    alert(vehicleId ? 'Vehicle updated successfully (image upload failed)' : 'Vehicle posted successfully (image upload failed)');
+                    closeModal();
+                    location.reload();
+                });
+            } else {
+                alert(vehicleId ? 'Vehicle updated successfully' : 'Vehicle posted successfully');
+                closeModal();
+                location.reload();
             }
-            
-            alert(vehicleId ? 'Vehicle updated successfully' : 'Vehicle posted successfully');
-            closeModal();
-            location.reload();
         } else {
             alert('Error: ' + (data.message || 'Unknown error'));
         }

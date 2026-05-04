@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # IMPORTS
 # ============================================================================
 import os
@@ -21,7 +21,7 @@ from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clea
 # CONFIGURATION
 # ============================================================================
 UPLOAD_FOLDER = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), 
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
     'base', 'uploads', 'vehicles'
 )
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -102,10 +102,6 @@ def admin_dashboard():
         # Booking count
         cursor.execute("SELECT COUNT(*) as count FROM bookings")
         dashboard_stats['booking_count'] = cursor.fetchone()['count']
-        
-        # Pending testimonials
-        cursor.execute("SELECT COUNT(*) as count FROM testimonials WHERE status = 'pending'")
-        dashboard_stats['pending_testimonials'] = cursor.fetchone()['count']
         
         # New queries
         cursor.execute("SELECT COUNT(*) as count FROM contact_queries WHERE status = 'new'")
@@ -359,81 +355,54 @@ def manage_bookings():
         conn.close()
 
 
-@admin_bp.route('/manage-testimonials')
+@admin_bp.route('/testimonials')
 @admin_required
-def manage_testimonials():
-    """Manage testimonials with search and filters"""
-    from MyFlaskApp.utils.secure_db import fetch_all, fetch_one
-    from MyFlaskApp.utils.secure_db import DatabaseError
-    
-    search = request.args.get('search', '').strip()
-    status_filter = request.args.get('status', '')
+def admin_view_testimonials():
+    """Admin view all testimonials (read-only)"""
     page = request.args.get('page', 1, type=int)
     per_page = 10
     
+    conn = get_db_connection()
+    if not conn:
+        return render_template('admin_testimonials.html', testimonials=[], page=1, total_pages=1, session=session)
+    
+    cursor = conn.cursor(dictionary=True)
     try:
-        conditions = []
-        params = []
-        
-        if search:
-            conditions.append("(t.comment LIKE %s OR CONCAT(u.first_name, ' ', u.last_name) LIKE %s)")
-            search_param = f"%{search}%"
-            params.extend([search_param, search_param])
-        
-        if status_filter:
-            valid_statuses = ['pending', 'approved', 'rejected']
-            if status_filter in valid_statuses:
-                conditions.append("t.status = %s")
-                params.append(status_filter)
-        
-        where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
-        
-        count_query = f"""
-            SELECT COUNT(*) as total
-            FROM testimonials t
-            JOIN users u ON t.user_id = u.id
-            {where_clause}
-        """
-        total = fetch_one(count_query, tuple(params))
-        total_count = total['total'] if total else 0
-        
+        # Get total count
+        cursor.execute("SELECT COUNT(*) as total FROM testimonials")
+        total_result = cursor.fetchone()
+        total = total_result['total'] if total_result else 0
+        total_pages = (total + per_page - 1) // per_page
         offset = (page - 1) * per_page
-        list_query = f"""
-            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as user_name, u.email
+        
+        # Get all testimonials with user + vehicle info
+        cursor.execute("""
+            SELECT t.*, 
+                   CONCAT(u.first_name, ' ', u.last_name) as user_name,
+                   u.email as user_email,
+                   vb.name as brand_name, v.model
             FROM testimonials t
             JOIN users u ON t.user_id = u.id
-            {where_clause}
+            LEFT JOIN vehicles v ON t.vehicle_id = v.id
+            LEFT JOIN vehicle_brands vb ON v.brand_id = vb.id
             ORDER BY t.created_at DESC
             LIMIT %s OFFSET %s
-        """
-        testimonials = fetch_all(list_query, tuple(params + [per_page, offset]))
+        """, (per_page, offset))
+        testimonials = cursor.fetchall()
         
-        pending_result = fetch_one("SELECT COUNT(*) as count FROM testimonials WHERE status = 'pending'")
-        pending_count = pending_result['count'] if pending_result else 0
-        
-        return render_template('manage_testimonials.html', 
-                               testimonials=testimonials, 
-                               pending_count=pending_count,
-                               total=total_count,
+        return render_template('admin_testimonials.html', 
+                               testimonials=testimonials,
                                page=page,
-                               per_page=per_page,
-                               search=search,
-                               status_filter=status_filter,
-                               session=session)
-    except DatabaseError as e:
-        print(f"Error loading testimonials: {e}")
-        return render_template('manage_testimonials.html', testimonials=[], pending_count=0,
-                               total=0, page=1, per_page=per_page,
-                               search=search, status_filter=status_filter,
+                               total_pages=total_pages,
                                session=session)
     except Exception as e:
-        print(f"Error loading testimonials: {e}")
-        return render_template('manage_testimonials.html', testimonials=[], pending_count=0,
-                               total=0, page=1, per_page=per_page,
-                               search=search, status_filter=status_filter,
-                               session=session)
+        print(f"Admin testimonials error: {e}")
+        return render_template('admin_testimonials.html', testimonials=[], page=1, total_pages=1, session=session)
+    finally:
+        cursor.close()
+        conn.close()
 
-
+    
 @admin_bp.route('/manage-queries')
 @admin_required
 def manage_queries():
@@ -995,13 +964,6 @@ def get_dashboard_stats():
             counts['bookingCount'] = cursor.fetchone()['count']
         except:
             counts['bookingCount'] = 0
-        
-        # Pending testimonials
-        try:
-            cursor.execute("SELECT COUNT(*) as count FROM testimonials WHERE status = 'pending'")
-            counts['pendingTestimonials'] = cursor.fetchone()['count']
-        except:
-            counts['pendingTestimonials'] = 0
         
         # New queries
         try:
@@ -1737,6 +1699,10 @@ def api_get_bookings():
 def api_update_booking(booking_id):
     """Update booking status"""
     data = request.get_json()
+    new_status = data.get('status')
+    
+    if not new_status:
+        return jsonify({'success': False, 'message': 'Status is required'}), 400
     
     conn = get_db_connection()
     if not conn:
@@ -1744,11 +1710,29 @@ def api_update_booking(booking_id):
     
     cursor = conn.cursor()
     try:
+        # Fetch booking's user_id
+        cursor.execute("SELECT user_id FROM bookings WHERE id = %s", (booking_id,))
+        booking = cursor.fetchone()
+        if not booking:
+            return jsonify({'success': False, 'message': 'Booking not found'}), 404
+        user_id = booking[0]
+        
+        # Update booking status
         cursor.execute("""
             UPDATE bookings 
             SET status = %s
             WHERE id = %s
-        """, (data.get('status'), booking_id))
+        """, (new_status, booking_id))
+        
+        # Create user notification for active/completed status
+        if new_status in ('active', 'completed'):
+            title = f"Booking {new_status.capitalize()}"
+            message = f"Your booking #{booking_id} status has been updated to {new_status}."
+            cursor.execute("""
+                INSERT INTO notifications (user_id, type, title, message, link, is_read, created_at)
+                VALUES (%s, 'status_update', %s, %s, '/user/bookings', 0, NOW())
+            """, (user_id, title, message))
+        
         conn.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -1759,109 +1743,7 @@ def api_update_booking(booking_id):
         conn.close()
 
 
-# ============================================================================
-# API ROUTES - TESTIMONIALS
-# ============================================================================
-
-@admin_bp.route('/api/testimonials')
-@admin_required
-def api_get_testimonials():
-    """Get all testimonials"""
-    conn = get_db_connection()
-    if not conn:
-        return jsonify([])
-    
-    cursor = conn.cursor(dictionary=True)
-    try:
-        cursor.execute("""
-            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as user_name
-            FROM testimonials t
-            JOIN users u ON t.user_id = u.id
-            ORDER BY t.created_at DESC
-        """)
-        testimonials = cursor.fetchall()
-        return jsonify(testimonials)
-    except Exception as e:
-        print(f"Error getting testimonials: {e}")
-        return jsonify([])
-    finally:
-        cursor.close()
-        conn.close()
-
-
-@admin_bp.route('/api/testimonials/<int:testimonial_id>/approve', methods=['POST'])
-@admin_required
-def api_approve_testimonial(testimonial_id):
-    """Approve testimonial"""
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'success': False, 'message': 'Database error'}), 500
-    
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            UPDATE testimonials 
-            SET status = 'approved', approved_by = %s, approved_at = NOW()
-            WHERE id = %s
-        """, (session['user_id'], testimonial_id))
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-
-@admin_bp.route('/api/testimonials/<int:testimonial_id>/reject', methods=['POST'])
-@admin_required
-def api_reject_testimonial(testimonial_id):
-    """Reject testimonial"""
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'success': False, 'message': 'Database error'}), 500
-    
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            UPDATE testimonials 
-            SET status = 'rejected'
-            WHERE id = %s
-        """, (testimonial_id,))
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-
-@admin_bp.route('/api/testimonials/<int:testimonial_id>', methods=['DELETE'])
-@admin_required
-def api_delete_testimonial(testimonial_id):
-    """Delete testimonial"""
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'success': False, 'message': 'Database error'}), 500
-    
-    cursor = conn.cursor()
-    try:
-        cursor.execute("DELETE FROM testimonials WHERE id = %s", (testimonial_id,))
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-
-# ============================================================================
-# API ROUTES - CONTACT QUERIES
+# ============================================================================`r`n# API ROUTES - CONTACT QUERIES
 # ============================================================================
 
 @admin_bp.route('/api/queries')
@@ -2854,6 +2736,207 @@ def api_monthly_summary():
         return jsonify(data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def _admin_notification_target_link(link):
+    """Validate and return safe notification link for admin."""
+    if not link:
+        return url_for('admin_bp.admin_notifications')
+    
+    # Only allow internal admin links
+    allowed_prefixes = ['/admin/', '/static/']
+    if any(link.startswith(prefix) for prefix in allowed_prefixes):
+        return link
+    
+    return url_for('admin_bp.admin_notifications')
+
+
+@admin_bp.route('/notifications')
+@admin_required
+def admin_notifications():
+    """Display admin's notification inbox."""
+    conn = get_db_connection()
+    if not conn:
+        flash('Database connection error', 'error')
+        return render_template(
+            'admin_notifications.html',
+            notifications=[],
+            session=session,
+            csrf_token_value=generate_csrf_token()
+        )
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Admin sees: system, verification, maintenance notifications
+        cursor.execute("""
+            SELECT id, title, message, is_read, created_at, link, type
+            FROM notifications
+            WHERE user_id = %s
+            AND type IN ('system', 'verification', 'maintenance')
+            ORDER BY created_at DESC
+            LIMIT 50
+        """, (session['user_id'],))
+        notifications_list = cursor.fetchall()
+        
+        return render_template(
+            'admin_notifications.html',
+            notifications=notifications_list,
+            session=session,
+            csrf_token_value=generate_csrf_token()
+        )
+    except Exception as e:
+        print(f"Admin notifications error: {e}")
+        flash('Error loading notifications', 'error')
+        return render_template(
+            'admin_notifications.html',
+            notifications=[],
+            session=session,
+            csrf_token_value=generate_csrf_token()
+        )
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@admin_bp.route('/notifications/<int:notification_id>/open')
+@admin_required
+def admin_open_notification(notification_id):
+    """Open a notification target and mark it as read."""
+    conn = get_db_connection()
+    if not conn:
+        flash('Database connection error', 'error')
+        return redirect(url_for('admin_bp.admin_notifications'))
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT id, link, is_read
+            FROM notifications
+            WHERE id = %s AND user_id = %s
+        """, (notification_id, session['user_id']))
+        notification = cursor.fetchone()
+        
+        if not notification:
+            flash('Notification not found', 'error')
+            return redirect(url_for('admin_bp.admin_notifications'))
+        
+        if not notification['is_read']:
+            cursor.execute("""
+                UPDATE notifications
+                SET is_read = TRUE, read_at = NOW()
+                WHERE id = %s AND user_id = %s
+            """, (notification_id, session['user_id']))
+            conn.commit()
+        
+        return redirect(_admin_notification_target_link(notification.get('link')))
+    except Exception as e:
+        print(f"Open admin notification error: {e}")
+        flash('Error opening notification', 'error')
+        return redirect(url_for('admin_bp.admin_notifications'))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@admin_bp.route('/notifications/read-all', methods=['POST'])
+@admin_required
+def admin_mark_all_notifications_read():
+    """Mark all admin notifications as read."""
+    # Validate CSRF token
+    token = request.form.get('csrf_token') or request.headers.get('X-CSRF-Token')
+    valid, error = validate_csrf_token(token)
+    if not valid:
+        flash(error, 'error')
+        return redirect(url_for('admin_bp.admin_notifications'))
+    
+    conn = get_db_connection()
+    if not conn:
+        flash('Database connection error', 'error')
+        return redirect(url_for('admin_bp.admin_notifications'))
+    
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE notifications
+            SET is_read = TRUE, read_at = NOW()
+            WHERE user_id = %s AND is_read = FALSE
+            AND type IN ('system', 'verification', 'maintenance')
+        """, (session['user_id'],))
+        conn.commit()
+        flash('All notifications marked as read', 'success')
+        return redirect(url_for('admin_bp.admin_notifications'))
+    except Exception as e:
+        conn.rollback()
+        print(f"Mark all admin notifications read error: {e}")
+        flash('Error updating notifications', 'error')
+        return redirect(url_for('admin_bp.admin_notifications'))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@admin_bp.route('/api/vehicles/<int:vehicle_id>/set-primary', methods=['POST'])
+@admin_required
+def api_set_primary_image(vehicle_id):
+    """Set a vehicle's primary image"""
+    data = request.get_json()
+    image_path = data.get('image_path')
+    
+    if not image_path:
+        return jsonify({'success': False, 'message': 'No image path provided'}), 400
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'message': 'Database error'}), 500
+    
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE vehicles SET primary_image = %s WHERE id = %s", 
+                      (image_path, vehicle_id))
+        conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@admin_bp.route('/api/vehicle-images/delete-by-path', methods=['DELETE'])
+@admin_required
+def api_delete_vehicle_image_by_path():
+    """Delete vehicle image by path"""
+    data = request.get_json()
+    image_path = data.get('image_path')
+    
+    if not image_path:
+        return jsonify({'success': False, 'message': 'No image path provided'}), 400
+    
+    # Remove from filesystem
+    file_path = image_path.lstrip('/')
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"Error removing file {file_path}: {e}")
+    
+    # Remove from vehicles table if it's the primary image
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'message': 'Database error'}), 500
+    
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE vehicles SET primary_image = NULL WHERE primary_image = %s", (image_path,))
+        conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
     finally:
         cursor.close()
         conn.close()

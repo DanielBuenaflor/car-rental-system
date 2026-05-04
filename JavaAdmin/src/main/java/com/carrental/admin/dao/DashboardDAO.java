@@ -17,7 +17,6 @@ public class DashboardDAO {
             stats.setBrandCount(countQuery(conn, "SELECT COUNT(*) FROM vehicle_brands"));
             stats.setBookingCount(countQuery(conn, "SELECT COUNT(*) FROM bookings"));
             stats.setTotalRevenue(revenueQuery(conn));
-            stats.setPendingTestimonials(countQuery(conn, "SELECT COUNT(*) FROM testimonials WHERE status = 'pending'"));
             stats.setNewQueries(countQuery(conn, "SELECT COUNT(*) FROM contact_queries WHERE status = 'new'"));
             stats.setSubscriberCount(countQuery(conn, "SELECT COUNT(*) FROM subscribers WHERE is_active = 1"));
             stats.setExtensionCount(countQuery(conn, "SELECT COUNT(*) FROM extension_requests WHERE status = 'pending'"));

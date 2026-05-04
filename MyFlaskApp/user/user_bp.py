@@ -20,6 +20,56 @@ from MyFlaskApp.utils.secure_upload import save_upload, save_base64_upload, ALLO
 from MyFlaskApp.utils.secure_db import fetch_one, execute_query, DatabaseError
 from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clear_csrf_token, require_csrf
 
+
+# ============================================================================
+# NOTIFICATION HELPER
+# ============================================================================
+def create_notification(user_id, title, message, notif_type, link=None):
+    """Create a notification for a user."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO notifications (user_id, title, message, type, link, created_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+        """, (user_id, title, message, notif_type, link))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error creating notification: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def create_booking_notification(booking_id, title, message, notif_type, link=None):
+    """Create a notification for the user who owns the booking."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT user_id FROM bookings WHERE id = %s", (booking_id,))
+        result = cursor.fetchone()
+        if result:
+            user_id = result[0]
+            cursor.execute("""
+                INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                VALUES (%s, %s, %s, %s, %s, NOW())
+            """, (user_id, title, message, notif_type, link))
+            conn.commit()
+            return True
+        return False
+    except Exception as e:
+        print(f"Error creating booking notification: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
@@ -233,8 +283,8 @@ def user_dashboard():
         
         # Get testimonial count
         cursor.execute("""
-            SELECT COUNT(*) as count FROM testimonials 
-            WHERE user_id = %s AND status = 'approved'
+            SELECT COUNT(*) as count FROM testimonials
+            WHERE user_id = %s
         """, (session['user_id'],))
         testimonial_row = cursor.fetchone() or {}
         testimonial_count = testimonial_row.get('count', 0) or 0
@@ -691,7 +741,18 @@ def my_bookings():
         """, (session['user_id'],))
         bookings = cursor.fetchall()
         
-        return render_template('my_bookings.html', bookings=bookings, session=session)
+        # Get all bookings user has already reviewed
+        cursor.execute("""
+            SELECT DISTINCT booking_id FROM testimonials 
+            WHERE user_id = %s
+        """, (session['user_id'],))
+        reviewed_bookings = {row['booking_id'] for row in cursor.fetchall()}
+        
+        # Add 'reviewed' flag to each booking
+        for booking in bookings:
+            booking['reviewed'] = booking['id'] in reviewed_bookings
+        
+        return render_template('my_bookings.html', bookings=bookings)
     except Exception as e:
         print(f"My bookings error: {e}")
         return render_template('my_bookings.html', bookings=[], session=session)
@@ -1150,6 +1211,46 @@ def book_vehicle():
         booking_id = cursor.lastrowid
         conn.commit()
         
+        # Get vehicle and user details for notifications
+        cursor.execute("SELECT brand_name, model FROM vehicles WHERE id = %s", (vehicle_id,))
+        vehicle = cursor.fetchone()
+        
+        # Notify USER about pending booking
+        if vehicle:
+            create_notification(
+                session['user_id'],
+                'Booking Submitted',
+                f'Your booking for {vehicle[0]} {vehicle[1]} is pending payment. Reference: {booking_reference}',
+                'booking_confirmation',
+                url_for('user_bp.my_bookings')
+            )
+        
+        # Notify ADMIN about new pending booking
+        try:
+            cursor.execute("SELECT id FROM users WHERE role = 'admin'")
+            admin_users = cursor.fetchall()
+            
+            if admin_users:
+                # Get user name from database (more reliable than session)
+                cursor.execute("SELECT CONCAT(first_name, ' ', last_name) as full_name FROM users WHERE id = %s", (session['user_id'],))
+                user_result = cursor.fetchone()
+                user_display = user_result[0] if user_result else 'A user'
+                
+                notification_title = "New Booking Pending"
+                notification_message = f"New booking {booking_reference} submitted by {user_display}"
+                notification_link = "/admin/manage-bookings"
+                
+                for admin in admin_users:
+                    cursor.execute("""
+                        INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                        VALUES (%s, %s, %s, 'system', %s, NOW())
+                    """, (admin[0], notification_title, notification_message, notification_link))
+                
+                conn.commit()
+                print(f"DEBUG: Notified {len(admin_users)} admin(s) about new booking")
+        except Exception as notify_err:
+            print(f"DEBUG: Error notifying admins about new booking: {notify_err}")
+        
         return jsonify({
             'success': True, 
             'message': 'Booking created! Proceed to payment.',
@@ -1192,8 +1293,49 @@ def cancel_booking(booking_id):
             flash('Booking not found or cannot be cancelled.', 'error')
             return redirect(url_for('user_bp.my_bookings'))
         
+        # Get booking details for notification
+        cursor.execute("SELECT booking_reference FROM bookings WHERE id = %s", (booking_id,))
+        booking = cursor.fetchone()
+        
         conn.commit()
         flash('Booking cancelled successfully.', 'success')
+        
+        # Notify USER about cancellation
+        if booking:
+            create_notification(
+                session['user_id'],
+                'Booking Cancelled',
+                f'Your booking (Ref: {booking[0]}) has been cancelled successfully.',
+                'system',
+                url_for('user_bp.my_bookings')
+            )
+        
+        # Notify ADMIN about cancelled booking
+        try:
+            cursor.execute("SELECT id FROM users WHERE role = 'admin'")
+            admin_users = cursor.fetchall()
+            
+            if admin_users and booking:
+                # Get user name from database
+                cursor.execute("SELECT CONCAT(first_name, ' ', last_name) as full_name FROM users WHERE id = %s", (session['user_id'],))
+                user_result = cursor.fetchone()
+                user_display = user_result[0] if user_result else 'A user'
+                
+                notification_title = "Booking Cancelled"
+                notification_message = f"Booking {booking[0]} has been cancelled by {user_display}"
+                notification_link = "/admin/manage-bookings"
+                
+                for admin in admin_users:
+                    cursor.execute("""
+                        INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                        VALUES (%s, %s, %s, 'system', %s, NOW())
+                    """, (admin[0], notification_title, notification_message, notification_link))
+                
+                conn.commit()
+                print(f"DEBUG: Notified {len(admin_users)} admin(s) about booking cancellation")
+        except Exception as notify_err:
+            print(f"DEBUG: Error notifying admins about cancellation: {notify_err}")
+        
         return redirect(url_for('user_bp.my_bookings'))
         
     except Exception as e:
@@ -1369,7 +1511,21 @@ def return_vehicle(booking_id):
             WHERE id = (SELECT vehicle_id FROM bookings WHERE id = %s)
         """, (return_odometer, booking_id))
         
+        # Get booking reference for notification
+        cursor.execute("SELECT booking_reference FROM bookings WHERE id = %s", (booking_id,))
+        booking_info = cursor.fetchone()
+        
         conn.commit()
+        
+        # Send notification
+        if booking_info:
+            create_notification(
+                session['user_id'],
+                'Vehicle Returned Successfully',
+                f'Your vehicle return for booking {booking_info[0]} has been recorded. Thank you!',
+                'booking_confirmation',
+                url_for('user_bp.my_bookings')
+            )
         
         return jsonify({'success': True, 'message': 'Vehicle returned successfully! Thank you!'})
         
@@ -1413,69 +1569,129 @@ def get_vehicle(vehicle_id):
 
 
 # ============================================================================
-# API ROUTES - TESTIMONIALS
+# API ROUTES - REVIEWS
 # ============================================================================
-@user_bp.route('/submit-testimonial', methods=['POST'])
+@user_bp.route('/submit-review', methods=['POST'])
 @login_required
-def submit_testimonial():
-    """Submit a testimonial (users can submit up to 10 testimonials)"""
-    valid, error = _validate_state_change_csrf()
-    if not valid:
-        return jsonify({'success': False, 'message': error}), 403
+def submit_review():
+    """Submit a review for a completed booking with optional photo"""
+    booking_id = request.form.get('booking_id', type=int)
+    rating = request.form.get('rating', type=int)
+    comment = request.form.get('comment', '').strip()
 
-    data = request.get_json() or {}
-    rating = data.get('rating')
-    comment = data.get('comment', '').strip()
-    
-    if not rating or not comment:
-        return jsonify({'success': False, 'message': 'Rating and comment are required'})
-
-    try:
-        rating = int(rating)
-    except (TypeError, ValueError):
-        return jsonify({'success': False, 'message': 'Rating must be a whole number between 1 and 5'})
+    if not booking_id or not rating or not comment:
+        return jsonify({'success': False, 'message': 'Booking, rating, and comment are required'})
 
     if rating < 1 or rating > 5:
         return jsonify({'success': False, 'message': 'Rating must be between 1 and 5'})
 
     if len(comment) > 2000:
         return jsonify({'success': False, 'message': 'Review is too long'})
-    
+
     conn = get_db_connection()
     if not conn:
         return jsonify({'success': False, 'message': 'Database connection error'}), 500
-    
-    cursor = conn.cursor()
+
+    cursor = conn.cursor(dictionary=True)
     try:
-        # Check how many testimonials user has submitted (excluding rejected ones)
+        # Verify booking exists, is completed, and belongs to user
         cursor.execute("""
-            SELECT COUNT(*) as count FROM testimonials 
-            WHERE user_id = %s AND status != 'rejected'
-        """, (session['user_id'],))
-        result = cursor.fetchone()
-        testimonial_count = result[0] if result else 0
-        
-        # Allow up to 10 testimonials per user
-        if testimonial_count >= 10:
-            return jsonify({
-                'success': False, 
-                'message': f'You have already submitted {testimonial_count} testimonials. Maximum allowed is 10.'
-            })
-        
-        # Insert new testimonial
+            SELECT b.id, b.vehicle_id, b.user_id
+            FROM bookings b
+            WHERE b.id = %s AND b.user_id = %s AND b.status = 'completed'
+        """, (booking_id, session['user_id']))
+        booking = cursor.fetchone()
+
+        if not booking:
+            return jsonify({'success': False, 'message': 'Invalid booking or booking not yet completed'})
+
+        # Check if already reviewed this specific booking
+        cursor.execute("SELECT id FROM testimonials WHERE user_id = %s AND booking_id = %s", 
+                   (session['user_id'], booking_id))
+        if cursor.fetchone():
+            return jsonify({'success': False, 'message': 'You have already reviewed this booking'})
+
+        # Handle image upload
+        image_path = None
+        print(f"DEBUG: Files in request: {list(request.files.keys())}")
+        if 'review_image' in request.files:
+            file = request.files['review_image']
+            print(f"DEBUG: review_image file: {file}, filename: {file.filename if file else 'None'}")
+            if file and file.filename:
+                upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'base', 'uploads', 'reviews')
+                print(f"DEBUG: upload_dir: {upload_dir}")
+                print(f"DEBUG: upload_dir exists: {os.path.exists(upload_dir)}")
+                os.makedirs(upload_dir, exist_ok=True)
+                
+                # Generate safe filename
+                import uuid
+                ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'jpg'
+                filename = f"review_{uuid.uuid4().hex[:8]}.{ext}"
+                filepath = os.path.join(upload_dir, filename)
+                
+                # Save file directly (this should work now)
+                try:
+                    file.save(filepath)
+                    image_path = f"reviews/{filename}"
+                    print(f"DEBUG: Image saved - filename: {filename}, image_path: {image_path}")
+                    print(f"DEBUG: File exists: {os.path.exists(filepath)}")
+                    print(f"DEBUG: File size: {os.path.getsize(filepath) if os.path.exists(filepath) else 'N/A'}")
+                except Exception as save_err:
+                    print(f"DEBUG: Error saving file: {save_err}")
+
+        # Insert review (no approval needed - status set to 'approved')
         cursor.execute("""
-            INSERT INTO testimonials (user_id, rating, comment, status, created_at)
-            VALUES (%s, %s, %s, 'pending', NOW())
-        """, (session['user_id'], rating, comment))
+            INSERT INTO testimonials (user_id, booking_id, vehicle_id, rating, comment, image_path, status)
+            VALUES (%s, %s, %s, %s, %s, %s, 'approved')
+        """, (session['user_id'], booking_id, booking['vehicle_id'], rating, comment, image_path))
+
+        # Notify all admins about new review
+        print(f"DEBUG: Creating admin notifications...")
+        
+        # Get user name
+        cursor.execute("SELECT CONCAT(first_name, ' ', last_name) as name FROM users WHERE id = %s", 
+                   (session['user_id'],))
+        user_result = cursor.fetchone()
+        user_name = user_result[0] if user_result else 'A user'
+        
+        # Get vehicle name
+        cursor.execute("""
+            SELECT CONCAT(vb.name, ' ', v.model) as vehicle
+            FROM bookings b
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE b.id = %s
+        """, (booking_id,))
+        vehicle_result = cursor.fetchone()
+        vehicle_name = vehicle_result[0] if vehicle_result else 'a vehicle'
+        
+        print(f"DEBUG: User: {user_name}, Vehicle: {vehicle_name}")
+        
+        # Get all admin users
+        cursor.execute("SELECT id FROM users WHERE role = 'admin'")
+        admin_users = cursor.fetchall()
+        
+        print(f"DEBUG: Found {len(admin_users)} admin(s)")
+        
+        if admin_users:
+            notification_title = "New Review Submitted"
+            notification_message = f"{user_name} submitted a review for {vehicle_name}"
+            notification_link = "/admin/testimonials"
+            
+            for admin in admin_users:
+                print(f"DEBUG: Creating notification for admin {admin[0]}")
+                cursor.execute("""
+                    INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                    VALUES (%s, %s, %s, 'system', %s, NOW())
+                """, (admin[0], notification_title, notification_message, notification_link))
+            
+            print(f"DEBUG: Admin notifications created")
+        
+        # Commit everything together (review + notifications)
         conn.commit()
+        print(f"DEBUG: Review and notifications committed successfully")
         
-        remaining = 9 - testimonial_count
-        return jsonify({
-            'success': True, 
-            'message': f'Thank you for your review! It will be visible after admin approval. You can submit {remaining} more review(s).',
-            'remaining': remaining,
-            'total_submitted': testimonial_count + 1
-        })
+        return jsonify({'success': True, 'message': 'Thank you for your review!'})
     except Exception as e:
         conn.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500

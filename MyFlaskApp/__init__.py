@@ -78,27 +78,52 @@ def create_app():
         """Provide shared user UI state to templates."""
         csrf_token = session.get('csrf_token') or generate_csrf_token()
         unread_count = 0
+        recent_notifications = []
 
-        if session.get('loggedin') and session.get('role') != 'admin' and session.get('user_id'):
+        if session.get('loggedin') and session.get('user_id'):
             conn = get_db_connection()
             if conn:
-                cursor = conn.cursor()
+                cursor = conn.cursor(dictionary=True)
                 try:
-                    cursor.execute("""
-                        SELECT COUNT(*)
+                    # Define notification types based on role
+                    if session.get('role') == 'admin':
+                        # Admin sees: system, verification, maintenance notifications
+                        type_filter = "type IN ('system', 'verification', 'maintenance')"
+                    else:
+                        # User sees: booking_confirmation, payment_confirmation, booking_reminder, fine_notice, review, promotion, status_update
+                        type_filter = "type IN ('booking_confirmation', 'payment_confirmation', 'booking_reminder', 'fine_notice', 'review', 'promotion', 'status_update')"
+
+                    # Get unread count with role-based filter
+                    cursor.execute(f"""
+                        SELECT COUNT(*) as unread_count
                         FROM notifications
                         WHERE user_id = %s AND is_read = FALSE
+                        AND {type_filter}
                     """, (session['user_id'],))
                     result = cursor.fetchone()
-                    unread_count = result[0] if result else 0
+                    unread_count = result['unread_count'] if result else 0
+
+                    # Get 5 latest notifications with role-based filter
+                    cursor.execute(f"""
+                        SELECT id, title, message, is_read, created_at, link
+                        FROM notifications
+                        WHERE user_id = %s
+                        AND {type_filter}
+                        ORDER BY created_at DESC
+                        LIMIT 5
+                    """, (session['user_id'],))
+                    recent_notifications = cursor.fetchall()
                 except mysql.connector.Error as e:
-                    print(f"Error loading notification count: {e}")
+                    print(f"Error loading notification data: {e}")
+                    unread_count = 0
+                    recent_notifications = []
                 finally:
                     cursor.close()
                     conn.close()
 
         return {
             'notification_unread_count': unread_count,
+            'recent_notifications': recent_notifications,
             'global_csrf_token': csrf_token
         }
 

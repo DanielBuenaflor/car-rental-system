@@ -698,34 +698,28 @@ CREATE TABLE subscribers (
 -- =============================================
 -- SECTION 7: REVIEWS & TESTIMONIALS
 -- =============================================
-
--- Table 22: testimonials
+ 
+-- Table 22: testimonials (reviews)
 DROP TABLE IF EXISTS testimonials;
 CREATE TABLE testimonials (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
-    booking_id INT,
+    booking_id INT NOT NULL,
+    vehicle_id INT,
     rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-    title VARCHAR(200),
     comment TEXT NOT NULL,
-    pros TEXT,
-    cons TEXT,
-    would_recommend BOOLEAN DEFAULT TRUE,
-    status ENUM('pending', 'approved', 'rejected', 'featured') DEFAULT 'pending',
-    approved_by INT,
-    approved_at TIMESTAMP,
-    rejection_reason TEXT,
+    image_path VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     INDEX idx_user_id (user_id),
-    INDEX idx_status (status),
     INDEX idx_rating (rating),
     INDEX idx_booking_id (booking_id),
+    INDEX idx_vehicle_id (vehicle_id),
     
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
-    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================

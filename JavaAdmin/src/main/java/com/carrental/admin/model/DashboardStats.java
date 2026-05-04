@@ -8,14 +8,13 @@ public class DashboardStats {
     private int brandCount;
     private int bookingCount;
     private BigDecimal totalRevenue;
-    private int pendingTestimonials;
     private int newQueries;
     private int subscriberCount;
     private int extensionCount;
     private int pendingVerifications;
-
+    
     public DashboardStats() {}
-
+    
     public int getUserCount() { return userCount; }
     public void setUserCount(int userCount) { this.userCount = userCount; }
     public int getVehicleCount() { return vehicleCount; }
@@ -26,8 +25,6 @@ public class DashboardStats {
     public void setBookingCount(int bookingCount) { this.bookingCount = bookingCount; }
     public BigDecimal getTotalRevenue() { return totalRevenue; }
     public void setTotalRevenue(BigDecimal totalRevenue) { this.totalRevenue = totalRevenue; }
-    public int getPendingTestimonials() { return pendingTestimonials; }
-    public void setPendingTestimonials(int pendingTestimonials) { this.pendingTestimonials = pendingTestimonials; }
     public int getNewQueries() { return newQueries; }
     public void setNewQueries(int newQueries) { this.newQueries = newQueries; }
     public int getSubscriberCount() { return subscriberCount; }

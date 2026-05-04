@@ -757,7 +757,26 @@ def book_vehicle():
         booking_id = cursor.lastrowid
         conn.commit()
         
-        conn.commit()
+        # Notify ADMIN about new pending booking
+        try:
+            cursor.execute("SELECT id FROM users WHERE role = 'admin'")
+            admin_users = cursor.fetchall()
+            
+            if admin_users:
+                notification_title = "New Booking Pending"
+                notification_message = f"New booking {booking_reference} submitted by {session.get('user_name', 'A user')}"
+                notification_link = "/admin/manage-bookings"
+                
+                for admin in admin_users:
+                    cursor.execute("""
+                        INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                        VALUES (%s, %s, %s, 'system', %s, NOW())
+                    """, (admin[0], notification_title, notification_message, notification_link))
+                
+                conn.commit()
+                print(f"DEBUG: Notified {len(admin_users)} admin(s) about new booking")
+        except Exception as notify_err:
+            print(f"DEBUG: Error notifying admins about new booking: {notify_err}")
         
         return jsonify({
             'success': True, 
@@ -796,8 +815,34 @@ def cancel_booking(booking_id):
             flash('Booking not found or cannot be cancelled.', 'error')
             return redirect(url_for('user_bp.my_bookings'))
         
+        # Get booking reference for notification
+        cursor.execute("SELECT booking_reference FROM bookings WHERE id = %s", (booking_id,))
+        booking = cursor.fetchone()
+        
         conn.commit()
         flash('Booking cancelled successfully.', 'success')
+        
+        # Notify ADMIN about cancelled booking
+        try:
+            cursor.execute("SELECT id FROM users WHERE role = 'admin'")
+            admin_users = cursor.fetchall()
+            
+            if admin_users and booking:
+                notification_title = "Booking Cancelled"
+                notification_message = f"Booking {booking[0]} has been cancelled by user"
+                notification_link = "/admin/manage-bookings"
+                
+                for admin in admin_users:
+                    cursor.execute("""
+                        INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                        VALUES (%s, %s, %s, 'system', %s, NOW())
+                    """, (admin[0], notification_title, notification_message, notification_link))
+                
+                conn.commit()
+                print(f"DEBUG: Notified {len(admin_users)} admin(s) about booking cancellation")
+        except Exception as notify_err:
+            print(f"DEBUG: Error notifying admins about cancellation: {notify_err}")
+        
         return redirect(url_for('user_bp.my_bookings'))
         
     except Exception as e:
@@ -968,57 +1013,71 @@ def get_vehicle(vehicle_id):
 
 
 # ============================================================================
-# API ROUTES - TESTIMONIALS
+# API ROUTES - REVIEWS
 # ============================================================================
-@user_bp.route('/submit-testimonial', methods=['POST'])
+@user_bp.route('/submit-review', methods=['POST'])
 @login_required
-def submit_testimonial():
-    """Submit a testimonial (users can submit up to 10 testimonials)"""
-    data = request.get_json()
-    rating = data.get('rating')
-    comment = data.get('comment', '').strip()
-    
-    if not rating or not comment:
-        return jsonify({'success': False, 'message': 'Rating and comment are required'})
-    
+def submit_review():
+    """Submit a review for a completed booking with optional photo"""
+    booking_id = request.form.get('booking_id', type=int)
+    rating = request.form.get('rating', type=int)
+    comment = request.form.get('comment', '').strip()
+
+    if not booking_id or not rating or not comment:
+        return jsonify({'success': False, 'message': 'Booking, rating, and comment are required'})
+
     if rating < 1 or rating > 5:
         return jsonify({'success': False, 'message': 'Rating must be between 1 and 5'})
-    
+
+    if len(comment) > 2000:
+        return jsonify({'success': False, 'message': 'Review is too long'})
+
     conn = get_db_connection()
     if not conn:
         return jsonify({'success': False, 'message': 'Database connection error'}), 500
-    
-    cursor = conn.cursor()
+
+    cursor = conn.cursor(dictionary=True)
     try:
-        # Check how many testimonials user has submitted (excluding rejected ones)
+        # Verify booking exists, is completed, and belongs to user
         cursor.execute("""
-            SELECT COUNT(*) as count FROM testimonials 
-            WHERE user_id = %s AND status != 'rejected'
-        """, (session['user_id'],))
-        result = cursor.fetchone()
-        testimonial_count = result[0] if result else 0
-        
-        # Allow up to 10 testimonials per user
-        if testimonial_count >= 10:
-            return jsonify({
-                'success': False, 
-                'message': f'You have already submitted {testimonial_count} testimonials. Maximum allowed is 10.'
-            })
-        
-        # Insert new testimonial
+            SELECT b.id, b.vehicle_id, b.user_id
+            FROM bookings b
+            WHERE b.id = %s AND b.user_id = %s AND b.status = 'completed'
+        """, (booking_id, session['user_id']))
+        booking = cursor.fetchone()
+
+        if not booking:
+            return jsonify({'success': False, 'message': 'Invalid booking or booking not yet completed'})
+
+        # Check if already reviewed this vehicle by this user
+        cursor.execute("SELECT id FROM testimonials WHERE user_id = %s AND vehicle_id = %s", 
+                   (session['user_id'], booking['vehicle_id']))
+        if cursor.fetchone():
+            return jsonify({'success': False, 'message': 'You have already reviewed this vehicle'})
+
+        # Handle image upload
+        image_path = None
+        if 'review_image' in request.files:
+            file = request.files['review_image']
+            if file and file.filename:
+                upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'base', 'uploads', 'reviews')
+                os.makedirs(upload_dir, exist_ok=True)
+                from MyFlaskApp.utils.secure_upload import save_upload
+                filename, error = save_upload(file, upload_dir)
+                if filename and not error:
+                    image_path = f"reviews/{filename}"
+                else:
+                    print(f"Image upload failed: {error}")
+                    print(f"File: {file.filename}, Size: {len(file.read()) if file else 0}")
+
+        # Insert review (no approval needed)
         cursor.execute("""
-            INSERT INTO testimonials (user_id, rating, comment, status, created_at)
-            VALUES (%s, %s, %s, 'pending', NOW())
-        """, (session['user_id'], rating, comment))
+            INSERT INTO testimonials (user_id, booking_id, vehicle_id, rating, comment, image_path, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
+        """, (session['user_id'], booking_id, booking['vehicle_id'], rating, comment, image_path))
         conn.commit()
-        
-        remaining = 9 - testimonial_count
-        return jsonify({
-            'success': True, 
-            'message': f'Thank you for your review! It will be visible after admin approval. You can submit {remaining} more review(s).',
-            'remaining': remaining,
-            'total_submitted': testimonial_count + 1
-        })
+
+        return jsonify({'success': True, 'message': 'Thank you for your review!'})
     except Exception as e:
         conn.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
