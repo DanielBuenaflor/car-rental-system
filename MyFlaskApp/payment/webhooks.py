@@ -185,6 +185,57 @@ def handle_checkout_session_paid(event_data):
             conn.commit()
             print(f"✅ Booking {booking_id} updated to confirmed and COMMITTED")
             
+            # Notify ADMIN about confirmed booking
+            try:
+                cursor.execute("SELECT id FROM users WHERE role = 'admin'")
+                admin_users = cursor.fetchall()
+                
+                if admin_users:
+                    # Get booking reference
+                    cursor.execute("SELECT booking_reference FROM bookings WHERE id = %s", (booking_id,))
+                    booking_ref = cursor.fetchone()
+                    ref = booking_ref[0] if booking_ref else 'N/A'
+                    
+                    notification_title = "Booking Confirmed"
+                    notification_message = f"Booking {ref} has been confirmed (payment received)"
+                    notification_link = "/admin/manage-bookings"
+                    
+                    for admin in admin_users:
+                        cursor.execute("""
+                            INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                            VALUES (%s, %s, %s, 'system', %s, NOW())
+                        """, (admin[0], notification_title, notification_message, notification_link))
+                    
+                    conn.commit()
+                    print(f"DEBUG: Notified {len(admin_users)} admin(s) about booking confirmation")
+            except Exception as notify_err:
+                print(f"DEBUG: Error notifying admins about confirmation: {notify_err}")
+            
+            # Get user and booking details for notification
+            cursor.execute("""
+                SELECT b.user_id, b.booking_reference, b.total_amount,
+                       v.brand_name, v.model
+                FROM bookings b
+                JOIN vehicles v ON b.vehicle_id = v.id
+                WHERE b.id = %s
+            """, (booking_id,))
+            booking_details = cursor.fetchone()
+            
+            # Send in-app notification for payment success
+            if booking_details:
+                try:
+                    cursor.execute("""
+                        INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                        VALUES (%s, 'Payment Confirmed', %s, 'payment_confirmation', %s, NOW())
+                    """, (
+                        booking_details[0],
+                        f'Payment of ₱{booking_details[2]:.2f} confirmed for {booking_details[3]} {booking_details[4]}. Booking {booking_details[1]} is now confirmed!',
+                        '/user/my-bookings'
+                    ))
+                    conn.commit()
+                except Exception as e:
+                    print(f"Notification error: {e}")
+            
             # 3. CREATE INVOICE
             from MyFlaskApp.payment.invoice_service import InvoiceService
             
@@ -273,13 +324,31 @@ def handle_checkout_session_failed(event_data):
                         SET payment_status = 'failed'
                         WHERE transaction_id = %s AND payment_status = 'pending'
                     """, (checkout_session_id,))
-                    
+                     
                     # Update booking status back to pending (so user can retry)
                     cursor.execute("""
                         UPDATE bookings 
                         SET status = 'pending'
                         WHERE id = %s AND status = 'pending'
                     """, (booking_id,))
+                    
+                    # Get user_id and booking details for notification
+                    cursor.execute("""
+                        SELECT b.user_id, b.booking_reference, b.total_amount
+                        FROM bookings b
+                        WHERE b.id = %s
+                    """, (booking_id,))
+                    booking_info = cursor.fetchone()
+                     
+                    # Send notification for failed payment
+                    if booking_info:
+                        cursor.execute("""
+                            INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                            VALUES (%s, 'Payment Failed', %s, 'payment_confirmation', '/user/my-bookings', NOW())
+                        """, (
+                            booking_info[0],
+                            f'Payment for booking {booking_info[1]} failed. Amount: ₱{booking_info[2]:.2f}. Please try again.'
+                        ))
                     
                     conn.commit()
                     print(f"✅ Updated failed payment for booking {booking_id}")
@@ -352,18 +421,44 @@ def handle_source_chargeable(event_data):
                         cursor = conn.cursor()
                         try:
                             cursor.execute("""
-                                UPDATE bookings 
-                                SET status = 'confirmed'
-                                WHERE id = %s
-                            """, (booking_id,))
+                                        UPDATE bookings 
+                                        SET status = 'confirmed'
+                                        WHERE id = %s
+                                    """, (booking_id,))
                             conn.commit()
+            
+                            # Notify ADMIN about confirmed booking
+                            try:
+                                cursor.execute("SELECT id FROM users WHERE role = 'admin'")
+                                admin_users = cursor.fetchall()
+            
+                                if admin_users:
+                                    cursor.execute("SELECT booking_reference FROM bookings WHERE id = %s", (booking_id,))
+                                    booking_ref = cursor.fetchone()
+                                    ref = booking_ref[0] if booking_ref else 'N/A'
+                
+                                    notification_title = "Booking Confirmed"
+                                    notification_message = f"Booking {ref} has been confirmed (payment received)"
+                                    notification_link = "/admin/manage-bookings"
+                
+                                    for admin in admin_users:
+                                        cursor.execute("""
+                                                    INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                                                    VALUES (%s, %s, %s, 'system', %s, NOW())
+                                                """, (admin[0], notification_title, notification_message, notification_link))
+                
+                                    conn.commit()
+                                    print(f"DEBUG: Notified {len(admin_users)} admin(s) about booking confirmation")
+                            except Exception as notify_err:
+                                print(f"DEBUG: Error notifying admins about confirmation: {notify_err}")
+            
                         except Exception as e:
                             print(f"Error updating booking: {e}")
                         finally:
                             cursor.close()
                             conn.close()
-        
-        return jsonify({'success': True}), 200
+            
+            return jsonify({'success': True}), 200
         
     except Exception as e:
         print(f"Error handling source chargeable: {e}")
@@ -392,14 +487,40 @@ def handle_payment_paid(event_data):
                         WHERE id = %s
                     """, (booking_id,))
                     conn.commit()
+                    
+                    # Notify ADMIN about confirmed booking
+                    try:
+                        cursor.execute("SELECT id FROM users WHERE role = 'admin'")
+                        admin_users = cursor.fetchall()
+                        
+                        if admin_users:
+                            cursor.execute("SELECT booking_reference FROM bookings WHERE id = %s", (booking_id,))
+                            booking_ref = cursor.fetchone()
+                            ref = booking_ref[0] if booking_ref else 'N/A'
+                            
+                            notification_title = "Booking Confirmed"
+                            notification_message = f"Booking {ref} has been confirmed (payment received)"
+                            notification_link = "/admin/manage-bookings"
+                            
+                            for admin in admin_users:
+                                cursor.execute("""
+                                    INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                                    VALUES (%s, %s, %s, 'system', %s, NOW())
+                                """, (admin[0], notification_title, notification_message, notification_link))
+                            
+                            conn.commit()
+                            print(f"DEBUG: Notified {len(admin_users)} admin(s) about booking confirmation")
+                    except Exception as notify_err:
+                        print(f"DEBUG: Error notifying admins about confirmation: {notify_err}")
+                    
                     print(f"✅ Booking {booking_id} confirmed")
                 except Exception as e:
                     print(f"Error updating booking: {e}")
                 finally:
                     cursor.close()
                     conn.close()
-        
-        return jsonify({'success': True}), 200
+            
+            return jsonify({'success': True}), 200
         
     except Exception as e:
         print(f"Error handling payment paid: {e}")

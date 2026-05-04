@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # IMPORTS
 # ============================================================================
 import os
@@ -102,10 +102,6 @@ def admin_dashboard():
         # Booking count
         cursor.execute("SELECT COUNT(*) as count FROM bookings")
         dashboard_stats['booking_count'] = cursor.fetchone()['count']
-        
-        # Pending testimonials
-        cursor.execute("SELECT COUNT(*) as count FROM testimonials WHERE status = 'pending'")
-        dashboard_stats['pending_testimonials'] = cursor.fetchone()['count']
         
         # New queries
         cursor.execute("SELECT COUNT(*) as count FROM contact_queries WHERE status = 'new'")
@@ -358,80 +354,6 @@ def manage_bookings():
         cursor.close()
         conn.close()
 
-
-@admin_bp.route('/manage-testimonials')
-@admin_required
-def manage_testimonials():
-    """Manage testimonials with search and filters"""
-    from MyFlaskApp.utils.secure_db import fetch_all, fetch_one
-    from MyFlaskApp.utils.secure_db import DatabaseError
-    
-    search = request.args.get('search', '').strip()
-    status_filter = request.args.get('status', '')
-    page = request.args.get('page', 1, type=int)
-    per_page = 10
-    
-    try:
-        conditions = []
-        params = []
-        
-        if search:
-            conditions.append("(t.comment LIKE %s OR CONCAT(u.first_name, ' ', u.last_name) LIKE %s)")
-            search_param = f"%{search}%"
-            params.extend([search_param, search_param])
-        
-        if status_filter:
-            valid_statuses = ['pending', 'approved', 'rejected']
-            if status_filter in valid_statuses:
-                conditions.append("t.status = %s")
-                params.append(status_filter)
-        
-        where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
-        
-        count_query = f"""
-            SELECT COUNT(*) as total
-            FROM testimonials t
-            JOIN users u ON t.user_id = u.id
-            {where_clause}
-        """
-        total = fetch_one(count_query, tuple(params))
-        total_count = total['total'] if total else 0
-        
-        offset = (page - 1) * per_page
-        list_query = f"""
-            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as user_name, u.email
-            FROM testimonials t
-            JOIN users u ON t.user_id = u.id
-            {where_clause}
-            ORDER BY t.created_at DESC
-            LIMIT %s OFFSET %s
-        """
-        testimonials = fetch_all(list_query, tuple(params + [per_page, offset]))
-        
-        pending_result = fetch_one("SELECT COUNT(*) as count FROM testimonials WHERE status = 'pending'")
-        pending_count = pending_result['count'] if pending_result else 0
-        
-        return render_template('manage_testimonials.html', 
-                               testimonials=testimonials, 
-                               pending_count=pending_count,
-                               total=total_count,
-                               page=page,
-                               per_page=per_page,
-                               search=search,
-                               status_filter=status_filter,
-                               session=session)
-    except DatabaseError as e:
-        print(f"Error loading testimonials: {e}")
-        return render_template('manage_testimonials.html', testimonials=[], pending_count=0,
-                               total=0, page=1, per_page=per_page,
-                               search=search, status_filter=status_filter,
-                               session=session)
-    except Exception as e:
-        print(f"Error loading testimonials: {e}")
-        return render_template('manage_testimonials.html', testimonials=[], pending_count=0,
-                               total=0, page=1, per_page=per_page,
-                               search=search, status_filter=status_filter,
-                               session=session)
 
 
 @admin_bp.route('/manage-queries')
@@ -995,13 +917,6 @@ def get_dashboard_stats():
             counts['bookingCount'] = cursor.fetchone()['count']
         except:
             counts['bookingCount'] = 0
-        
-        # Pending testimonials
-        try:
-            cursor.execute("SELECT COUNT(*) as count FROM testimonials WHERE status = 'pending'")
-            counts['pendingTestimonials'] = cursor.fetchone()['count']
-        except:
-            counts['pendingTestimonials'] = 0
         
         # New queries
         try:
@@ -1737,18 +1652,62 @@ def api_get_bookings():
 def api_update_booking(booking_id):
     """Update booking status"""
     data = request.get_json()
+    new_status = data.get('status')
     
     conn = get_db_connection()
     if not conn:
         return jsonify({'success': False, 'message': 'Database error'}), 500
     
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     try:
+        # Get booking details before update
+        cursor.execute("""
+            SELECT user_id, booking_reference, b.brand_name, b.model
+            FROM bookings b
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE b.id = %s
+        """, (booking_id,))
+        booking = cursor.fetchone()
+        
         cursor.execute("""
             UPDATE bookings 
             SET status = %s
             WHERE id = %s
-        """, (data.get('status'), booking_id))
+        """, (new_status, booking_id))
+        
+        # Send notification based on status change
+        if booking and cursor.rowcount > 0:
+            user_id = booking['user_id']
+            ref = booking['booking_reference']
+            vehicle_name = f"{booking['brand_name']} {booking['model']}"
+            
+            if new_status == 'cancelled':
+                cursor.execute("""
+                    INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                    VALUES (%s, 'Booking Cancelled', %s, 'system', '/user/my-bookings', NOW())
+                """, (user_id, f'Your booking {ref} for {vehicle_name} has been cancelled by admin.'))
+            elif new_status == 'active':
+                cursor.execute("""
+                    INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                    VALUES (%s, 'Rental Started', %s, 'booking_confirmation', '/user/my-bookings', NOW())
+                """, (user_id, f'Your rental for {vehicle_name} (Booking {ref}) is now active. Enjoy your ride!'))
+            elif new_status == 'completed':
+                cursor.execute("""
+                    INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                    VALUES (%s, 'Rental Completed', %s, 'booking_confirmation', '/user/my-bookings', NOW())
+                """, (user_id, f'Your rental for {vehicle_name} (Booking {ref}) has been completed. Thank you!'))
+            elif new_status == 'no_show':
+                cursor.execute("""
+                    INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                    VALUES (%s, 'No-Show Recorded', %s, 'system', '/user/my-bookings', NOW())
+                """, (user_id, f'You were marked as no-show for booking {ref} ({vehicle_name}). Please contact support.'))
+            elif new_status == 'overdue':
+                cursor.execute("""
+                    INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                    VALUES (%s, 'Booking Overdue', %s, 'fine_notice', '/user/my-bookings', NOW())
+                """, (user_id, f'Your booking {ref} for {vehicle_name} is now overdue. Please return the vehicle immediately to avoid additional fines.'))
+        
         conn.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -1759,109 +1718,7 @@ def api_update_booking(booking_id):
         conn.close()
 
 
-# ============================================================================
-# API ROUTES - TESTIMONIALS
-# ============================================================================
-
-@admin_bp.route('/api/testimonials')
-@admin_required
-def api_get_testimonials():
-    """Get all testimonials"""
-    conn = get_db_connection()
-    if not conn:
-        return jsonify([])
-    
-    cursor = conn.cursor(dictionary=True)
-    try:
-        cursor.execute("""
-            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as user_name
-            FROM testimonials t
-            JOIN users u ON t.user_id = u.id
-            ORDER BY t.created_at DESC
-        """)
-        testimonials = cursor.fetchall()
-        return jsonify(testimonials)
-    except Exception as e:
-        print(f"Error getting testimonials: {e}")
-        return jsonify([])
-    finally:
-        cursor.close()
-        conn.close()
-
-
-@admin_bp.route('/api/testimonials/<int:testimonial_id>/approve', methods=['POST'])
-@admin_required
-def api_approve_testimonial(testimonial_id):
-    """Approve testimonial"""
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'success': False, 'message': 'Database error'}), 500
-    
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            UPDATE testimonials 
-            SET status = 'approved', approved_by = %s, approved_at = NOW()
-            WHERE id = %s
-        """, (session['user_id'], testimonial_id))
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-
-@admin_bp.route('/api/testimonials/<int:testimonial_id>/reject', methods=['POST'])
-@admin_required
-def api_reject_testimonial(testimonial_id):
-    """Reject testimonial"""
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'success': False, 'message': 'Database error'}), 500
-    
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            UPDATE testimonials 
-            SET status = 'rejected'
-            WHERE id = %s
-        """, (testimonial_id,))
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-
-@admin_bp.route('/api/testimonials/<int:testimonial_id>', methods=['DELETE'])
-@admin_required
-def api_delete_testimonial(testimonial_id):
-    """Delete testimonial"""
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'success': False, 'message': 'Database error'}), 500
-    
-    cursor = conn.cursor()
-    try:
-        cursor.execute("DELETE FROM testimonials WHERE id = %s", (testimonial_id,))
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-
-# ============================================================================
-# API ROUTES - CONTACT QUERIES
+# ============================================================================`r`n# API ROUTES - CONTACT QUERIES
 # ============================================================================
 
 @admin_bp.route('/api/queries')
@@ -2857,3 +2714,5 @@ def api_monthly_summary():
     finally:
         cursor.close()
         conn.close()
+
+

@@ -647,6 +647,32 @@ def payment_success():
                         # Update booking status
                         cursor.execute("UPDATE bookings SET status = 'confirmed' WHERE id = %s", (booking_id,))
                         
+                        # Notify ADMIN about confirmed booking
+                        try:
+                            cursor.execute("SELECT id FROM users WHERE role = 'admin'")
+                            admin_users = cursor.fetchall()
+                            
+                            if admin_users:
+                                # Get booking reference
+                                cursor.execute("SELECT booking_reference FROM bookings WHERE id = %s", (booking_id,))
+                                booking_ref = cursor.fetchone()
+                                ref = booking_ref[0] if booking_ref else 'N/A'
+                                
+                                notification_title = "Booking Confirmed"
+                                notification_message = f"Booking {ref} has been confirmed (payment received)"
+                                notification_link = "/admin/manage-bookings"
+                                
+                                for admin in admin_users:
+                                    cursor.execute("""
+                                        INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                                        VALUES (%s, %s, %s, 'system', %s, NOW())
+                                    """, (admin[0], notification_title, notification_message, notification_link))
+                                
+                                conn.commit()
+                                print(f"DEBUG: Notified {len(admin_users)} admin(s) about booking confirmation")
+                        except Exception as notify_err:
+                            print(f"DEBUG: Error notifying admins about confirmation: {notify_err}")
+                        
                         conn.commit()
                         print(f"✅ Payment verified and booking {booking_id} confirmed")
                         payment_verified = True

@@ -163,9 +163,9 @@
         
         <div class="card" onclick="window.location.href='{{ url_for('base_bp.testimonials') }}'">
             <i class="fas fa-star" style="font-size: 48px; color: #0f3b6f; margin-bottom: 15px;"></i>
-            <h3>Write a Review</h3>
-            <p>Share your experience with us</p>
-            <button class="btn-primary" style="margin-top: 15px;">Write Review</button>
+            <h3>My Reviews</h3>
+            <p>See all your reviews</p>
+            <button class="btn-primary" style="margin-top: 15px;">View My Reviews</button>
         </div>
         <div class="card" onclick="window.location.href='{{ url_for('user_bp.active_rentals') }}'">
             <i class="fas fa-clock" style="font-size: 48px; color: #0f3b6f; margin-bottom: 15px;"></i>
@@ -548,7 +548,8 @@ function showExtensionForm(bookingId) {
             fetch('/user/request-extension/' + bookingId, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ global_csrf_token }}'
                 },
                 body: JSON.stringify({
                     requested_days: requestedDays,

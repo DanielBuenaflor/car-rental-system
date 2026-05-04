@@ -1,11 +1,11 @@
 {% extends "base/templates/base.html" %}
 
-{% block title %}Testimonials - CarRental Pro{% endblock %}
+{% block title %}Customer Reviews - CarRental Pro{% endblock %}
 
 {% block extra_css %}
 <style>
     /* ============================================
-       TESTIMONIALS PAGE STYLES
+       REVIEWS PAGE STYLES
     ============================================ */
     .testimonials-header {
         text-align: center;
@@ -20,10 +20,6 @@
         background-clip: text;
         color: transparent;
         display: inline-block;
-    }
-    
-    .testimonials-header h2:after {
-        display: none;
     }
     
     .testimonials-header p {
@@ -65,15 +61,6 @@
         margin-right: 8px;
     }
     
-    .warning-message {
-        background: #fed7aa;
-        color: #9b2c1d;
-        padding: 8px 16px;
-        border-radius: 40px;
-        font-size: 13px;
-        font-weight: 500;
-    }
-    
     /* Testimonials Grid */
     .testimonials-grid {
         display: grid;
@@ -97,7 +84,6 @@
         box-shadow: 0 20px 40px rgba(0,0,0,0.12);
     }
     
-    /* Quote Icon */
     .testimonial-quote {
         position: absolute;
         top: 24px;
@@ -127,6 +113,19 @@
         font-style: italic;
         position: relative;
         z-index: 1;
+    }
+    
+    .testimonial-image {
+        max-width: 200px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+    
+    .testimonial-vehicle {
+        font-size: 12px;
+        color: #0f3b6f;
+        font-weight: 600;
+        margin-bottom: 8px;
     }
     
     .testimonial-author {
@@ -195,141 +194,6 @@
         margin-bottom: 24px;
     }
     
-    /* Modal Styles */
-    .modal {
-        position: fixed;
-        z-index: 1000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.6);
-        backdrop-filter: blur(4px);
-        display: none;
-        justify-content: center;
-        align-items: center;
-        animation: fadeIn 0.3s ease;
-    }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-    
-    .modal-content {
-        background-color: white;
-        padding: 32px;
-        width: 90%;
-        max-width: 550px;
-        border-radius: 24px;
-        animation: slideUp 0.3s ease;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-    
-    @keyframes slideUp {
-        from {
-            transform: translateY(50px);
-            opacity: 0;
-        }
-        to {
-            transform: translateY(0);
-            opacity: 1;
-        }
-    }
-    
-    .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 24px;
-        padding-bottom: 16px;
-        border-bottom: 2px solid #e2e8f0;
-    }
-    
-    .modal-header h3 {
-        margin: 0;
-        color: #0f3b6f;
-        font-size: 24px;
-    }
-    
-    .close {
-        font-size: 32px;
-        cursor: pointer;
-        color: #94a3b8;
-        transition: all 0.3s;
-        line-height: 1;
-    }
-    
-    .close:hover {
-        color: #ef4444;
-        transform: rotate(90deg);
-    }
-    
-    .form-group {
-        margin-bottom: 24px;
-    }
-    
-    .form-group label {
-        display: block;
-        margin-bottom: 10px;
-        font-weight: 600;
-        color: #1f3a5f;
-    }
-    
-    .form-group label i {
-        margin-right: 8px;
-        color: #0f3b6f;
-    }
-    
-    .rating-input {
-        display: flex;
-        gap: 12px;
-        font-size: 28px;
-        cursor: pointer;
-    }
-    
-    .rating-input i {
-        color: #cbd5e1;
-        transition: all 0.2s;
-        cursor: pointer;
-    }
-    
-    .rating-input i:hover,
-    .rating-input i.active {
-        color: #f59e0b;
-        transform: scale(1.1);
-    }
-    
-    textarea {
-        width: 100%;
-        padding: 14px;
-        border: 2px solid #e2e8f0;
-        border-radius: 16px;
-        font-size: 14px;
-        font-family: inherit;
-        resize: vertical;
-        transition: all 0.3s;
-    }
-    
-    textarea:focus {
-        outline: none;
-        border-color: #0f3b6f;
-        box-shadow: 0 0 0 3px rgba(15, 59, 111, 0.1);
-    }
-    
-    .form-actions {
-        display: flex;
-        gap: 12px;
-        margin-top: 24px;
-    }
-    
-    .form-actions button {
-        flex: 1;
-        padding: 12px;
-        font-size: 14px;
-    }
-    
     /* Pagination */
     .pagination {
         display: flex;
@@ -377,20 +241,6 @@
             right: 16px;
         }
         
-        .modal-content {
-            padding: 24px;
-            width: 95%;
-        }
-        
-        .modal-header h3 {
-            font-size: 20px;
-        }
-        
-        .rating-input {
-            font-size: 24px;
-            gap: 8px;
-        }
-        
         .empty-state {
             padding: 40px;
         }
@@ -405,36 +255,18 @@
 
 {% block content %}
 <div class="testimonials-header">
-    <h2>What Our Customers Say</h2>
+    <h2>Customer Reviews</h2>
     <p>Real reviews from our valued customers</p>
 </div>
 
 <!-- User Stats Section (only shown when logged in) -->
-{% if session.get('loggedin') and session.get('role') != 'admin' %}
+{% if session.loggedin and session.role != 'admin' %}
 <div class="user-stats">
     <div class="user-stats-info">
         <div class="testimonial-count-badge">
-            <i class="fas fa-pen-fancy"></i> My Reviews: {{ user_testimonial_count|default(0) }}/10
+            <i class="fas fa-pen-fancy"></i> My Reviews: {{ user_testimonial_count|default(0) }}
         </div>
-        {% if user_testimonial_count|default(0) >= 10 %}
-        <div class="warning-message">
-            <i class="fas fa-exclamation-triangle"></i> You've reached the maximum limit of 10 reviews
-        </div>
-        {% else %}
-        <div class="warning-message" style="background: #d1fae5; color: #065f46;">
-            <i class="fas fa-info-circle"></i> You can submit {{ 10 - user_testimonial_count|default(0) }} more review(s)
-        </div>
-        {% endif %}
     </div>
-    {% if user_testimonial_count|default(0) < 10 %}
-    <button onclick="showAddTestimonialModal()" class="btn-primary">
-        <i class="fas fa-plus"></i> Write Another Review
-    </button>
-    {% else %}
-    <button class="btn-secondary" disabled style="opacity: 0.6; cursor: not-allowed;">
-        <i class="fas fa-lock"></i> Max Reviews Reached (10/10)
-    </button>
-    {% endif %}
 </div>
 {% endif %}
 
@@ -445,6 +277,11 @@
         {% for testimonial in testimonials %}
         <div class="testimonial-card">
             <div class="testimonial-quote">"</div>
+            {% if testimonial.brand_name %}
+            <div class="testimonial-vehicle">
+                <i class="fas fa-car"></i> {{ testimonial.brand_name }} {{ testimonial.model }}
+            </div>
+            {% endif %}
             <div class="testimonial-rating">
                 {% for i in range(testimonial.rating) %}
                     <i class="fas fa-star"></i>
@@ -453,6 +290,9 @@
                     <i class="far fa-star"></i>
                 {% endfor %}
             </div>
+            {% if testimonial.image_path %}
+            <img src="/uploads/{{ testimonial.image_path }}" alt="Review photo" class="testimonial-image">
+            {% endif %}
             <p class="testimonial-comment">{{ testimonial.comment }}</p>
             <div class="testimonial-author">
                 <div class="testimonial-avatar">
@@ -491,153 +331,26 @@
     {% else %}
     <div class="empty-state">
         <i class="fas fa-star"></i>
-        <h3>No testimonials yet</h3>
+        <h3>No reviews yet</h3>
         <p>Be the first to share your experience with us!</p>
-        {% if session.get('loggedin') and session.get('role') != 'admin' %}
-            <button onclick="showAddTestimonialModal()" class="btn-primary">
-                <i class="fas fa-pen"></i> Write a Review
-            </button>
-        {% elif not session.get('loggedin') %}
-            <a href="{{ url_for('auth_bp.login') }}" class="btn-primary">
-                <i class="fas fa-sign-in-alt"></i> Login to Write a Review
-            </a>
-        {% endif %}
+{% if session.loggedin and session.role != 'admin' %}
+<div class="user-stats">
+    <div class="user-stats-info">
+        <div class="testimonial-count-badge">
+            <i class="fas fa-pen-fancy"></i> My Reviews: {{ user_testimonial_count|default(0) }}
+        </div>
+    </div>
+</div>
+{% endif %}
     </div>
     {% endif %}
 </div>
+{% endblock %}
 
-<!-- Add Testimonial Modal -->
-<div id="testimonialModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3><i class="fas fa-star"></i> Write a Review</h3>
-            <span class="close" onclick="closeModal()">&times;</span>
-        </div>
-        <form id="testimonialForm" onsubmit="submitTestimonial(event)">
-            <input type="hidden" id="testimonialCsrfToken" value="{{ global_csrf_token }}">
-            <div class="form-group">
-                <label><i class="fas fa-star"></i> Your Rating</label>
-                <div class="rating-input">
-                    <i class="far fa-star" data-rating="1" onclick="setRating(1)"></i>
-                    <i class="far fa-star" data-rating="2" onclick="setRating(2)"></i>
-                    <i class="far fa-star" data-rating="3" onclick="setRating(3)"></i>
-                    <i class="far fa-star" data-rating="4" onclick="setRating(4)"></i>
-                    <i class="far fa-star" data-rating="5" onclick="setRating(5)"></i>
-                </div>
-                <input type="hidden" id="rating" name="rating" required>
-            </div>
-            <div class="form-group">
-                <label><i class="fas fa-comment"></i> Your Review</label>
-                <textarea id="comment" name="comment" rows="5" required placeholder="Share your experience with us..."></textarea>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">
-                    <i class="fas fa-paper-plane"></i> Submit Review
-                </button>
-                <button type="button" class="btn-secondary" onclick="closeModal()">
-                    Cancel
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
+{% block extra_js %}
 <script>
-let currentRating = 0;
-
-function setRating(rating) {
-    currentRating = rating;
-    document.getElementById('rating').value = rating;
-    
-    const stars = document.querySelectorAll('.rating-input i');
-    stars.forEach((star, index) => {
-        if (index < rating) {
-            star.className = 'fas fa-star';
-            star.classList.add('active');
-        } else {
-            star.className = 'far fa-star';
-            star.classList.remove('active');
-        }
-    });
-}
-
-function showAddTestimonialModal() {
-    document.getElementById('testimonialForm').reset();
-    currentRating = 0;
-    setRating(0);
-    document.getElementById('testimonialModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-}
-
-function closeModal() {
-    document.getElementById('testimonialModal').style.display = 'none';
-    document.body.style.overflow = 'auto';
-}
-
 function goToPage(page) {
     window.location.href = `{{ url_for('base_bp.testimonials') }}?page=${page}`;
-}
-
-function submitTestimonial(event) {
-    event.preventDefault();
-    
-    const rating = document.getElementById('rating').value;
-    const comment = document.getElementById('comment').value;
-    
-    if (!rating) {
-        alert('Please select a rating');
-        return;
-    }
-    
-    if (!comment.trim()) {
-        alert('Please enter your review');
-        return;
-    }
-    
-    const submitBtn = document.querySelector('#testimonialForm button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-    
-    fetch('{{ url_for('user_bp.submit_testimonial') }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': document.getElementById('testimonialCsrfToken').value
-        },
-        body: JSON.stringify({
-            rating: parseInt(rating),
-            comment: comment
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(data.message);
-            closeModal();
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
-        } else {
-            alert(data.message || 'Error submitting review');
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error submitting review. Please try again.');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-    });
-}
-
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const modal = document.getElementById('testimonialModal');
-    if (event.target === modal) {
-        closeModal();
-    }
 }
 </script>
 {% endblock %}

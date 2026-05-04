@@ -12,9 +12,9 @@ public class DashboardPanel extends JPanel {
     private DashboardDAO dashboardDAO;
     private JLabel[] statValueLabels;
     
-    private final String[] statNames = {
+     private final String[] statNames = {
         "Total Vehicles", "Total Bookings", "Total Revenue", "Total Users", 
-        "Pending Verifications", "Pending Testimonials", "New Queries", "Subscribers"
+        "Pending Verifications", "New Queries", "Subscribers"
     };
     
     public DashboardPanel(MainFrame mainFrame) {
@@ -73,9 +73,11 @@ public class DashboardPanel extends JPanel {
         statValueLabels = new JLabel[statNames.length];
         Color[] colors = {
             new Color(15, 59, 111), new Color(16, 185, 129), new Color(245, 158, 66),
-            new Color(139, 92, 246), new Color(239, 68, 68), new Color(34, 197, 94),
+            new Color(139, 92, 246), new Color(239, 68, 68),
             new Color(99, 102, 241), new Color(236, 72, 153)
         };
+        
+        statValueLabels = new JLabel[statNames.length];
         
         for (int i = 0; i < statNames.length; i++) {
             statValueLabels[i] = new JLabel("0");
@@ -126,7 +128,6 @@ public class DashboardPanel extends JPanel {
         actionsPanel.add(createActionButton("View Bookings", "📅"));
         actionsPanel.add(createActionButton("User Verifications", "📋"));
         actionsPanel.add(createActionButton("Vehicle Brands", "🏷️"));
-        actionsPanel.add(createActionButton("Testimonials", "⭐"));
         actionsPanel.add(createActionButton("Contact Queries", "📧"));
         
         infoPanel.add(actionsPanel, BorderLayout.CENTER);
@@ -162,9 +163,8 @@ public class DashboardPanel extends JPanel {
             statValueLabels[2].setText("₱" + String.format("%.0f", stats.getTotalRevenue()));
             statValueLabels[3].setText(String.valueOf(stats.getUserCount()));
             statValueLabels[4].setText(String.valueOf(stats.getPendingVerifications()));
-            statValueLabels[5].setText(String.valueOf(stats.getPendingTestimonials()));
-            statValueLabels[6].setText(String.valueOf(stats.getNewQueries()));
-            statValueLabels[7].setText(String.valueOf(stats.getSubscriberCount()));
+            statValueLabels[5].setText(String.valueOf(stats.getNewQueries()));
+            statValueLabels[6].setText(String.valueOf(stats.getSubscriberCount()));
             
         } catch (Exception e) {
             e.printStackTrace();

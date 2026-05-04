@@ -32,12 +32,14 @@ def index():
         """)
         all_vehicles = cursor.fetchall()
 
-        # Get approved testimonials
+        # Get testimonials with vehicle info
         cursor.execute("""
-            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name
+            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name,
+                   v.brand_id, vb.name as brand_name, v.model
             FROM testimonials t
             JOIN users u ON t.user_id = u.id
-            WHERE t.status = 'approved'
+            LEFT JOIN vehicles v ON t.vehicle_id = v.id
+            LEFT JOIN vehicle_brands vb ON v.brand_id = vb.id
             ORDER BY t.created_at DESC
             LIMIT 3
         """)
@@ -97,59 +99,76 @@ def browse_fleet():
 
 @base_bp.route('/testimonials')
 def testimonials():
-    """View testimonials - Admin cannot access"""
-    # If admin is logged in, redirect to admin dashboard
-    if session.get('loggedin') and session.get('role') == 'admin':
-        flash('Admin accounts cannot view testimonials', 'info')
-        return redirect(url_for('admin_bp.admin_dashboard'))
-
+    """View testimonials - Admin can view all, users see approved only"""
     # Get page number for pagination
     page = request.args.get('page', 1, type=int)
     per_page = 6
-
+    
     conn = get_db_connection()
     if not conn:
         return render_template('base/templates/testimonials.html', testimonials=[], session=session)
-
+    
     cursor = conn.cursor(dictionary=True)
     try:
-        # Get total count of approved testimonials
-        cursor.execute("SELECT COUNT(*) as total FROM testimonials WHERE status = 'approved'")
+        is_admin = session.get('loggedin') and session.get('role') == 'admin'
+        
+        # Get total count - all for admin, approved only for users
+        if is_admin:
+            cursor.execute("SELECT COUNT(*) as total FROM testimonials")
+        else:
+            cursor.execute("SELECT COUNT(*) as total FROM testimonials WHERE status = 'approved'")
         total_result = cursor.fetchone()
         total_testimonials = total_result['total'] if total_result else 0
-
+        
         # Calculate pagination
         total_pages = (total_testimonials + per_page - 1) // per_page
         offset = (page - 1) * per_page
-
-        # Get paginated testimonials
-        cursor.execute("""
-            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name
-            FROM testimonials t
-            JOIN users u ON t.user_id = u.id
-            WHERE t.status = 'approved'
-            ORDER BY t.created_at DESC
-            LIMIT %s OFFSET %s
-        """, (per_page, offset))
-        testimonials_list = cursor.fetchall()
-
+        
+        # Get paginated testimonials - all for admin, approved only for users
+        if is_admin:
+            cursor.execute("""
+                SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name,
+                       v.brand_id, vb.name as brand_name, v.model
+                FROM testimonials t
+                JOIN users u ON t.user_id = u.id
+                LEFT JOIN vehicles v ON t.vehicle_id = v.id
+                LEFT JOIN vehicle_brands vb ON v.brand_id = vb.id
+                ORDER BY t.created_at DESC
+                LIMIT %s OFFSET %s
+            """, (per_page, offset))
+        else:
+            cursor.execute("""
+                SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name,
+                       v.brand_id, vb.name as brand_name, v.model
+                FROM testimonials t
+                JOIN users u ON t.user_id = u.id
+                LEFT JOIN vehicles v ON t.vehicle_id = v.id
+                LEFT JOIN vehicle_brands vb ON v.brand_id = vb.id
+                WHERE t.status = 'approved'
+                ORDER BY t.created_at DESC
+                LIMIT %s OFFSET %s
+            """, (per_page, offset))
+        testimonials = cursor.fetchall()
+        
         # Get user's testimonial count (if logged in and not admin)
         user_testimonial_count = 0
-        if session.get('loggedin') and session.get('role') != 'admin':
+        if session.get('loggedin') and not is_admin:
             cursor.execute("""
                 SELECT COUNT(*) as count FROM testimonials
-                WHERE user_id = %s AND status != 'rejected'
+                WHERE user_id = %s
             """, (session['user_id'],))
             count_result = cursor.fetchone()
             user_testimonial_count = count_result['count'] if count_result else 0
-
+        
         return render_template('base/templates/testimonials.html', 
-                               approved_testimonials=testimonials_list,
+                               testimonials=testimonials,
+                               user_testimonial_count=user_testimonial_count,
+                               current_page=page,
+                               total_pages=total_pages,
                                session=session)
     except Exception as e:
-        current_app.logger.error(f"Testimonials page error: {e}")
-        flash('Error loading testimonials', 'error')
-        return render_template('base/templates/testimonials.html', approved_testimonials=[], session=session)
+        print(f"Error loading testimonials: {e}")
+        return render_template('base/templates/testimonials.html', testimonials=[], session=session)
     finally:
         cursor.close()
         conn.close()

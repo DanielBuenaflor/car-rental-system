@@ -12,10 +12,9 @@ public class MainFrame extends JFrame {
     private VehiclesPanel vehiclesPanel;
     private BookingsPanel bookingsPanel;
     private UsersPanel usersPanel;
-    private VerificationsPanel verificationsPanel;
-    private BrandsPanel brandsPanel;
-    private TestimonialsPanel testimonialsPanel;
-    private QueriesPanel queriesPanel;
+     private VerificationsPanel verificationsPanel;
+     private BrandsPanel brandsPanel;
+     private QueriesPanel queriesPanel;
     private SubscribersPanel subscribersPanel;
     
     public MainFrame() {
@@ -45,7 +44,6 @@ public class MainFrame extends JFrame {
         usersPanel = new UsersPanel(this);
         verificationsPanel = new VerificationsPanel(this);
         brandsPanel = new BrandsPanel(this);
-        testimonialsPanel = new TestimonialsPanel(this);
         queriesPanel = new QueriesPanel(this);
         subscribersPanel = new SubscribersPanel(this);
         
@@ -55,7 +53,6 @@ public class MainFrame extends JFrame {
         contentPanel.add(usersPanel, "users");
         contentPanel.add(verificationsPanel, "verifications");
         contentPanel.add(brandsPanel, "brands");
-        contentPanel.add(testimonialsPanel, "testimonials");
         contentPanel.add(queriesPanel, "queries");
         contentPanel.add(subscribersPanel, "subscribers");
         
@@ -86,13 +83,14 @@ public class MainFrame extends JFrame {
         
         String[] menuItems = {
             "Dashboard", "Vehicles", "Bookings", "Users",
-            "Verifications", "Brands", "Testimonials", 
+            "Verifications", "Brands", 
             "Queries", "Subscribers"
         };
         
         String[] icons = {
             "📊", "🚗", "📅", "👥",
-            "📋", "🏷️", "⭐", "📧", "🔔"
+            "📋", "🏷️", 
+            "📧", "🔔"
         };
         
         for (int i = 0; i < menuItems.length; i++) {
@@ -159,7 +157,6 @@ public class MainFrame extends JFrame {
             case "users": usersPanel.refresh(); break;
             case "verifications": verificationsPanel.refresh(); break;
             case "brands": brandsPanel.refresh(); break;
-            case "testimonials": testimonialsPanel.refresh(); break;
             case "queries": queriesPanel.refresh(); break;
             case "subscribers": subscribersPanel.refresh(); break;
         }
