@@ -5,6 +5,23 @@
 window.isLoggedIn = window.isLoggedIn || false;
 window.userRole = window.userRole || '';
 
+function generateStars(rating) {
+    var stars = '';
+    var fullStars = Math.floor(rating);
+    var hasHalf = (rating % 1) >= 0.5;
+    
+    for (var i = 0; i < fullStars; i++) {
+        stars += '<i class="fas fa-star"></i>';
+    }
+    if (hasHalf) {
+        stars += '<i class="fas fa-star-half-alt"></i>';
+    }
+    for (var i = fullStars + (hasHalf ? 1 : 0); i < 5; i++) {
+        stars += '<i class="far fa-star"></i>';
+    }
+    return stars;
+}
+
 function openVehicleModal(vehicleId) {
     var modal = document.getElementById('vehicleModal');
     modal.style.display = 'flex';
@@ -15,6 +32,9 @@ function openVehicleModal(vehicleId) {
         .then(function(data) {
             if (data.success) {
                 currentVehicleData = data.vehicle;
+                // Pass rating data to display function
+                data.vehicle.avg_rating = data.avg_rating || 0;
+                data.vehicle.review_count = data.review_count || 0;
                 displayVehicleModal(data.vehicle, data.images, data.similar_vehicles);
             } else {
                 showError('Failed to load vehicle details');
@@ -94,22 +114,57 @@ function displayVehicleModal(vehicle, images, similarVehicles) {
     
     if (vehicle) {
         vehicleDetailsHtml = 
+            '<div class="vehicle-specs-fullwidth">' +
+                '<h3><i class="fas fa-list"></i> Vehicle Specifications</h3>' +
+                specsHtml +
+            '</div>' +
             '<div class="vehicle-info-grid">' +
-                '<div class="vehicle-specs">' +
-                    '<h3><i class="fas fa-list"></i> Vehicle Specifications</h3>' +
-                    specsHtml +
+                '<div class="about-vehicle-card">' +
+                    '<h3><i class="fas fa-info-circle"></i> About this Vehicle</h3>' +
+                    '<p class="about-text">' + 
+                        (vehicle.description && vehicle.description.trim() 
+                            ? escapeHtml(vehicle.description) 
+                            : 'Experience the perfect blend of comfort and performance with this ' + vehicle.year + ' ' + (vehicle.brand_name || '') + ' ' + (vehicle.model || '') + '. Ideal for city driving and long trips alike.') + 
+                    '</p>' +
+                    '<div class="key-features-card" style="margin-top: 16px;">' +
+                        '<h3><i class="fas fa-star"></i> Key Features</h3>' +
+                        '<div class="features-badges">' +
+                            '<span class="feature-badge"><i class="fas fa-snowflake"></i> A/C</span>' +
+                            '<span class="feature-badge"><i class="fas fa-bluetooth"></i> Bluetooth</span>' +
+                            '<span class="feature-badge"><i class="fas fa-usb"></i> USB</span>' +
+                            '<span class="feature-badge"><i class="fas fa-gas-pump"></i> Full Tank</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="rental-terms-card" style="margin-top: 16px;">' +
+                        '<h3><i class="fas fa-shield-alt"></i> Rental Terms</h3>' +
+                        '<ul class="rental-terms-list">' +
+                            '<li><i class="fas fa-id-card"></i> Valid Driver\'s License required</li>' +
+                            '<li><i class="fas fa-coins"></i> Security Deposit: ₱5,000 (Refundable)</li>' +
+                            '<li><i class="fas fa-gas-pump"></i> Fuel Policy: Full-to-Full</li>' +
+                            '<li><i class="fas fa-ban"></i> Strictly No Smoking</li>' +
+                        '</ul>' +
+                    '</div>' +
+                    '<div class="rating-card" style="margin-top: 16px;">' +
+                        '<h3><i class="fas fa-star"></i> Customer Rating</h3>' +
+                        '<div class="rating-stars">' +
+                            '<div class="stars-display">' +
+                                generateStars(vehicle.avg_rating || 0) +
+                                '<span class="rating-value">' + (vehicle.avg_rating || 0).toFixed(1) + ' out of 5</span>' +
+                            '</div>' +
+                            '<p class="rating-reviews"><i class="fas fa-users"></i> Based on ' + (vehicle.review_count || 0) + ' reviews</p>' +
+                        '</div>' +
+                    '</div>' +
                 '</div>' +
                 '<div class="booking-card">' +
-                    '<div class="modal-price">₱' + parseFloat(vehicle.daily_rate || 0).toLocaleString() + '<small>/day + tax</small></div>' +
-                    '<div style="margin-bottom: 8px; text-align: center; color: #64748b; font-size: 14px;">' +
-                        '<i class="fas fa-clock" style="color: #0f3b6f;"></i> ₱' + hourlyRate.toLocaleString() + '/hour' +
+                    '<div class="modal-price">₱' + parseFloat(vehicle.daily_rate || 0).toLocaleString() + '<small>/day + tax</small>' +
+                        '<div style="font-size: 16px; font-weight: 500; color: #64748b; margin-top: 4px;"><i class="fas fa-clock" style="color: #0f3b6f;"></i> ₱' + hourlyRate.toLocaleString() + '/hour</div>' +
                     '</div>' +
                     '<div style="margin-bottom: 16px; text-align: center; color: #64748b; font-size: 14px;">' +
                         '<i class="fas fa-check-circle" style="color: #10b981;"></i> Free cancellation' +
                     '</div>' +
                     '<div style="margin-bottom: 16px;">' +
                         '<label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1f3a5f; font-size: 14px;">Availability Calendar</label>' +
-                        '<div id="modalCalendar" data-vehicle-id="' + vehicle.id + '" style="margin-bottom: 12px;"></div>' +
+                        '<div id="modalCalendar" data-vehicle-id="' + vehicle.id + '" style="margin-bottom: 12px; width: 100%;"></div>' +
                     '</div>';
         
         var isLoggedIn = window.isLoggedIn === true || window.isLoggedIn === 'true';
@@ -122,15 +177,6 @@ function displayVehicleModal(vehicle, images, similarVehicles) {
         }
         
         vehicleDetailsHtml += '</div></div>';
-        
-        // Add description only if it exists
-        if (vehicle.description && vehicle.description.trim()) {
-            vehicleDetailsHtml += 
-                '<div class="description-section">' +
-                    '<h3><i class="fas fa-info-circle"></i> Description</h3>' +
-                    '<p>' + escapeHtml(vehicle.description) + '</p>' +
-                '</div>';
-        }
     }
     
     var html = 
@@ -145,21 +191,41 @@ function displayVehicleModal(vehicle, images, similarVehicles) {
         vehicleDetailsHtml;
     
     // Similar vehicles section
-    if (similarVehicles && similarVehicles.length > 0) {
-        html += '<div class="similar-vehicles-modal">' +
-            '<h3><i class="fas fa-car"></i> Similar Vehicles</h3>' +
-            '<div class="similar-grid-modal">' +
-            similarVehicles.map(function(sv) {
-                return '<div class="similar-card-modal" onclick="openVehicleModal(' + sv.id + '); closeVehicleModal();">' +
-                    '<img src="' + (sv.primary_image || '/static/images/placeholder-car.jpg') + '" alt="' + escapeHtml(sv.brand_name) + ' ' + escapeHtml(sv.model) + '">' +
-                    '<div class="info">' +
-                        '<h4>' + escapeHtml(sv.brand_name) + ' ' + escapeHtml(sv.model) + '</h4>' +
-                        '<div class="price">₱' + sv.daily_rate + '/day</div>' +
-                    '</div>' +
-                '</div>';
-            }).join('') +
-            '</div></div>';
+    html += '<div class="similar-vehicles-modal">' +
+        '<h3><i class="fas fa-car"></i> Similar Vehicles</h3>' +
+        '<div class="similar-grid-modal">';
+    
+    // Ensure exactly 3 items (pad with placeholders if needed)
+    var displayVehicles = vehicle.similar_vehicles || similarVehicles || [];
+    for (var i = 0; i < 3; i++) {
+        if (i < displayVehicles.length) {
+            var sv = displayVehicles[i];
+            var hasImage = sv.primary_image && sv.primary_image.trim() !== '';
+            html += '<div class="similar-card-modal" onclick="openVehicleModal(' + sv.id + '); closeVehicleModal();">' +
+                (hasImage 
+                    ? '<img src="' + sv.primary_image + '" alt="' + escapeHtml(sv.brand_name) + ' ' + escapeHtml(sv.model) + '" onerror="this.outerHTML=\'<div class=\\\'placeholder-image\\\'><i class=\\\'fas fa-car\\\'></i></div>\'">'
+                    : '<div class="placeholder-image"><i class="fas fa-car"></i></div>'
+                ) +
+                '<div class="info">' +
+                    '<h4>' + escapeHtml(sv.brand_name) + ' ' + escapeHtml(sv.model) + '</h4>' +
+                    '<div class="price">₱' + sv.daily_rate + '/day</div>' +
+                '</div>' +
+            '</div>';
+        } else {
+            // Placeholder card
+            html += '<div class="similar-card-modal placeholder-card">' +
+                '<div class="placeholder-image">' +
+                    '<i class="fas fa-car"></i>' +
+                '</div>' +
+                '<div class="info">' +
+                    '<h4>Similar Vehicle</h4>' +
+                    '<div class="price">₱2,500/day</div>' +
+                '</div>' +
+            '</div>';
+        }
     }
+    
+    html += '</div></div>';
     
     container.innerHTML = html;
     

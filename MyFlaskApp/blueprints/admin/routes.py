@@ -15,6 +15,7 @@ from MyFlaskApp.payment.payment_service import process_booking_payment
 from MyFlaskApp.payment.invoice_service import InvoiceService
 from MyFlaskApp.email.service import EmailService
 from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clear_csrf_token
+from MyFlaskApp.utils.secure_upload import save_upload, ALLOWED_IMAGE_EXTENSIONS
 
 
 # ============================================================================
@@ -24,7 +25,6 @@ UPLOAD_FOLDER = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
     'base', 'uploads', 'vehicles'
 )
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 
 # ============================================================================
@@ -37,14 +37,6 @@ admin_bp = Blueprint(
     static_folder='static', 
     static_url_path="/admin_statics"
 )
-
-
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
-def allowed_file(filename):
-    """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 # ============================================================================
@@ -1375,39 +1367,37 @@ def api_upload_vehicle_images(vehicle_id):
         conn.close()
         return jsonify({'success': False, 'message': 'Vehicle not found'}), 404
     cursor.close()
-    
-    # Create upload directory
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    
+
     uploaded_files = []
-    
+
     # Handle primary image
     if 'primary_image' in request.files:
         file = request.files['primary_image']
-        if file and allowed_file(file.filename):
-            ext = file.filename.rsplit('.', 1)[1].lower()
-            filename = f"vehicle_{vehicle_id}_primary_{datetime.now().strftime('%Y%m%d%H%M%S')}.{ext}"
-            file.save(os.path.join(UPLOAD_FOLDER, filename))
-            uploaded_files.append({'type': 'primary', 'path': f"/uploads/vehicles/{filename}"})
-            
+        if file and file.filename:
+            filename, error = save_upload(file, UPLOAD_FOLDER, allowed_extensions=ALLOWED_IMAGE_EXTENSIONS, check_magic_bytes=True)
+            if error:
+                return jsonify({'success': False, 'message': f'Primary image: {error}'}), 400
+            image_path = f"/uploads/vehicles/{filename}"
+            uploaded_files.append({'type': 'primary', 'path': image_path})
+
             # Update vehicle primary_image
             cursor = conn.cursor()
-            cursor.execute("UPDATE vehicles SET primary_image = %s WHERE id = %s", 
-                          (f"/uploads/vehicles/{filename}", vehicle_id))
+            cursor.execute("UPDATE vehicles SET primary_image = %s WHERE id = %s",
+                          (image_path, vehicle_id))
             conn.commit()
             cursor.close()
-    
+
     # Handle gallery images
     if 'gallery_images' in request.files:
         files = request.files.getlist('gallery_images')
         for idx, file in enumerate(files):
-            if file and allowed_file(file.filename):
-                ext = file.filename.rsplit('.', 1)[1].lower()
-                filename = f"vehicle_{vehicle_id}_gallery_{datetime.now().strftime('%Y%m%d%H%M%S')}_{idx}.{ext}"
-                file.save(os.path.join(UPLOAD_FOLDER, filename))
+            if file and file.filename:
+                filename, error = save_upload(file, UPLOAD_FOLDER, allowed_extensions=ALLOWED_IMAGE_EXTENSIONS, check_magic_bytes=True)
+                if error:
+                    return jsonify({'success': False, 'message': f'Gallery image {idx+1}: {error}'}), 400
                 image_path = f"/uploads/vehicles/{filename}"
                 uploaded_files.append({'type': 'gallery', 'path': image_path})
-                
+
                 # Insert into vehicle_images table
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -1416,9 +1406,9 @@ def api_upload_vehicle_images(vehicle_id):
                 """, (vehicle_id, image_path, False, idx))
                 conn.commit()
                 cursor.close()
-    
+
     conn.close()
-    
+
     return jsonify({
         'success': True,
         'message': f'Uploaded {len(uploaded_files)} images',
