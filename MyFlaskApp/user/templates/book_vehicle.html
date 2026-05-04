@@ -176,28 +176,7 @@
                     </div>
                     
                     <div id="pickup-custom" class="location-section">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="pickup_region" class="form-control">
-                                <option value="">Select Region</option>
-                            </select>
-                            <select id="pickup_province" class="form-control" disabled>
-                                <option value="">Select Province</option>
-                            </select>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="pickup_city" class="form-control" disabled>
-                                <option value="">Select City/Municipality</option>
-                            </select>
-                            <select id="pickup_barangay" class="form-control" disabled>
-                                <option value="">Select Barangay</option>
-                            </select>
-                        </div>
-                        <input type="hidden" id="pickup_region_name">
-                        <input type="hidden" id="pickup_province_name">
-                        <input type="hidden" id="pickup_city_name">
-                        <input type="hidden" id="pickup_barangay_name">
-                        
-                        <input type="text" id="custom_pickup_street" class="custom-address-input" placeholder="House No., Street, Building">
+                        <input type="text" id="custom_pickup_street" class="custom-address-input" placeholder="House No., Street, Building, City/Municipality, Barangay">
                         <input type="hidden" id="custom_pickup_address" name="custom_pickup_address">
                         
                         <div id="customPickupMap"></div>
@@ -225,28 +204,7 @@
                     </div>
                     
                     <div id="return-custom" class="location-section">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="return_region" class="form-control">
-                                <option value="">Select Region</option>
-                            </select>
-                            <select id="return_province" class="form-control" disabled>
-                                <option value="">Select Province</option>
-                            </select>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="return_city" class="form-control" disabled>
-                                <option value="">Select City/Municipality</option>
-                            </select>
-                            <select id="return_barangay" class="form-control" disabled>
-                                <option value="">Select Barangay</option>
-                            </select>
-                        </div>
-                        <input type="hidden" id="return_region_name">
-                        <input type="hidden" id="return_province_name">
-                        <input type="hidden" id="return_city_name">
-                        <input type="hidden" id="return_barangay_name">
-                        
-                        <input type="text" id="custom_return_street" class="custom-address-input" placeholder="House No., Street, Building">
+                        <input type="text" id="custom_return_street" class="custom-address-input" placeholder="House No., Street, Building, City/Municipality, Barangay">
                         <input type="hidden" id="custom_return_address" name="custom_return_address">
                         
                         <div id="customReturnMap"></div>
@@ -736,43 +694,9 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/location-map.js') }}"></script>
-<script src="{{ url_for('static', filename='js/ph-address-selector.js') }}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof PhAddressSelector !== 'undefined') {
-        // Initialize Address Selectors
-        PhAddressSelector.init({
-            regionId: 'pickup_region',
-            provinceId: 'pickup_province',
-            cityId: 'pickup_city',
-            barangayId: 'pickup_barangay'
-        });
-        
-        PhAddressSelector.init({
-            regionId: 'return_region',
-            provinceId: 'return_province',
-            cityId: 'return_city',
-            barangayId: 'return_barangay'
-        });
-    } else {
-        console.error('PhAddressSelector utility not loaded');
-    }
-});
-
 function concatenateAddress(prefix) {
-    const street = document.getElementById(`custom_${prefix}_street`).value.trim();
-    const brgy = document.getElementById(`${prefix}_barangay_name`).value;
-    const city = document.getElementById(`${prefix}_city_name`).value;
-    const prov = document.getElementById(`${prefix}_province_name`).value;
-    const region = document.getElementById(`${prefix}_region_name`).value;
-    
-    let full = street;
-    if (brgy) full += `, Brgy. ${brgy}`;
-    if (city) full += `, ${city}`;
-    if (prov) full += `, ${prov}`;
-    if (region) full += `, ${region}`;
-    
-    return full;
+    return document.getElementById(`custom_${prefix}_address`).value;
 }
 </script>
 {% endblock %}

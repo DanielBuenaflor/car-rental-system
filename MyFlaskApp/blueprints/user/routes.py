@@ -23,7 +23,6 @@ from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clea
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS  # Use secure upload module's extensions
 MAX_FILE_SIZE_MB = 5
 # Correct path: from MyFlaskApp/blueprints/user/routes.py -> MyFlaskApp/base/uploads/verifications/
 UPLOAD_FOLDER = os.path.join(
@@ -63,9 +62,6 @@ def save_base64_image(base64_data, filepath):
         print(f"Error saving base64 image: {e}")
         return None
     
-def allowed_file(filename):
-    """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 # ============================================================================
@@ -319,8 +315,22 @@ def active_rentals():
         """, (session['user_id'],))
         active_rentals = cursor.fetchall()
         
-        # Calculate countdown for each rental
+        # Auto-update status: confirmed → active if start_date has passed
         now = datetime.now()
+        for rental in active_rentals:
+            if rental['status'] == 'confirmed' and rental['start_date'] and now >= rental['start_date']:
+                cursor.execute("UPDATE bookings SET status = 'active' WHERE id = %s", (rental['id'],))
+                rental['status'] = 'active'
+                conn.commit()
+        
+        for rental in active_rentals:
+            pickup_odometer = rental.get('pickup_odometer_reading')
+            current_odometer = rental.get('current_odometer')
+            baseline = pickup_odometer if pickup_odometer is not None else current_odometer
+            rental['minimum_return_odometer'] = int(baseline) if baseline is not None else 0
+            rental['current_vehicle_odometer'] = int(current_odometer) if current_odometer is not None else 0
+        
+        # Calculate countdown for each rental
         for rental in active_rentals:
             if rental['start_date']:
                 start = rental['start_date']
@@ -331,8 +341,8 @@ def active_rentals():
                     hours_left = (start - now).seconds // 3600
                     rental['status_message'] = f"Starts in {days_left} days, {hours_left} hours"
                     rental['countdown_type'] = 'upcoming'
-                elif rental['end_date']:
-                    # Rental is active
+                elif rental['status'] == 'active' and rental['end_date']:
+                    # Only mark as overdue if status is 'active' and past end date
                     end = rental['end_date']
                     if now < end:
                         days_left = (end - now).days
@@ -342,6 +352,14 @@ def active_rentals():
                     else:
                         rental['status_message'] = "OVERDUE - Please return vehicle"
                         rental['countdown_type'] = 'overdue'
+                elif rental['status'] == 'confirmed':
+                    # Confirmed but not yet active - show awaiting activation with start date
+                    if rental['start_date']:
+                        start_str = rental['start_date'].strftime('%B %d, %Y, %H:%M')
+                        rental['status_message'] = f"Booking confirmed, starts on {start_str}"
+                    else:
+                        rental['status_message'] = "Booking confirmed, awaiting activation"
+                    rental['countdown_type'] = 'upcoming'
         
         return render_template('rental_tracking.html', active_rentals=active_rentals, session=session)
         
@@ -664,6 +682,12 @@ def book_vehicle():
     
     if not all([vehicle_id, start_date, end_date, pickup_location, return_location]):
         return jsonify({'success': False, 'message': 'All fields are required'})
+    
+    # Validate custom addresses are in Laguna only
+    if is_custom_pickup and custom_pickup_address and 'Laguna' not in custom_pickup_address:
+        return jsonify({'success': False, 'message': 'Custom pickup address must be in Laguna'})
+    if is_custom_return and custom_return_address and 'Laguna' not in custom_return_address:
+        return jsonify({'success': False, 'message': 'Custom return address must be in Laguna'})
     
     # Single connection for entire operation
     conn = get_db_connection()
@@ -1063,7 +1087,7 @@ def submit_review():
                 upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'base', 'uploads', 'reviews')
                 os.makedirs(upload_dir, exist_ok=True)
                 from MyFlaskApp.utils.secure_upload import save_upload
-                filename, error = save_upload(file, upload_dir)
+                filename, error = save_upload(file, upload_dir, allowed_extensions=ALLOWED_IMAGE_EXTENSIONS, check_magic_bytes=True)
                 if filename and not error:
                     image_path = f"reviews/{filename}"
                 else:
@@ -1152,7 +1176,7 @@ def submit_verification():
     print(f"DEBUG: selfie_file={selfie_file.filename if selfie_file else 'None'}")
     
     # Validate that license front image is provided (required field)
-    has_license_front = bool(license_front_base64) or (license_front_file and allowed_file(license_front_file.filename))
+    has_license_front = bool(license_front_base64) or (license_front_file and license_front_file.filename)
     if not has_license_front:
         print("DEBUG: License front image missing!")
         return jsonify({'success': False, 'message': 'License front image is required'}), 400
@@ -1181,15 +1205,11 @@ def submit_verification():
         if error:
             return jsonify({'success': False, 'message': f'License front: {error}'}), 400
         license_front_path = filename
-    elif license_front_file and allowed_file(license_front_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_license_front_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            license_front_file.save(filepath)
-            license_front_path = filename
-        except Exception as e:
-            return jsonify({'success': False, 'message': f'License front: Error saving file: {str(e)}'}), 400
+    elif license_front_file and license_front_file.filename:
+        filename, error = save_upload(license_front_file, UPLOAD_FOLDER, allowed_extensions=ALLOWED_EXTENSIONS)
+        if error:
+            return jsonify({'success': False, 'message': f'License front: {error}'}), 400
+        license_front_path = filename
     
     # License Back Image
     if license_back_base64:
@@ -1203,17 +1223,13 @@ def submit_verification():
                 os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
             return jsonify({'success': False, 'message': f'License back: {error}'}), 400
         license_back_path = filename
-    elif license_back_file and allowed_file(license_back_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_license_back_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            license_back_file.save(filepath)
-            license_back_path = filename
-        except Exception as e:
+    elif license_back_file and license_back_file.filename:
+        filename, error = save_upload(license_back_file, UPLOAD_FOLDER, allowed_extensions=ALLOWED_EXTENSIONS)
+        if error:
             if license_front_path:
                 os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
-            return jsonify({'success': False, 'message': f'License back: Error saving file: {str(e)}'}), 400
+            return jsonify({'success': False, 'message': f'License back: {error}'}), 400
+        license_back_path = filename
     
     # ID Card Image
     if id_card_base64:
@@ -1227,17 +1243,13 @@ def submit_verification():
             if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
             return jsonify({'success': False, 'message': f'ID card: {error}'}), 400
         id_card_path = filename
-    elif id_card_file and allowed_file(id_card_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_id_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            id_card_file.save(filepath)
-            id_card_path = filename
-        except Exception as e:
+    elif id_card_file and id_card_file.filename:
+        filename, error = save_upload(id_card_file, UPLOAD_FOLDER, allowed_extensions=ALLOWED_EXTENSIONS)
+        if error:
             if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
             if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
-            return jsonify({'success': False, 'message': f'ID card: Error saving file: {str(e)}'}), 400
+            return jsonify({'success': False, 'message': f'ID card: {error}'}), 400
+        id_card_path = filename
     
     # Selfie Image
     if selfie_base64:
@@ -1252,18 +1264,14 @@ def submit_verification():
             if id_card_path: os.remove(os.path.join(UPLOAD_FOLDER, id_card_path))
             return jsonify({'success': False, 'message': f'Selfie: {error}'}), 400
         selfie_path = filename
-    elif selfie_file and allowed_file(selfie_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_selfie_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            selfie_file.save(filepath)
-            selfie_path = filename
-        except Exception as e:
+    elif selfie_file and selfie_file.filename:
+        filename, error = save_upload(selfie_file, UPLOAD_FOLDER, allowed_extensions=ALLOWED_EXTENSIONS)
+        if error:
             if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
             if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
             if id_card_path: os.remove(os.path.join(UPLOAD_FOLDER, id_card_path))
-            return jsonify({'success': False, 'message': f'Selfie: Error saving file: {str(e)}'}), 400
+            return jsonify({'success': False, 'message': f'Selfie: {error}'}), 400
+        selfie_path = filename
     
     # ============================================================
     # OCR VALIDATION - Extract data for admin review
