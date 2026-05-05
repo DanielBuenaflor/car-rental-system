@@ -176,28 +176,7 @@
                     </div>
                     
                     <div id="pickup-custom" class="location-section">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="pickup_region" class="form-control">
-                                <option value="">Select Region</option>
-                            </select>
-                            <select id="pickup_province" class="form-control" disabled>
-                                <option value="">Select Province</option>
-                            </select>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="pickup_city" class="form-control" disabled>
-                                <option value="">Select City/Municipality</option>
-                            </select>
-                            <select id="pickup_barangay" class="form-control" disabled>
-                                <option value="">Select Barangay</option>
-                            </select>
-                        </div>
-                        <input type="hidden" id="pickup_region_name">
-                        <input type="hidden" id="pickup_province_name">
-                        <input type="hidden" id="pickup_city_name">
-                        <input type="hidden" id="pickup_barangay_name">
-                        
-                        <input type="text" id="custom_pickup_street" class="custom-address-input" placeholder="House No., Street, Building">
+                        <input type="text" id="custom_pickup_street" class="custom-address-input" placeholder="House No., Street, Building, City/Municipality, Barangay">
                         <input type="hidden" id="custom_pickup_address" name="custom_pickup_address">
                         
                         <div id="customPickupMap"></div>
@@ -225,28 +204,7 @@
                     </div>
                     
                     <div id="return-custom" class="location-section">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="return_region" class="form-control">
-                                <option value="">Select Region</option>
-                            </select>
-                            <select id="return_province" class="form-control" disabled>
-                                <option value="">Select Province</option>
-                            </select>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="return_city" class="form-control" disabled>
-                                <option value="">Select City/Municipality</option>
-                            </select>
-                            <select id="return_barangay" class="form-control" disabled>
-                                <option value="">Select Barangay</option>
-                            </select>
-                        </div>
-                        <input type="hidden" id="return_region_name">
-                        <input type="hidden" id="return_province_name">
-                        <input type="hidden" id="return_city_name">
-                        <input type="hidden" id="return_barangay_name">
-                        
-                        <input type="text" id="custom_return_street" class="custom-address-input" placeholder="House No., Street, Building">
+                        <input type="text" id="custom_return_street" class="custom-address-input" placeholder="House No., Street, Building, City/Municipality, Barangay">
                         <input type="hidden" id="custom_return_address" name="custom_return_address">
                         
                         <div id="customReturnMap"></div>
@@ -485,19 +443,23 @@
         const start = new Date(startDate);
         const end = new Date(endDate);
         const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-        
-        if (days === 1 && pickupTime && returnTime) {
+
+        if ((days === 0 || days === 1) && pickupTime && returnTime) {
             const [pickupH, pickupM] = pickupTime.split(':').map(Number);
             const [returnH, returnM] = returnTime.split(':').map(Number);
             let hours = (returnH + (returnM/60)) - (pickupH + (pickupM/60));
-            if (hours < 0) hours += 24;
-            return { type: 'hourly', hours: hours, days: 0 };
-        } else if (days > 1) {
+            if (hours <= 0) hours += 24;
+            if (hours > 0) {
+                return { type: 'hourly', hours: hours, days: 0 };
+            }
+        }
+
+        if (days > 1) {
             return { type: 'daily', days: days, hours: 0 };
         } else if (days === 1) {
             return { type: 'daily', days: 1, hours: 0 };
         }
-        
+
         return { type: 'none', days: 0, hours: 0 };
     }
     
@@ -613,72 +575,71 @@
     
     document.getElementById('bookingForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
+
         const startDate = document.getElementById('start_date').value;
         const endDate = document.getElementById('end_date').value;
         const pickupTime = document.getElementById('pickup_time')?.value;
         const returnTime = document.getElementById('return_time')?.value;
-        const pickupLocationEl = document.getElementById('pickup_location_name');
-        const returnLocationEl = document.getElementById('return_location_name');
-        const pickupLocation = pickupLocationEl ? pickupLocationEl.value : '';
-        const returnLocation = returnLocationEl ? returnLocationEl.value : '';
+
+        const isCustomPickup = document.querySelector('#pickup-map')?.classList.contains('active') === false;
+        const isCustomReturn = document.querySelector('#return-map')?.classList.contains('active') === false;
+
+        let pickupLocation, returnLocation;
+        if (isCustomPickup) {
+            pickupLocation = concatenateAddress('pickup');
+        } else {
+            pickupLocation = document.getElementById('pickup_location_name')?.value || '';
+        }
+        if (isCustomReturn) {
+            returnLocation = concatenateAddress('return');
+        } else {
+            returnLocation = document.getElementById('return_location_name')?.value || '';
+        }
+
         const pickupLocationId = document.getElementById('pickup_location_id')?.value;
         const returnLocationId = document.getElementById('return_location_id')?.value;
-        
+
         if (!startDate || !endDate) {
             alert('Please select both start and end dates');
             return;
         }
-        
+
         const duration = calculateDuration(startDate, endDate, pickupTime, returnTime);
-        
+
         if (duration.type === 'hourly' && (!pickupTime || !returnTime)) {
             alert('Please select pickup and return times for same-day booking');
             return;
         }
-        
+
         if (duration.type === 'none') {
             alert('End date must be after start date');
             return;
         }
-        
+
         if (duration.type === 'daily' && duration.days > 30) {
             alert('Maximum rental period is 30 days');
             return;
         }
-        
+
         if (!pickupLocation || !returnLocation) {
             alert('Please select both pickup and return locations');
             return;
         }
-        
-        const isCustomPickup = document.querySelector('#pickup-map')?.classList.contains('active') === false;
-        const isCustomReturn = document.querySelector('#return-map')?.classList.contains('active') === false;
-        
-        let customPickupAddress = null;
-        if (isCustomPickup) {
-            customPickupAddress = concatenateAddress('pickup');
-        }
-        
-        let customReturnAddress = null;
-        if (isCustomReturn) {
-            customReturnAddress = concatenateAddress('return');
-        }
-        
+
         const bookingData = {
             vehicle_id: vehicleId,
             start_date: startDate,
             end_date: endDate,
             pickup_time: pickupTime || null,
             return_time: returnTime || null,
-            pickup_location: isCustomPickup ? customPickupAddress : pickupLocation,
-            return_location: isCustomReturn ? customReturnAddress : returnLocation,
+            pickup_location: pickupLocation,
+            return_location: returnLocation,
             pickup_location_id: pickupLocationId || null,
             return_location_id: returnLocationId || null,
             is_custom_pickup: isCustomPickup,
             is_custom_return: isCustomReturn,
-            custom_pickup_address: customPickupAddress,
-            custom_return_address: customReturnAddress,
+            custom_pickup_address: isCustomPickup ? pickupLocation : null,
+            custom_return_address: isCustomReturn ? returnLocation : null,
             custom_pickup_lat: document.getElementById('custom_pickup_lat')?.value || null,
             custom_pickup_lng: document.getElementById('custom_pickup_lng')?.value || null,
             one_way_fee: window.currentOneWayFee || currentOneWayFee,
@@ -736,43 +697,9 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/location-map.js') }}"></script>
-<script src="{{ url_for('static', filename='js/ph-address-selector.js') }}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof PhAddressSelector !== 'undefined') {
-        // Initialize Address Selectors
-        PhAddressSelector.init({
-            regionId: 'pickup_region',
-            provinceId: 'pickup_province',
-            cityId: 'pickup_city',
-            barangayId: 'pickup_barangay'
-        });
-        
-        PhAddressSelector.init({
-            regionId: 'return_region',
-            provinceId: 'return_province',
-            cityId: 'return_city',
-            barangayId: 'return_barangay'
-        });
-    } else {
-        console.error('PhAddressSelector utility not loaded');
-    }
-});
-
 function concatenateAddress(prefix) {
-    const street = document.getElementById(`custom_${prefix}_street`).value.trim();
-    const brgy = document.getElementById(`${prefix}_barangay_name`).value;
-    const city = document.getElementById(`${prefix}_city_name`).value;
-    const prov = document.getElementById(`${prefix}_province_name`).value;
-    const region = document.getElementById(`${prefix}_region_name`).value;
-    
-    let full = street;
-    if (brgy) full += `, Brgy. ${brgy}`;
-    if (city) full += `, ${city}`;
-    if (prov) full += `, ${prov}`;
-    if (region) full += `, ${region}`;
-    
-    return full;
+    return document.getElementById(`custom_${prefix}_address`).value;
 }
 </script>
 {% endblock %}
