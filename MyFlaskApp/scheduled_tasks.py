@@ -33,7 +33,7 @@ def send_rental_reminders():
                 'Rental Starts Tomorrow',
                 f'Your {brand} {model} rental (Ref: {ref}) starts tomorrow! Get ready for your trip.',
                 'booking_reminder',
-                '/user/my-bookings'
+                 '/user/bookings'
             )
         
         # Rentals ending in 24h
@@ -53,7 +53,7 @@ def send_rental_reminders():
                 'Rental Ends Tomorrow',
                 f'Your {brand} {model} rental (Ref: {ref}) ends tomorrow. Return by end of day to avoid late fees.',
                 'booking_reminder',
-                '/user/my-bookings'
+                 '/user/bookings'
             )
         
         conn.commit()
@@ -103,7 +103,7 @@ def check_overdue_bookings():
                     'Booking Overdue',
                     f'Your {brand} {model} rental (Ref: {ref}) is overdue! Please return immediately to avoid additional fines.',
                     'fine_notice',
-                    '/user/my-bookings'
+                    '/user/bookings'
                 )
             
             print(f"✅ Marked {overdue_count} bookings as overdue and sent notifications")

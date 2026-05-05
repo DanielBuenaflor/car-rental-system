@@ -2230,9 +2230,9 @@ def api_approve_verification(verification_id):
         # Create notification for user
         cursor.execute("""
             INSERT INTO notifications (user_id, type, title, message, link, created_at)
-            VALUES (%s, 'verification', 'Verification Approved', 
+                VALUES (%s, 'verification', 'Verification Approved', 
                     'Your identity verification has been approved! You can now book vehicles.',
-                    '/user/dashboard', NOW())
+                    '/user/bookings', NOW())
         """, (user_id,))
         
         conn.commit()

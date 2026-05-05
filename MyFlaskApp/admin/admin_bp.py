@@ -1675,27 +1675,27 @@ def api_update_booking(booking_id):
             if new_status == 'cancelled':
                 cursor.execute("""
                     INSERT INTO notifications (user_id, title, message, type, link, created_at)
-                    VALUES (%s, 'Booking Cancelled', %s, 'system', '/user/my-bookings', NOW())
+                    VALUES (%s, 'Booking Cancelled', %s, 'system', '/user/bookings', NOW())
                 """, (user_id, f'Your booking {ref} for {vehicle_name} has been cancelled by admin.'))
             elif new_status == 'active':
                 cursor.execute("""
                     INSERT INTO notifications (user_id, title, message, type, link, created_at)
-                    VALUES (%s, 'Rental Started', %s, 'booking_confirmation', '/user/my-bookings', NOW())
+                    VALUES (%s, 'Rental Started', %s, 'booking_confirmation', '/user/bookings', NOW())
                 """, (user_id, f'Your rental for {vehicle_name} (Booking {ref}) is now active. Enjoy your ride!'))
             elif new_status == 'completed':
                 cursor.execute("""
                     INSERT INTO notifications (user_id, title, message, type, link, created_at)
-                    VALUES (%s, 'Rental Completed', %s, 'booking_confirmation', '/user/my-bookings', NOW())
+                    VALUES (%s, 'Rental Completed', %s, 'booking_confirmation', '/user/bookings', NOW())
                 """, (user_id, f'Your rental for {vehicle_name} (Booking {ref}) has been completed. Thank you!'))
             elif new_status == 'no_show':
                 cursor.execute("""
                     INSERT INTO notifications (user_id, title, message, type, link, created_at)
-                    VALUES (%s, 'No-Show Recorded', %s, 'system', '/user/my-bookings', NOW())
+                    VALUES (%s, 'No-Show Recorded', %s, 'system', '/user/bookings', NOW())
                 """, (user_id, f'You were marked as no-show for booking {ref} ({vehicle_name}). Please contact support.'))
             elif new_status == 'overdue':
                 cursor.execute("""
                     INSERT INTO notifications (user_id, title, message, type, link, created_at)
-                    VALUES (%s, 'Booking Overdue', %s, 'fine_notice', '/user/my-bookings', NOW())
+                    VALUES (%s, 'Booking Overdue', %s, 'fine_notice', '/user/bookings', NOW())
                 """, (user_id, f'Your booking {ref} for {vehicle_name} is now overdue. Please return the vehicle immediately to avoid additional fines.'))
         
         conn.commit()

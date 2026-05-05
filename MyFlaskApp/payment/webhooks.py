@@ -248,7 +248,7 @@ def handle_checkout_session_paid(event_data):
                     """, (
                         booking_details[0],
                         f'Payment of ₱{booking_details[2]:.2f} confirmed for {booking_details[3]} {booking_details[4]}. Booking {booking_details[1]} is now confirmed!',
-                        '/user/my-bookings'
+                        '/user/bookings'
                     ))
                     conn.commit()
                 except Exception as e:
@@ -362,7 +362,7 @@ def handle_checkout_session_failed(event_data):
                     if booking_info:
                         cursor.execute("""
                             INSERT INTO notifications (user_id, title, message, type, link, created_at)
-                            VALUES (%s, 'Payment Failed', %s, 'payment_confirmation', '/user/my-bookings', NOW())
+                             VALUES (%s, 'Payment Failed', %s, 'payment_confirmation', '/user/bookings', NOW())
                         """, (
                             booking_info[0],
                             f'Payment for booking {booking_info[1]} failed. Amount: ₱{booking_info[2]:.2f}. Please try again.'
