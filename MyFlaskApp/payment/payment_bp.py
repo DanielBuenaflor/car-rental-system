@@ -689,6 +689,56 @@ def payment_success():
                         except Exception as e:
                             print(f"⚠️ Error creating invoice: {e}")
                         
+                        # Send booking confirmation email (with duplicate prevention)
+                        try:
+                            # Check if email already sent (via webhook or previous attempt)
+                            cursor.execute("""
+                                SELECT id FROM notifications 
+                                WHERE user_id = %s AND type = 'payment_confirmation' 
+                                AND message LIKE %s
+                            """, (session['user_id'], f'%{booking_id}%'))
+                            
+                            if not cursor.fetchone():
+                                # Get user and booking details for email
+                                cursor.execute("""
+                                    SELECT u.email, u.first_name, b.booking_reference, 
+                                           b.start_date, b.end_date, vb.name as brand_name, v.model
+                                    FROM bookings b
+                                    JOIN users u ON b.user_id = u.id
+                                    JOIN vehicles v ON b.vehicle_id = v.id
+                                    JOIN vehicle_brands vb ON v.brand_id = vb.id
+                                    WHERE b.id = %s
+                                """, (booking_id,))
+                                result = cursor.fetchone()
+                                
+                                if result:
+                                    user = {'email': result['email'], 'first_name': result['first_name']}
+                                    booking = {
+                                        'booking_reference': result['booking_reference'],
+                                        'start_date': result['start_date'],
+                                        'end_date': result['end_date']
+                                    }
+                                    vehicle = {'brand_name': result['brand_name'], 'model': result['model']}
+                                    
+                                    email_sent = EmailService.send_booking_confirmation(user, booking, vehicle)
+                                    if email_sent:
+                                        print(f"📧 Booking confirmation email sent to {user['email']}")
+                                    else:
+                                        print(f"⚠️ Failed to send email to {user['email']}")
+                                    
+                                    # Create notification to prevent duplicate sends
+                                    cursor.execute("""
+                                        INSERT INTO notifications (user_id, title, message, type, link, created_at)
+                                        VALUES (%s, 'Payment Confirmed', %s, 'payment_confirmation', %s, NOW())
+                                    """, (session['user_id'], 
+                                           f'Payment confirmed for booking {result["booking_reference"]}', 
+                                           '/user/my-bookings'))
+                                    conn.commit()
+                            else:
+                                print(f"📧 Email already sent for booking {booking_id}, skipping")
+                        except Exception as e:
+                            print(f"📧 Email error in success page: {e}")
+                        
                         # Get invoice (now should exist)
                         cursor.execute("SELECT id FROM invoices WHERE booking_id = %s", (booking_id,))
                         inv = cursor.fetchone()

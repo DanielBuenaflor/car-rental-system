@@ -5,33 +5,10 @@
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-.location-tabs {
-    display: flex;
-    margin-bottom: 15px;
-    border-bottom: 2px solid #e0e0e0;
-}
-.location-tab {
-    padding: 12px 20px;
-    cursor: pointer;
-    border: none;
-    background: none;
-    font-size: 14px;
-    font-weight: 500;
-    color: #666;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-}
-.location-tab.active {
-    color: #0f3b6f;
-    border-bottom-color: #0f3b6f;
-}
 .location-section {
-    display: none;
-}
-.location-section.active {
     display: block;
 }
-#pickupLocationMap, #returnLocationMap, #customPickupMap, #customReturnMap {
+#pickupLocationMap, #returnLocationMap {
     height: 350px;
     width: 100%;
     border-radius: 8px;
@@ -86,20 +63,6 @@
     font-size: 16px;
     font-weight: 600;
 }
-.custom-address-input {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 10px;
-}
-#customPickupMap {
-    height: 250px;
-    width: 100%;
-    border-radius: 8px;
-    margin-bottom: 10px;
-}
 .fee-breakdown {
     font-size: 13px;
     color: #666;
@@ -127,11 +90,25 @@
         </div>
         
         {% if verification_status == 'approved' %}
-            <form id="bookingForm">
-                <div class="form-group">
-                    <label for="start_date">Start Date *</label>
-                    <input type="date" id="start_date" name="start_date" required>
-                </div>
+             <form id="bookingForm">
+                 <div id="validationMessages" style="display: none; margin-bottom: 20px;"></div>
+                 
+                 <div class="alert alert-info" style="margin-bottom: 20px;">
+                     <i class="fas fa-info-circle"></i>
+                     <strong>Booking Rules:</strong>
+                     <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                         <li>Same-day bookings require 3-hour advance notice and are not available after 3:00 PM</li>
+                         <li>Minimum rental duration: 2 hours (for same-day bookings)</li>
+                         <li>Maximum booking period: 60 days</li>
+                         <li>Business hours: 8:00 AM - 10:00 PM</li>
+                     </ul>
+                 </div>
+                 
+                 <div class="form-group">
+                     <label for="start_date">Start Date *</label>
+                     <input type="date" id="start_date" name="start_date" required>
+                     <small style="color: #666; font-size: 12px;">Maximum 60 days from today</small>
+                 </div>
                 
                 <div class="form-group">
                     <label for="end_date">End Date *</label>
@@ -142,6 +119,10 @@
                     <div style="margin-bottom: 12px; font-weight: 600; color: #0f3b6f;">
                         <i class="fas fa-clock"></i> Same-Day Rental Times
                     </div>
+                    <div class="alert alert-info" style="margin-bottom: 12px; font-size: 13px;">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Note:</strong> Same-day bookings require 3-hour advance notice. Pickup times are limited to 8:00 AM - 8:00 PM with minimum 2-hour rental duration.
+                    </div>
                     <div class="form-group" style="margin-bottom: 16px;">
                         <label for="pickup_time">Pickup Time *</label>
                         <select id="pickup_time" name="pickup_time" onchange="updateReturnTime()">
@@ -151,7 +132,7 @@
                     
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="return_time">Return Time *</label>
-                        <select id="return_time" name="return_time">
+                        <select id="return_time" name="return_time" onchange="calculateSummary()">
                             <option value="">Select return time</option>
                         </select>
                     </div>
@@ -159,11 +140,6 @@
                 
                 <div class="form-group">
                     <label>Pickup Location *</label>
-                    <div class="location-tabs">
-                        <button type="button" class="location-tab active" data-tab="pickup-map">Select from Map</button>
-                        <button type="button" class="location-tab" data-tab="pickup-custom">Custom Address</button>
-                    </div>
-                    
                     <div id="pickup-map" class="location-section active">
                         <div id="pickupLocationMap"></div>
                         <div id="pickupLocationCards" class="location-markers"></div>
@@ -174,46 +150,11 @@
                         <input type="hidden" id="pickup_location_id" name="pickup_location_id" value="">
                         <input type="hidden" id="pickup_location_name" name="pickup_location" value="">
                     </div>
-                    
-                    <div id="pickup-custom" class="location-section">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="pickup_region" class="form-control">
-                                <option value="">Select Region</option>
-                            </select>
-                            <select id="pickup_province" class="form-control" disabled>
-                                <option value="">Select Province</option>
-                            </select>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="pickup_city" class="form-control" disabled>
-                                <option value="">Select City/Municipality</option>
-                            </select>
-                            <select id="pickup_barangay" class="form-control" disabled>
-                                <option value="">Select Barangay</option>
-                            </select>
-                        </div>
-                        <input type="hidden" id="pickup_region_name">
-                        <input type="hidden" id="pickup_province_name">
-                        <input type="hidden" id="pickup_city_name">
-                        <input type="hidden" id="pickup_barangay_name">
-                        
-                        <input type="text" id="custom_pickup_street" class="custom-address-input" placeholder="House No., Street, Building">
-                        <input type="hidden" id="custom_pickup_address" name="custom_pickup_address">
-                        
-                        <div id="customPickupMap"></div>
-                        <input type="hidden" id="custom_pickup_lat" name="custom_pickup_lat" value="">
-                        <input type="hidden" id="custom_pickup_lng" name="custom_pickup_lng" value="">
-                    </div>
                 </div>
                 
                 <div class="form-group">
                     <label>Return Location *</label>
-                    <div class="location-tabs">
-                        <button type="button" class="location-tab active" data-tab="return-map">Select from Map</button>
-                        <button type="button" class="location-tab" data-tab="return-custom">Custom Address</button>
-                    </div>
-                    
-                    <div id="return-map" class="location-section active">
+                    <div id="return-map" class="location-section">
                         <div id="returnLocationMap"></div>
                         <div id="returnLocationCards" class="location-markers"></div>
                         <div id="returnSelectedLocation" class="selected-location" style="display: none;">
@@ -223,36 +164,6 @@
                         <input type="hidden" id="return_location_id" name="return_location_id" value="">
                         <input type="hidden" id="return_location_name" name="return_location" value="">
                     </div>
-                    
-                    <div id="return-custom" class="location-section">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="return_region" class="form-control">
-                                <option value="">Select Region</option>
-                            </select>
-                            <select id="return_province" class="form-control" disabled>
-                                <option value="">Select Province</option>
-                            </select>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <select id="return_city" class="form-control" disabled>
-                                <option value="">Select City/Municipality</option>
-                            </select>
-                            <select id="return_barangay" class="form-control" disabled>
-                                <option value="">Select Barangay</option>
-                            </select>
-                        </div>
-                        <input type="hidden" id="return_region_name">
-                        <input type="hidden" id="return_province_name">
-                        <input type="hidden" id="return_city_name">
-                        <input type="hidden" id="return_barangay_name">
-                        
-                        <input type="text" id="custom_return_street" class="custom-address-input" placeholder="House No., Street, Building">
-                        <input type="hidden" id="custom_return_address" name="custom_return_address">
-                        
-                        <div id="customReturnMap"></div>
-                        <input type="hidden" id="custom_return_lat" name="custom_return_lat" value="">
-                        <input type="hidden" id="custom_return_lng" name="custom_return_lng" value="">
-                    </div>
                 </div>
                 
                 <div id="bookingSummary" style="display: none; margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px;">
@@ -261,7 +172,6 @@
                     <p><strong>Duration:</strong> <span id="rentalDuration">0</span></p>
                     <p><strong>Subtotal:</strong> ₱<span id="subtotal">0.00</span></p>
                     <p id="oneWayFeeRow" style="display: none;"><strong>One-Way Fee:</strong> ₱<span id="oneWayFee">0.00</span></p>
-                    <p id="deliveryFeeRow" style="display: none;"><strong>Delivery Fee:</strong> ₱<span id="deliveryFee">0.00</span></p>
                     <p><strong>Tax (10%):</strong> ₱<span id="tax">0.00</span></p>
                     <p><strong>Total:</strong> ₱<span id="total">0.00</span></p>
                 </div>
@@ -416,30 +326,114 @@
         margin-right: 10px;
         font-size: 18px;
     }
+    
+    .alert-info {
+        background: #dbeafe;
+        color: #1e40af;
+        border-left-color: #3b82f6;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .container {
+            padding: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .location-markers {
+            grid-template-columns: 1fr;
+        }
+        
+        #pickupLocationMap, #returnLocationMap {
+            height: 250px;
+        }
+        
+        .btn-primary {
+            padding: 12px 15px;
+            font-size: 14px;
+        }
+        
+        .alert ul {
+            padding-left: 15px;
+        }
+        
+        .booking-summary {
+            padding: 10px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        h2 {
+            font-size: 20px;
+        }
+        
+        .form-group label {
+            font-size: 14px;
+        }
+        
+        select, input[type="text"], input[type="date"] {
+            padding: 8px;
+            font-size: 14px;
+        }
+    }
 </style>
 
 <script>
     const vehicleId = {{ vehicle.id }};
     const dailyRate = {{ vehicle.daily_rate }};
     const hourlyRate = dailyRate / 5;
+    
+    function showValidationMessage(message, type = 'error') {
+        const container = document.getElementById('validationMessages');
+        if (!container) return;
+        
+        container.style.display = 'block';
+        container.className = `alert alert-${type}`;
+        container.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        
+        // Scroll to message
+        container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    function clearValidationMessages() {
+        const container = document.getElementById('validationMessages');
+        if (container) {
+            container.style.display = 'none';
+            container.innerHTML = '';
+        }
+    }
     const closingHour = 22;
     
+    // Flag to prevent recursive updates
+    let isUpdatingTimeOptions = false;
+    let timeSectionInitialized = false;
+    
     function generateTimeOptions(selectElement, minHour, maxHour, defaultHour) {
-        if (!selectElement) return;
+        if (!selectElement || isUpdatingTimeOptions) return;
         if (minHour > maxHour) {
             selectElement.innerHTML = '<option value="">No times available</option>';
             return;
         }
         
+        // Set flag to prevent recursive updates
+        isUpdatingTimeOptions = true;
+        
+        // Save current selection
+        const currentValue = selectElement.value;
+        
+        // Clear and rebuild options
         selectElement.innerHTML = '';
         
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
         defaultOption.textContent = 'Select time';
         defaultOption.disabled = true;
-        defaultOption.selected = true;
         selectElement.appendChild(defaultOption);
         
+        let valueFound = false;
         for (let h = minHour; h <= maxHour; h++) {
             const hour12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
             const ampm = h >= 12 ? 'PM' : 'AM';
@@ -449,9 +443,20 @@
             const option = document.createElement('option');
             option.value = value;
             option.textContent = timeStr;
-            if (h === defaultHour) option.selected = true;
+            
+            // Restore previous selection if valid
+            if (value === currentValue) {
+                option.selected = true;
+                valueFound = true;
+            } else if (!valueFound && h === defaultHour) {
+                option.selected = true;
+            }
+            
             selectElement.appendChild(option);
         }
+        
+        // Reset flag
+        isUpdatingTimeOptions = false;
     }
     
     function setTodayDate() {
@@ -465,6 +470,13 @@
         if (startDateInput) {
             startDateInput.value = todayDate;
             startDateInput.min = todayDate;
+            // Limit start date picker to 60 days from today
+            const maxStartDate = new Date(today);
+            maxStartDate.setDate(maxStartDate.getDate() + 60);
+            const yyyy1 = maxStartDate.getFullYear();
+            const mm1 = String(maxStartDate.getMonth() + 1).padStart(2, '0');
+            const dd1 = String(maxStartDate.getDate()).padStart(2, '0');
+            startDateInput.max = `${yyyy1}-${mm1}-${dd1}`;
         }
         
         const endDateInput = document.getElementById('end_date');
@@ -472,95 +484,181 @@
             endDateInput.min = todayDate;
             endDateInput.value = '';
         }
+        // Initialize end date max on page load
+        updateEndDateMax();
     }
     
     function isSameDay(date1, date2) {
+        // Direct string comparison for YYYY-MM-DD dates (avoids timezone parsing issues)
         if (!date1 || !date2) return false;
-        const d1 = new Date(date1);
-        const d2 = new Date(date2);
-        return d1.toDateString() === d2.toDateString();
+        return date1 === date2;
     }
     
-    function calculateDuration(startDate, endDate, pickupTime, returnTime) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    function updateEndDateMax() {
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+        if (!startDateInput || !startDateInput.value || !endDateInput) return;
         
-        if (days === 1 && pickupTime && returnTime) {
-            const [pickupH, pickupM] = pickupTime.split(':').map(Number);
-            const [returnH, returnM] = returnTime.split(':').map(Number);
-            let hours = (returnH + (returnM/60)) - (pickupH + (pickupM/60));
-            if (hours < 0) hours += 24;
-            return { type: 'hourly', hours: hours, days: 0 };
-        } else if (days > 1) {
-            return { type: 'daily', days: days, hours: 0 };
-        } else if (days === 1) {
-            return { type: 'daily', days: 1, hours: 0 };
+        const startDate = new Date(startDateInput.value);
+        const maxEndDate = new Date(startDate);
+        maxEndDate.setDate(maxEndDate.getDate() + 60);
+        
+        // Format as YYYY-MM-DD for input max attribute
+        const yyyy = maxEndDate.getFullYear();
+        const mm = String(maxEndDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(maxEndDate.getDate()).padStart(2, '0');
+        endDateInput.max = `${yyyy}-${mm}-${dd}`;
+        
+        // Reset end date if it exceeds new max
+        if (endDateInput.value && new Date(endDateInput.value) > maxEndDate) {
+            endDateInput.value = `${yyyy}-${mm}-${dd}`;
         }
-        
-        return { type: 'none', days: 0, hours: 0 };
     }
     
-    function calculatePrice(duration, oneWayFee = 0, deliveryFee = 0) {
+        function calculateDuration(startDate, endDate, pickupTime, returnTime) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+            
+            // FIX: Check same-day using string comparison, not days calculation
+            const isSameDay = startDate === endDate;
+            
+            if (isSameDay && pickupTime && returnTime) {
+                const [pickupH, pickupM] = pickupTime.split(':').map(Number);
+                const [returnH, returnM] = returnTime.split(':').map(Number);
+                let hours = (returnH + (returnM/60)) - (pickupH + (pickupM/60));
+                if (hours < 0) hours += 24;
+                return { type: 'hourly', hours: hours, days: 0 };
+            } else if (days > 1) {
+                return { type: 'daily', days: days, hours: 0 };
+            } else if (days === 1) {
+                return { type: 'daily', days: 1, hours: 0 };
+            }
+            
+            return { type: 'none', days: 0, hours: 0 };
+        }
+    
+    function calculatePrice(duration, oneWayFee = 0) {
         let subtotal = 0;
+        let isCapped = false;
+        
         if (duration.type === 'hourly') {
             const rawSubtotal = duration.hours * hourlyRate;
             subtotal = Math.min(rawSubtotal, dailyRate);
-            var isCapped = rawSubtotal > dailyRate;
+            isCapped = rawSubtotal > dailyRate;
         } else if (duration.type === 'daily') {
             subtotal = duration.days * dailyRate;
-            var isCapped = false;
+            isCapped = false;
         }
         
-        const totalBeforeTax = subtotal + oneWayFee + deliveryFee;
+        const totalBeforeTax = subtotal + oneWayFee;
         const tax = totalBeforeTax * 0.10;
         const total = totalBeforeTax + tax;
         
-        return { subtotal, oneWayFee, deliveryFee, tax, total, rate: duration.type === 'hourly' ? hourlyRate : dailyRate, isCapped: isCapped || false };
+        return { subtotal, oneWayFee, tax, total, rate: duration.type === 'hourly' ? hourlyRate : dailyRate, isCapped: isCapped || false };
+    }
+    
+    // CRITICAL FIX: Check if selected date is today before restricting pickup times
+    function initTimeOptions() {
+        if (timeSectionInitialized) return;
+        
+        const pickupSelect = document.getElementById('pickup_time');
+        const returnSelect = document.getElementById('return_time');
+        if (!pickupSelect || !returnSelect) return;
+        
+        const now = new Date();
+        const currentHour = now.getHours();
+        
+        // Get selected date from start_date input
+        const startDateInput = document.getElementById('start_date');
+        const selectedDate = startDateInput?.value; // e.g., "2026-05-07"
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const isToday = selectedDate === todayStr;
+        
+        // Check 3PM cutoff for same-day bookings
+        if (isToday && currentHour >= 15) {
+            const pickupSelect = document.getElementById('pickup_time');
+            if (pickupSelect && pickupSelect.parentNode) {
+                const warning = document.createElement('div');
+                warning.className = 'alert alert-warning';
+                warning.textContent = 'Same-day bookings are not available after 3:00 PM. Please select a future date.';
+                pickupSelect.parentNode.insertBefore(warning, pickupSelect);
+                pickupSelect.disabled = true;
+                const returnSelect = document.getElementById('return_time');
+                if (returnSelect) returnSelect.disabled = true;
+            }
+            return;
+        }
+
+        // Same-day: 3hr advance notice, normal business hours 8AM-10PM
+        // Max pickup 8PM (20) to ensure 2hr minimum return by 10PM
+        const earliestPickup = isToday 
+            ? (currentHour < 8 ? 8 : Math.min(currentHour + 3, 20)) 
+            : 8;
+        const maxPickup = 20;  // 8PM: 20+2=22 (10PM return max, ensures 2hr minimum)
+        
+        console.log('Initializing time options:', { 
+            selectedDate, 
+            todayStr, 
+            isToday, 
+            currentHour,
+            earliestPickup,
+            maxPickup
+        });
+        
+        generateTimeOptions(pickupSelect, earliestPickup, maxPickup, earliestPickup);
+        const returnMax = 22;  // 10PM for all
+        generateTimeOptions(returnSelect, earliestPickup + 2, returnMax, Math.min(Math.max(earliestPickup + 2, earliestPickup + 5), returnMax));
+        
+        timeSectionInitialized = true;
+        console.log('Time options initialized - pickup range:', earliestPickup, 'to', maxPickup);
     }
     
     function updateReturnTime() {
+        if (isUpdatingTimeOptions) return;
+        
         const pickupSelect = document.getElementById('pickup_time');
         const returnSelect = document.getElementById('return_time');
         if (pickupSelect && returnSelect && pickupSelect.value) {
             const pickupHour = parseInt(pickupSelect.value.split(':')[0]);
-            const returnMin = Math.max(pickupHour + 1, 9);
-            const returnMax = 22;
+            const returnMin = Math.max(pickupHour + 2, 10);  // 2hrs after pickup, minimum 10AM
+            const returnMax = 22;  // 10PM for all
             generateTimeOptions(returnSelect, returnMin, returnMax, Math.min(pickupHour + 5, returnMax));
         }
         calculateSummary();
     }
     
     function calculateSummary() {
+        if (isUpdatingTimeOptions) return;
+        
         const startDate = document.getElementById('start_date').value;
         const endDate = document.getElementById('end_date').value;
         const pickupTime = document.getElementById('pickup_time')?.value;
         const returnTime = document.getElementById('return_time')?.value;
         
+        console.log('calculateSummary triggered:', { startDate, endDate, pickupTime, returnTime });
+        
         const timeSection = document.getElementById('timeSection');
         const rateInfo = document.getElementById('rateInfo');
         
         if (startDate && endDate) {
-            if (isSameDay(startDate, endDate) && timeSection) {
+            const sameDay = isSameDay(startDate, endDate);
+            console.log('Same day check:', sameDay);
+            
+            if (sameDay && timeSection) {
+                console.log('Showing time section');
                 timeSection.style.display = 'block';
-                
-                const pickupSelect = document.getElementById('pickup_time');
-                const returnSelect = document.getElementById('return_time');
-                
-                const now = new Date();
-                const currentHour = now.getHours();
-                const earliestPickup = currentHour < 8 ? 8 : (currentHour + 1 > 21 ? 21 : currentHour + 1);
-                
-                generateTimeOptions(pickupSelect, earliestPickup, 21, earliestPickup);
-                generateTimeOptions(returnSelect, earliestPickup + 1, 22, Math.min(earliestPickup + 5, 22));
+                // Initialize time options only once when section becomes visible
+                if (!timeSectionInitialized) {
+                    initTimeOptions();
+                }
             } else if (timeSection) {
                 timeSection.style.display = 'none';
             }
             
             const duration = calculateDuration(startDate, endDate, pickupTime, returnTime);
             const oneWayFee = window.currentOneWayFee || currentOneWayFee;
-            const deliveryFee = window.currentDeliveryFee || currentDeliveryFee;
-            const price = calculatePrice(duration, oneWayFee, deliveryFee);
+        const price = calculatePrice(duration, oneWayFee);
             
             const rentalDurationEl = document.getElementById('rentalDuration');
             const bookingSummary = document.getElementById('bookingSummary');
@@ -574,14 +672,13 @@
                     rateInfo.innerHTML = `<strong>Daily Rate:</strong> ₱${dailyRate}/day`;
                 }
                 
-                document.getElementById('subtotal').textContent = (price.subtotal + price.oneWayFee + price.deliveryFee).toFixed(2);
+                document.getElementById('subtotal').textContent = (price.subtotal + price.oneWayFee).toFixed(2);
                 document.getElementById('oneWayFee').textContent = price.oneWayFee.toFixed(2);
-                document.getElementById('deliveryFee').textContent = price.deliveryFee.toFixed(2);
                 document.getElementById('tax').textContent = price.tax.toFixed(2);
                 document.getElementById('total').textContent = price.total.toFixed(2);
                 
                 document.getElementById('oneWayFeeRow').style.display = price.oneWayFee > 0 ? 'block' : 'none';
-                document.getElementById('deliveryFeeRow').style.display = price.deliveryFee > 0 ? 'block' : 'none';
+                document.getElementById('deliveryFeeRow').style.display = 'none';
                 
                 bookingSummary.style.display = 'block';
             } else {
@@ -592,23 +689,48 @@
     
     // Fee variables - values populated by location-map.js via window object
     var currentOneWayFee = window.currentOneWayFee || 0;
-    var currentDeliveryFee = window.currentDeliveryFee || 0;
     
     const startDateInput = document.getElementById('start_date');
     const endDateInput = document.getElementById('end_date');
     
     if (startDateInput && endDateInput) {
+        // Use 'change' event instead of 'input' to prevent excessive rebuilds
         startDateInput.addEventListener('change', function() {
             endDateInput.min = this.value;
             if (endDateInput.value && endDateInput.value < this.value) {
                 endDateInput.value = '';
             }
+            // Update end date max when start date changes
+            updateEndDateMax();
+            // Reset time section initialization when dates change
+            timeSectionInitialized = false;
             calculateSummary();
         });
         
-        endDateInput.addEventListener('change', calculateSummary);
+        // Use 'change' event instead of 'input' to prevent excessive rebuilds
+        endDateInput.addEventListener('change', function() {
+            if (!this.value || !startDateInput.value) return;
+            
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(this.value);
+            const maxEndDate = new Date(startDate);
+            maxEndDate.setDate(maxEndDate.getDate() + 60);
+            
+            if (endDate > maxEndDate) {
+                showValidationMessage(`End date cannot exceed 60 days after start date. Maximum: ${maxEndDate.toLocaleDateString()}`);
+                const yyyy = maxEndDate.getFullYear();
+                const mm = String(maxEndDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(maxEndDate.getDate()).padStart(2, '0');
+                this.value = `${yyyy}-${mm}-${dd}`;
+            }
+            // Reset time section initialization when dates change
+            timeSectionInitialized = false;
+            calculateSummary();
+        });
         
-        document.getElementById('return_time')?.addEventListener('change', calculateSummary);
+        // No duplicate event listeners needed - HTML has inline onchange handlers:
+        // - pickup_time uses onchange="updateReturnTime()"
+        // - return_time uses onchange="calculateSummary()"
     }
     
     document.getElementById('bookingForm')?.addEventListener('submit', async function(e) {
@@ -625,44 +747,33 @@
         const pickupLocationId = document.getElementById('pickup_location_id')?.value;
         const returnLocationId = document.getElementById('return_location_id')?.value;
         
+        clearValidationMessages();
+        
         if (!startDate || !endDate) {
-            alert('Please select both start and end dates');
+            showValidationMessage('Please select both start and end dates');
             return;
         }
         
         const duration = calculateDuration(startDate, endDate, pickupTime, returnTime);
         
         if (duration.type === 'hourly' && (!pickupTime || !returnTime)) {
-            alert('Please select pickup and return times for same-day booking');
+            showValidationMessage('Please select pickup and return times for same-day booking');
             return;
         }
         
         if (duration.type === 'none') {
-            alert('End date must be after start date');
+            showValidationMessage('End date must be after start date');
             return;
         }
         
-        if (duration.type === 'daily' && duration.days > 30) {
-            alert('Maximum rental period is 30 days');
+        if (duration.type === 'daily' && duration.days > 60) {
+            showValidationMessage('Maximum rental period is 60 days');
             return;
         }
         
         if (!pickupLocation || !returnLocation) {
-            alert('Please select both pickup and return locations');
+            showValidationMessage('Please select both pickup and return locations');
             return;
-        }
-        
-        const isCustomPickup = document.querySelector('#pickup-map')?.classList.contains('active') === false;
-        const isCustomReturn = document.querySelector('#return-map')?.classList.contains('active') === false;
-        
-        let customPickupAddress = null;
-        if (isCustomPickup) {
-            customPickupAddress = concatenateAddress('pickup');
-        }
-        
-        let customReturnAddress = null;
-        if (isCustomReturn) {
-            customReturnAddress = concatenateAddress('return');
         }
         
         const bookingData = {
@@ -671,18 +782,11 @@
             end_date: endDate,
             pickup_time: pickupTime || null,
             return_time: returnTime || null,
-            pickup_location: isCustomPickup ? customPickupAddress : pickupLocation,
-            return_location: isCustomReturn ? customReturnAddress : returnLocation,
+            pickup_location: pickupLocation,
+            return_location: returnLocation,
             pickup_location_id: pickupLocationId || null,
             return_location_id: returnLocationId || null,
-            is_custom_pickup: isCustomPickup,
-            is_custom_return: isCustomReturn,
-            custom_pickup_address: customPickupAddress,
-            custom_return_address: customReturnAddress,
-            custom_pickup_lat: document.getElementById('custom_pickup_lat')?.value || null,
-            custom_pickup_lng: document.getElementById('custom_pickup_lng')?.value || null,
-            one_way_fee: window.currentOneWayFee || currentOneWayFee,
-            delivery_fee: window.currentDeliveryFee || currentDeliveryFee
+            one_way_fee: window.currentOneWayFee || currentOneWayFee
         };
         
         const submitBtn = document.querySelector('#bookingForm button[type="submit"]');
@@ -706,27 +810,27 @@
             const data = await response.json();
             
             if (response.status === 403 && data.redirect) {
-                alert(data.message);
-                window.location.href = data.redirect;
+                showValidationMessage(data.message, 'warning');
+                setTimeout(function() { window.location.href = data.redirect; }, 2000);
                 return;
             }
             
             if (data.success) {
-                alert(data.message);
-                window.location.href = data.redirect;
+                showValidationMessage(data.message, 'info');
+                setTimeout(function() { window.location.href = data.redirect; }, 1500);
             } else {
-                alert(data.message || 'Failed to create booking. Please try again.');
+                showValidationMessage(data.message || 'Failed to create booking. Please try again.');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalBtnText;
                 loadingIndicator.style.display = 'none';
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred. Please check your connection and try again.');
+            showValidationMessage('An error occurred. Please check your connection and try again.');
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalBtnText;
             loadingIndicator.style.display = 'none';
-         }
+        }
      });
     
     setTodayDate();
@@ -736,43 +840,5 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/location-map.js') }}"></script>
-<script src="{{ url_for('static', filename='js/ph-address-selector.js') }}"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof PhAddressSelector !== 'undefined') {
-        // Initialize Address Selectors
-        PhAddressSelector.init({
-            regionId: 'pickup_region',
-            provinceId: 'pickup_province',
-            cityId: 'pickup_city',
-            barangayId: 'pickup_barangay'
-        });
-        
-        PhAddressSelector.init({
-            regionId: 'return_region',
-            provinceId: 'return_province',
-            cityId: 'return_city',
-            barangayId: 'return_barangay'
-        });
-    } else {
-        console.error('PhAddressSelector utility not loaded');
-    }
-});
-
-function concatenateAddress(prefix) {
-    const street = document.getElementById(`custom_${prefix}_street`).value.trim();
-    const brgy = document.getElementById(`${prefix}_barangay_name`).value;
-    const city = document.getElementById(`${prefix}_city_name`).value;
-    const prov = document.getElementById(`${prefix}_province_name`).value;
-    const region = document.getElementById(`${prefix}_region_name`).value;
-    
-    let full = street;
-    if (brgy) full += `, Brgy. ${brgy}`;
-    if (city) full += `, ${city}`;
-    if (prov) full += `, ${prov}`;
-    if (region) full += `, ${region}`;
-    
-    return full;
-}
 </script>
 {% endblock %}

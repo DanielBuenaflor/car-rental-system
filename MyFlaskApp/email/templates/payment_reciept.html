@@ -2,66 +2,198 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Receipt</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #0f3b6f; color: white; padding: 20px; text-align: center; }
-        .content { padding: 30px; background: #f9f9f9; }
-        .receipt { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-        .total { font-size: 20px; font-weight: bold; color: #0f3b6f; margin-top: 15px; padding-top: 10px; border-top: 2px solid #0f3b6f; }
-        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Inter', Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #1e293b;
+            background: #f8fafc;
+            padding: 20px;
+        }
+        .email-container { 
+            max-width: 550px; 
+            margin: 0 auto; 
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        .header { 
+            background: #0f3b6f; 
+            color: white; 
+            padding: 30px 25px; 
+            text-align: center; 
+        }
+        .header h1 { 
+            font-weight: 800; 
+            font-size: 26px; 
+            letter-spacing: -0.02em;
+            margin: 0;
+        }
+        .content { 
+            padding: 35px 30px; 
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 18px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 20px;
+            background: #d1fae5; 
+            color: #065f46; 
+        }
+        .greeting {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #0f3b6f;
+        }
+        .message {
+            color: #475569;
+            line-height: 1.7;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .receipt { 
+            background: #f8fafc; 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin: 20px 0; 
+            border: 1px solid #e2e8f0;
+        }
+        .receipt h4 {
+            color: #0f3b6f;
+            font-size: 18px;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #0f3b6f;
+            text-align: center;
+        }
+        .detail-row { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 10px 0; 
+            border-bottom: 1px solid #e2e8f0; 
+        }
+        .detail-row:last-of-type { 
+            border-bottom: none; 
+        }
+        .detail-label {
+            color: #64748b;
+            font-size: 13px;
+        }
+        .detail-value {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 13px;
+            text-align: right;
+        }
+        .total {
+            background: white;
+            padding: 14px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f3b6f;
+            border: 2px solid #0f3b6f;
+        }
+        .button { 
+            display: inline-block; 
+            padding: 14px 32px; 
+            background: #0f3b6f; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 8px; 
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        .button:hover {
+            background: #1e4a7a;
+        }
+        .footer { 
+            text-align: center; 
+            padding: 20px; 
+            font-size: 12px; 
+            color: #94a3b8; 
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer a {
+            color: #0f3b6f;
+            text-decoration: none;
+        }
+        @media (max-width: 600px) {
+            .content { padding: 25px 20px; }
+            .header h1 { font-size: 22px; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="email-container">
         <div class="header">
-            <h2>CarRental Pro</h2>
+            <h1>CarRental Pro</h1>
         </div>
         <div class="content">
-            <h3>Hello {{ username }},</h3>
-            <p>Thank you for your payment!</p>
+            <div class="status-badge">✅ Payment Successful</div>
+            
+            <div class="greeting">Hello {{ username }},</div>
+            
+            <p class="message">Thank you for your payment! Your transaction has been processed successfully.</p>
             
             <div class="receipt">
                 <h4>Payment Receipt</h4>
+                
                 <div class="detail-row">
-                    <span>Payment Reference:</span>
-                    <strong>{{ payment.payment_reference }}</strong>
+                    <span class="detail-label">Payment Reference</span>
+                    <strong class="detail-value">{{ payment.payment_reference }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Booking Reference:</span>
-                    <strong>{{ booking.booking_reference }}</strong>
+                    <span class="detail-label">Booking Reference</span>
+                    <strong class="detail-value">{{ booking.booking_reference }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Vehicle:</span>
-                    <strong>{{ vehicle.brand_name }} {{ vehicle.model }}</strong>
+                    <span class="detail-label">Vehicle</span>
+                    <strong class="detail-value">{{ vehicle.brand_name }} {{ vehicle.model }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Amount Paid:</span>
-                    <strong>₱{{ "%.2f"|format(payment.amount) }}</strong>
+                    <span class="detail-label">Amount Paid</span>
+                    <strong class="detail-value">₱{{ "%.2f"|format(payment.amount) }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Payment Method:</span>
-                    <strong>{{ payment.payment_method|replace('_', ' ')|title }}</strong>
+                    <span class="detail-label">Payment Method</span>
+                    <strong class="detail-value">{{ payment.payment_method|replace('_', ' ')|title }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Transaction ID:</span>
-                    <strong>{{ payment.transaction_id }}</strong>
+                    <span class="detail-label">Transaction ID</span>
+                    <strong class="detail-value" style="font-size: 12px;">{{ payment.transaction_id }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Date:</span>
-                    <strong>{{ payment.paid_at.strftime('%B %d, %Y %H:%M') if payment.paid_at else 'Just now' }}</strong>
+                    <span class="detail-label">Date</span>
+                    <strong class="detail-value">{{ payment.paid_at.strftime('%B %d, %Y %H:%M') if payment.paid_at else 'Just now' }}</strong>
                 </div>
+                
                 <div class="total">
-                    Total: ₱{{ "%.2f"|format(payment.amount) }}
+                    <span>Total</span>
+                    <span>₱{{ "%.2f"|format(payment.amount) }}</span>
                 </div>
             </div>
             
-            <a href="{{ url_for('user_bp.my_bookings', _external=True) }}" style="display: inline-block; padding: 10px 20px; background: #0f3b6f; color: white; text-decoration: none; border-radius: 5px;">View My Bookings</a>
+            <center>
+                <a href="{{ url_for('user_bp.my_bookings', _external=True) }}" class="button">View My Bookings</a>
+            </center>
         </div>
         <div class="footer">
             <p>&copy; 2025 CarRental Pro. All rights reserved.</p>
+            <p>Need help? <a href="mailto:support@carrentalpro.com">Contact Support</a></p>
         </div>
     </div>
 </body>

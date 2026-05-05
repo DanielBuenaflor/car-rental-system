@@ -8,7 +8,6 @@
         --primary: #0f3b6f;
         --primary-light: #1e4a7a;
         --success: #059669;
-        --blue-accent: #0052a2;
         --gray-50: #f8fafc;
         --gray-100: #f1f5f9;
         --gray-200: #e2e8f0;
@@ -85,8 +84,8 @@
     .summary-row {
         display: flex;
         justify-content: space-between;
-        padding: 11px 0;
-        border-bottom: 1px solid #f8fafc;
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f5f9;
         font-size: 14px;
     }
     
@@ -110,25 +109,26 @@
     }
     
     .total-box {
-        background: #f0fdf4;
-        margin: 16px -24px -24px;
-        padding: 18px 24px;
+        background: #eff6ff;
+        margin: 16px 0;
+        padding: 16px;
+        border-radius: 10px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-top: 2px solid #bbf7d0;
+        border: 2px solid var(--primary);
     }
     
     .total-box span:first-child {
         font-weight: 700;
-        color: var(--success);
+        color: var(--primary);
         font-size: 15px;
     }
     
     .total-box .amount {
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 800;
-        color: var(--success);
+        color: var(--primary);
         letter-spacing: -0.5px;
     }
     
@@ -152,15 +152,15 @@
     }
     
     /* Payment Section */
-    .gcash-card {
-        background: linear-gradient(135deg, #0052a2, #0078d4);
+    .payment-card {
+        background: var(--primary);
         color: white;
-        border-radius: 10px;
-        padding: 22px;
+        border-radius: 12px;
+        padding: 24px;
         margin-bottom: 20px;
     }
     
-    .gcash-card h4 {
+    .payment-card h4 {
         margin: 0 0 16px;
         font-size: 16px;
         font-weight: 700;
@@ -169,7 +169,7 @@
     .step-list {
         list-style: none;
         padding: 0;
-        margin: 0 0 18px;
+        margin: 0 0 20px;
         counter-reset: step;
     }
     
@@ -198,59 +198,39 @@
         font-weight: 700;
     }
     
-    .qr-section {
-        background: white;
-        border-radius: 8px;
-        padding: 16px;
-        text-align: center;
-        margin-bottom: 12px;
-    }
-    
-    .qr-section i {
-        font-size: 70px;
-        color: #0052a2;
-    }
-    
-    .qr-section p {
-        margin: 8px 0 0;
-        color: #0052a2;
-        font-weight: 600;
-        font-size: 12px;
-    }
-    
     .ref-section {
         background: rgba(255,255,255,0.1);
         border: 1px solid rgba(255,255,255,0.2);
         border-radius: 8px;
         padding: 14px;
         text-align: center;
+        margin-bottom: 16px;
     }
     
     .ref-section .ref-label {
         font-size: 12px;
         opacity: 0.8;
-        margin-bottom: 4px;
+        margin-bottom: 6px;
     }
     
     .ref-section .ref-number {
         font-family: 'Courier New', monospace;
-        font-size: 17px;
+        font-size: 16px;
         font-weight: 700;
         letter-spacing: 0.5px;
         word-break: break-all;
-        margin: 4px 0;
+        margin: 6px 0;
     }
     
     .btn-copy {
         background: rgba(255,255,255,0.15);
         color: white;
         border: 1px solid rgba(255,255,255,0.25);
-        padding: 5px 14px;
+        padding: 6px 14px;
         border-radius: 20px;
         cursor: pointer;
         font-size: 11px;
         font-weight: 600;
-        margin-top: 6px;
         transition: all 0.2s;
     }
     
@@ -258,7 +238,7 @@
         background: rgba(255,255,255,0.25);
     }
     
-    .btn-pay-gcash {
+    .btn-pay {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -270,17 +250,17 @@
         border: none;
         border-radius: 10px;
         cursor: pointer;
-        background: linear-gradient(135deg, #0052a2, #0078d4);
-        color: white;
+        background: white;
+        color: var(--primary);
         text-decoration: none;
-        box-shadow: 0 4px 15px rgba(0, 82, 162, 0.3);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         transition: all 0.2s;
     }
     
-    .btn-pay-gcash:hover {
+    .btn-pay:hover {
         transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(0, 82, 162, 0.4);
-        color: white;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        color: var(--primary);
         text-decoration: none;
     }
     
@@ -351,7 +331,7 @@
     }
     
     .secure-note i {
-        color: #10b981;
+        color: var(--primary);
     }
     
     @media (max-width: 768px) {
@@ -361,11 +341,6 @@
         
         .card-body {
             padding: 16px 18px 20px;
-        }
-        
-        .total-box {
-            margin: 14px -18px -20px;
-            padding: 14px 18px;
         }
         
         .total-box .amount {
@@ -422,9 +397,9 @@
                     <span class="summary-value">₱{{ "%.2f"|format(booking.tax_amount) }}</span>
                 </div>
                 {% if booking.discount_amount > 0 %}
-                <div class="summary-row" style="color: #10b981;">
+                <div class="summary-row" style="color: var(--success);">
                     <span class="summary-label">Discount</span>
-                    <span class="summary-value" style="color: #10b981;">-₱{{ "%.2f"|format(booking.discount_amount) }}</span>
+                    <span class="summary-value" style="color: var(--success);">-₱{{ "%.2f"|format(booking.discount_amount) }}</span>
                 </div>
                 {% endif %}
                 
@@ -446,38 +421,32 @@
         <!-- Right: Payment -->
         <div class="card">
             <div class="card-header">
-                <div class="icon-circle"><i class="fas fa-mobile-alt"></i></div>
+                <div class="icon-circle"><i class="fas fa-credit-card"></i></div>
                 <h3>Payment</h3>
             </div>
             <div class="card-body">
-                <!-- GCash Section -->
-                <div class="gcash-card">
+                <!-- Payment Instructions -->
+                <div class="payment-card">
                     <h4>How to Pay</h4>
                     <ol class="step-list">
-                        <li>Click the <strong>"Pay with GCash"</strong> button below</li>
+                        <li>Click the <strong>"Pay Now"</strong> button below</li>
                         <li>You'll be redirected to the secure payment page</li>
-                        <li>Complete the payment using your <strong>GCash app</strong></li>
+                        <li>Complete the payment using your preferred method</li>
                         <li>You'll be redirected back after successful payment</li>
                     </ol>
                     
-                    <div class="qr-section">
-                        <i class="fas fa-qrcode"></i>
-                        <p>Scan QR Code with GCash App</p>
-                    </div>
-                    
                     <div class="ref-section">
                         <div class="ref-label">Payment Reference Number</div>
-                        <div class="ref-number">CRS-{{ booking.id }}-GCASH</div>
+                        <div class="ref-number">CRS-{{ booking.id }}</div>
                         <button class="btn-copy" onclick="copyReference()">
                             <i class="fas fa-copy"></i> Copy Reference
                         </button>
                     </div>
+                    
+                    <a href="{{ url_for('payment_bp.initiate_payment', booking_id=booking.id) }}" class="btn-pay">
+                        <i class="fas fa-lock"></i> Pay Now — ₱{{ "%.2f"|format(booking.total_amount) }}
+                    </a>
                 </div>
-                
-                <!-- Pay Button -->
-                <a href="{{ url_for('payment_bp.initiate_payment', booking_id=booking.id) }}" class="btn-pay-gcash">
-                    <i class="fas fa-mobile-alt"></i> Pay with GCash — ₱{{ "%.2f"|format(booking.total_amount) }}
-                </a>
                 
                 <!-- Promo Code -->
                 <div class="promo-section">
@@ -523,7 +492,7 @@ function applyPromo() {
         return;
     }
     
-    messageDiv.innerHTML = '<span style="color:#0f3b6f;"><i class="fas fa-spinner fa-spin"></i> Applying...</span>';
+    messageDiv.innerHTML = '<span style="color:var(--primary);"><i class="fas fa-spinner fa-spin"></i> Applying...</span>';
     
     fetch('{{ url_for('payment_bp.apply_promo') }}', {
         method: 'POST',
@@ -539,19 +508,17 @@ function applyPromo() {
             messageDiv.innerHTML = '<span style="color:#10b981;"><i class="fas fa-check-circle"></i> ' + data.promotion_name + ' applied! You saved ₱' + data.discount.toFixed(2) + '</span>';
             currentAmount = data.final_amount;
             
-            // Update amounts
             document.querySelector('.amount').textContent = '₱' + data.final_amount.toFixed(2);
-            const payBtn = document.querySelector('.btn-pay-gcash');
-            payBtn.innerHTML = '<i class="fas fa-mobile-alt"></i> Pay with GCash — ₱' + data.final_amount.toFixed(2);
+            const payBtn = document.querySelector('.btn-pay');
+            payBtn.innerHTML = '<i class="fas fa-lock"></i> Pay Now — ₱' + data.final_amount.toFixed(2);
             
-            // Add discount row
-            if (!document.querySelector('.summary-row[style*="color: #10b981"]')) {
+            if (!document.querySelector('.summary-row[style*="color: var(--success)"]')) {
                 const rows = document.querySelectorAll('.summary-row');
                 const lastRow = rows[rows.length - 1];
                 const discountRow = document.createElement('div');
                 discountRow.className = 'summary-row';
-                discountRow.style.color = '#10b981';
-                discountRow.innerHTML = '<span class="summary-label">Discount</span><span class="summary-value" style="color:#10b981;">-₱' + data.discount.toFixed(2) + '</span>';
+                discountRow.style.color = 'var(--success)';
+                discountRow.innerHTML = '<span class="summary-label">Discount</span><span class="summary-value" style="color:var(--success);">-₱' + data.discount.toFixed(2) + '</span>';
                 lastRow.parentNode.insertBefore(discountRow, lastRow.nextSibling);
             }
         } else {

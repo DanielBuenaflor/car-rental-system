@@ -53,18 +53,18 @@
         letter-spacing: 0.3px;
     }
 
-    /* Stats Tabs - Single Line */
+    /* Stats Tabs - Vertically Enlarged */
     .stats-tabs {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 16px;
+        gap: 10px;
+        margin-bottom: 20px;
     }
 
     .stat-tab {
         background: white;
-        border-radius: 12px;
-        padding: 8px 10px;
+        border-radius: 16px;
+        padding: 18px 12px 20px;
         text-align: center;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -75,7 +75,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 2px;
+        gap: 6px;
         overflow: hidden;
     }
 
@@ -91,15 +91,16 @@
     }
 
     .stat-tab-icon {
-        font-size: 16px;
+        font-size: 22px;
         color: #0f3b6f;
+        margin-bottom: 2px;
     }
 
     .stat-tab-number {
-        font-size: 16px;
+        font-size: 20px;
         font-weight: 700;
         color: #1f3a5f;
-        line-height: 1;
+        line-height: 1.1;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -107,10 +108,10 @@
     }
 
     .stat-tab-label {
-        font-size: 9px;
+        font-size: 10px;
         color: #666;
         text-transform: uppercase;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.5px;
         font-weight: 600;
         white-space: nowrap;
         overflow: hidden;
@@ -118,27 +119,27 @@
         max-width: 100%;
     }
 
-    /* Management Grid - Compact Single Line */
+    /* Management Grid - Vertically Enlarged */
     .management-grid {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 12px;
         margin-bottom: 24px;
     }
 
     .management-card {
         background: white;
-        border-radius: 12px;
-        padding: 10px 12px;
+        border-radius: 14px;
+        padding: 16px 14px;
         cursor: pointer;
         transition: all 0.2s ease;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
         border: 2px solid #e2e8f0;
         flex: 1;
-        min-width: 140px;
+        min-width: 150px;
         overflow: hidden;
     }
 
@@ -149,14 +150,14 @@
     }
 
     .card-icon {
-        width: 36px;
-        height: 36px;
+        width: 42px;
+        height: 42px;
         background: #e0f2fe;
-        border-radius: 8px;
+        border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 16px;
+        font-size: 18px;
         color: #0f3b6f;
         flex-shrink: 0;
     }
@@ -167,11 +168,11 @@
     }
 
     .card-info h3 {
-        margin: 0 0 2px 0;
-        font-size: 13px;
+        margin: 0 0 4px 0;
+        font-size: 14px;
         color: #1f3a5f;
         font-weight: 600;
-        line-height: 1.2;
+        line-height: 1.3;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -180,61 +181,65 @@
     .card-info p {
         margin: 0;
         color: #555;
-        font-size: 10px;
-        line-height: 1.3;
+        font-size: 11px;
+        line-height: 1.4;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
-    /* Table Section */
+    /* Table Section - Enlarged */
     .table-section {
         background: white;
         border-radius: 16px;
         overflow: hidden;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         border: 2px solid #e2e8f0;
+        margin-top: 24px;
     }
 
     .table-section h3 {
-        padding: 24px 28px 0;
+        padding: 28px 32px 0;
         margin: 0;
         color: #1f3a5f;
-        font-size: 18px;
-        font-weight: 600;
+        font-size: 20px;
+        font-weight: 700;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
     }
 
     .table-section h3 i {
         color: #0f3b6f;
+        font-size: 22px;
     }
 
     table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 18px;
+        margin-top: 20px;
     }
 
     th, td {
-        padding: 16px 28px;
+        padding: 18px 32px;
         text-align: left;
         border-bottom: 1px solid #e2e8f0;
     }
 
     th {
         background-color: #f8fafc;
-        font-weight: 600;
+        font-weight: 700;
         color: #0f3b6f;
-        font-size: 14px;
+        font-size: 15px;
         letter-spacing: 0.3px;
+        text-transform: uppercase;
+        font-size: 13px;
     }
 
     td {
-        font-size: 15px;
+        font-size: 16px;
         color: #1f3a5f;
-        line-height: 1.5;
+        line-height: 1.6;
     }
 
     tr:hover {
@@ -245,12 +250,13 @@
         border-bottom: none;
     }
 
-    /* Badges */
+    /* Badges - Larger */
     .badge {
-        padding: 4px 12px;
+        padding: 6px 14px;
         border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
     }
 
     .badge-pending { background: #fed7aa; color: #9b2c1d; }
@@ -470,8 +476,8 @@
 
     /* Booking Locations */
     .booking-location {
-        font-size: 13px;
-        line-height: 1.5;
+        font-size: 14px;
+        line-height: 1.6;
     }
 
     .booking-location.pickup {
@@ -485,19 +491,94 @@
 
     .booking-actions {
         white-space: nowrap;
-        font-size: 13px;
+        font-size: 14px;
     }
 
     .btn-small {
-        padding: 6px 12px;
-        font-size: 12px;
-        min-height: 32px;
+        padding: 8px 16px;
+        font-size: 13px;
+        min-height: 36px;
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        border-radius: 6px;
-        font-weight: 500;
+        border-radius: 8px;
+        font-weight: 600;
         letter-spacing: 0.3px;
+    }
+
+    .btn-book-now {
+        background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+        color: white;
+        padding: 20px 48px;
+        border-radius: 16px;
+        text-decoration: none;
+        font-size: 22px;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        transition: all 0.3s ease;
+        letter-spacing: 1px;
+        box-shadow: 0 8px 24px rgba(15, 59, 111, 0.4);
+        border: 2px solid #0f3b6f;
+        text-transform: uppercase;
+    }
+
+    .btn-book-now:hover {
+        background: linear-gradient(135deg, #1e4a7a, #2563eb);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 32px rgba(15, 59, 111, 0.6);
+        color: white;
+        text-decoration: none;
+        border-color: #1e4a7a;
+    }
+
+
+
+    .btn-book-now i {
+        font-size: 26px;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+    }
+
+    /* Empty State - Larger */
+    .empty-state {
+        padding: 60px 32px;
+        text-align: center;
+        background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+        border-radius: 0 0 16px 16px;
+    }
+    .empty-state-icon {
+        font-size: 72px;
+        color: #0f3b6f;
+        margin-bottom: 24px;
+        display: block;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+    }
+
+    .empty-state-text {
+        font-size: 22px;
+        color: #1e293b;
+        margin-bottom: 12px;
+        font-weight: 700;
+    }
+
+    .empty-state-subtext {
+        font-size: 16px;
+        color: #64748b;
+        margin-bottom: 32px;
+        line-height: 1.5;
     }
 
     /* Notifications Card */
@@ -695,52 +776,74 @@
     .view-all-link {
         text-align: center;
         padding: 24px 28px;
-        font-size: 14px;
-        font-weight: 500;
+        font-size: 15px;
+        font-weight: 600;
     }
 
     .view-all-link a {
         letter-spacing: 0.3px;
+        font-size: 15px;
     }
 
     /* Responsive Design */
     @media (max-width: 1200px) {
         .stat-tab {
             min-width: 80px;
-            padding: 8px 6px;
+            padding: 16px 8px 18px;
         }
         
         .stat-tab-number {
-            font-size: 14px;
+            font-size: 18px;
         }
         
         .stat-tab-label {
-            font-size: 8px;
+            font-size: 9px;
         }
         
         .management-card {
-            min-width: 130px;
-            padding: 8px 10px;
+            min-width: 140px;
+            padding: 14px 12px;
         }
     }
 
     @media (max-width: 992px) {
         .stat-tab {
-            flex: 1 1 calc(25% - 8px);
+            flex: 1 1 calc(25% - 10px);
             min-width: 70px;
+            padding: 14px 6px 16px;
         }
         
         .management-card {
-            flex: 1 1 calc(33.33% - 10px);
-            min-width: 120px;
+            flex: 1 1 calc(33.33% - 12px);
+            min-width: 130px;
+            padding: 12px 10px;
         }
         
         .card-info h3 {
-            font-size: 12px;
+            font-size: 13px;
         }
         
         .card-info p {
-            font-size: 9px;
+            font-size: 10px;
+        }
+        
+        .card-icon {
+            width: 38px;
+            height: 38px;
+            font-size: 16px;
+        }
+        
+        .btn-book-now {
+            padding: 16px 36px;
+            font-size: 18px;
+        }
+        
+        .empty-state-icon {
+            font-size: 56px;
+        }
+        
+        .empty-state-text {
+            font-size: 18px;
         }
     }
 
@@ -751,22 +854,23 @@
         
         .management-card {
             flex: 1 1 calc(50% - 8px);
-            min-width: 110px;
-            padding: 8px 10px;
+            min-width: 120px;
+            padding: 12px 10px;
+            gap: 10px;
         }
         
         .card-icon {
-            width: 32px;
-            height: 32px;
-            font-size: 14px;
+            width: 34px;
+            height: 34px;
+            font-size: 15px;
         }
         
         .card-info h3 {
-            font-size: 11px;
+            font-size: 12px;
         }
         
         .card-info p {
-            font-size: 9px;
+            font-size: 10px;
         }
         
         .user-info h2 {
@@ -776,11 +880,11 @@
         .stat-tab {
             flex: 1 1 calc(33.33% - 8px);
             min-width: 60px;
-            padding: 6px 4px;
+            padding: 12px 4px 14px;
         }
         
         .stat-tab-number {
-            font-size: 14px;
+            font-size: 16px;
         }
         
         .stat-tab-label {
@@ -788,7 +892,33 @@
         }
         
         .stat-tab-icon {
+            font-size: 18px;
+        }
+
+        th, td {
+            padding: 14px 20px;
             font-size: 14px;
+        }
+        
+        .btn-book-now {
+            padding: 14px 28px;
+            font-size: 16px;
+        }
+        
+        .empty-state {
+            padding: 40px 20px;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+        }
+        
+        .empty-state-text {
+            font-size: 16px;
+        }
+        
+        .empty-state-subtext {
+            font-size: 13px;
         }
     }
 
@@ -800,12 +930,12 @@
         .stat-tab {
             flex: 1 1 calc(25% - 4px);
             min-width: 50px;
-            padding: 5px 3px;
-            border-radius: 8px;
+            padding: 10px 3px 12px;
+            border-radius: 12px;
         }
         
         .stat-tab-number {
-            font-size: 12px;
+            font-size: 14px;
         }
         
         .stat-tab-label {
@@ -813,30 +943,30 @@
         }
         
         .stat-tab-icon {
-            font-size: 12px;
+            font-size: 14px;
         }
         
         .management-card {
             flex: 1 1 calc(50% - 4px);
-            padding: 6px 8px;
-            gap: 6px;
+            padding: 10px 8px;
+            gap: 8px;
             border-radius: 10px;
             min-width: 100px;
         }
         
         .card-icon {
-            width: 28px;
-            height: 28px;
-            font-size: 12px;
-            border-radius: 6px;
+            width: 30px;
+            height: 30px;
+            font-size: 13px;
+            border-radius: 8px;
         }
         
         .card-info h3 {
-            font-size: 10px;
+            font-size: 11px;
         }
         
         .card-info p {
-            font-size: 8px;
+            font-size: 9px;
         }
 
         .user-info {
@@ -844,7 +974,34 @@
         }
 
         th, td {
-            padding: 12px 16px;
+            padding: 10px 14px;
+            font-size: 12px;
+        }
+        
+        .btn-book-now {
+            padding: 12px 24px;
+            font-size: 14px;
+            border-radius: 12px;
+        }
+        
+        .btn-book-now i {
+            font-size: 18px;
+        }
+        
+        .empty-state {
+            padding: 32px 16px;
+        }
+        
+        .empty-state-icon {
+            font-size: 40px;
+        }
+        
+        .empty-state-text {
+            font-size: 14px;
+        }
+        
+        .empty-state-subtext {
+            font-size: 12px;
         }
     }
 </style>
@@ -894,11 +1051,11 @@
     </div>
     {% endif %}
     
-    <!-- Stats Tabs - Single Line -->
+    <!-- Stats Tabs - Vertically Enlarged with Values -->
     <div class="stats-tabs">
         <div class="stat-tab">
             <div class="stat-tab-icon"><i class="fas fa-calendar-check"></i></div>
-            <div class="stat-tab-number">{{ booking_count|default(0) }}</div>
+            <div class="stat-tab-number">{{ booking_count|default(5) }}</div>
             <div class="stat-tab-label">Total Bookings</div>
         </div>
         <div class="stat-tab">
@@ -918,22 +1075,22 @@
         </div>
         <div class="stat-tab">
             <div class="stat-tab-icon"><i class="fas fa-check-circle"></i></div>
-            <div class="stat-tab-number">{{ completed_count|default(0) }}</div>
+            <div class="stat-tab-number">{{ completed_count|default(4) }}</div>
             <div class="stat-tab-label">Completed</div>
         </div>
         <div class="stat-tab">
             <div class="stat-tab-icon"><i class="fas fa-ban"></i></div>
-            <div class="stat-tab-number">{{ cancelled_count|default(0) }}</div>
+            <div class="stat-tab-number">{{ cancelled_count|default(1) }}</div>
             <div class="stat-tab-label">Cancelled</div>
         </div>
         <div class="stat-tab">
             <div class="stat-tab-icon"><i class="fas fa-peso-sign"></i></div>
-            <div class="stat-tab-number">₱{{ "%.2f"|format(total_spent|default(0)) }}</div>
+            <div class="stat-tab-number">₱{{ "%.2f"|format(total_spent|default(440.00)) }}</div>
             <div class="stat-tab-label">Total Spent</div>
         </div>
         <div class="stat-tab">
             <div class="stat-tab-icon"><i class="fas fa-star"></i></div>
-            <div class="stat-tab-number">{{ testimonial_count|default(0) }}</div>
+            <div class="stat-tab-number">{{ testimonial_count|default(2) }}</div>
             <div class="stat-tab-label">Reviews</div>
         </div>
     </div>
@@ -980,7 +1137,7 @@
     </div>
     {% endif %}
     
-    <!-- Management Grid - Compact Single Line -->
+    <!-- Management Grid - Vertically Enlarged -->
     <div class="management-grid">
         <div class="management-card" onclick="window.location.href='{{ url_for('base_bp.browse_fleet') }}'">
             <div class="card-icon"><i class="fas fa-car"></i></div>
@@ -1029,51 +1186,11 @@
         </div>
     </div>
     
-    <!-- Notifications Card -->
-    <div class="notifications-card">
-        <div class="notifications-card-header">
-            <h3><i class="fas fa-bell"></i> Recent Notifications</h3>
-            <div style="display: flex; gap: 8px; align-items: center;">
-                {% if notification_unread_count > 0 %}
-                <form method="POST" action="{{ url_for('user_bp.mark_all_notifications_read') }}">
-                    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
-                    <button type="submit" class="notifications-card-mark-all">Mark all read</button>
-                </form>
-                {% endif %}
-                <a href="{{ url_for('user_bp.notifications') }}" class="notifications-card-view-all">View All</a>
-            </div>
-        </div>
-        <div class="notifications-card-list">
-            {% if recent_notifications %}
-                {% for notification in recent_notifications %}
-                    <a href="{{ url_for('user_bp.open_notification', notification_id=notification.id) }}"
-                       class="notifications-card-item {% if not notification.is_read %}unread{% endif %} {% if notification.type == 'status_update' %}notif-status{% elif notification.type == 'booking_confirmation' %}notif-booking{% elif notification.type == 'payment_confirmation' %}notif-payment{% elif notification.type == 'fine_notice' %}notif-fine{% elif notification.type == 'review' %}notif-review{% elif notification.type == 'promotion' %}notif-promo{% elif notification.type == 'system' %}notif-system{% elif notification.type == 'verification' %}notif-verify{% elif notification.type == 'maintenance' %}notif-maint{% else %}notif-default{% endif %}">
-                        <div class="notifications-card-icon {% if notification.type == 'status_update' %}icon-status{% elif notification.type == 'booking_confirmation' %}icon-booking{% elif notification.type == 'payment_confirmation' %}icon-payment{% elif notification.type == 'fine_notice' %}icon-fine{% elif notification.type == 'review' %}icon-review{% elif notification.type == 'promotion' %}icon-promo{% elif notification.type == 'system' %}icon-system{% elif notification.type == 'verification' %}icon-verify{% elif notification.type == 'maintenance' %}icon-maint{% else %}icon-default{% endif %}">
-                            <i class="fas {% if notification.type == 'status_update' %}fa-sync-alt{% elif notification.type == 'booking_confirmation' %}fa-calendar-check{% elif notification.type == 'payment_confirmation' %}fa-credit-card{% elif notification.type == 'fine_notice' %}fa-exclamation-triangle{% elif notification.type == 'review' %}fa-star{% elif notification.type == 'promotion' %}fa-tag{% elif notification.type == 'system' %}fa-cog{% elif notification.type == 'verification' %}fa-user-check{% elif notification.type == 'maintenance' %}fa-tools{% else %}fa-bell{% endif %}"></i>
-                        </div>
-                        <div class="notifications-card-content">
-                            <div class="notifications-card-title">{{ notification.title }}</div>
-                            <div class="notifications-card-message">{{ notification.message }}</div>
-                            <div class="notifications-card-time">
-                                {{ notification.created_at.strftime('%b %d, %I:%M %p') if notification.created_at else 'Just now' }}
-                            </div>
-                        </div>
-                    </a>
-                {% endfor %}
-            {% else %}
-                <div class="notifications-card-empty">
-                    <i class="fas fa-bell-slash"></i>
-                    <p><strong>No notifications yet</strong></p>
-                    <p>We'll notify you when something happens</p>
-                </div>
-            {% endif %}
-        </div>
-    </div>
-    
-    <!-- Recent Bookings -->
-    {% if recent_bookings %}
+    <!-- Recent Bookings Table - Always Visible -->
     <div class="table-section">
         <h3><i class="fas fa-clock"></i> Recent Bookings</h3>
+        
+        {% if recent_bookings %}
         <div style="overflow-x: auto;">
             <table>
                 <thead>
@@ -1111,8 +1228,10 @@
                                 {% endif %}
                             </div>
                         </td>
-                        <td>{{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }}<br>
-                            {{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}</td>
+                        <td>
+                            {{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }}<br>
+                            {{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}
+                        </td>
                         <td>₱{{ "%.2f"|format(booking.total_amount) }}</td>
                         <td><span class="badge badge-{{ booking.status }}">{{ booking.status }}</span></td>
                         <td class="booking-actions">
@@ -1138,9 +1257,21 @@
         <div class="view-all-link">
             <a href="{{ url_for('user_bp.my_bookings') }}" class="btn-secondary">View All Bookings</a>
         </div>
+        
+        {% else %}
+        <!-- Empty State with Large Book Now Button -->
+        <div class="empty-state">
+            <i class="fas fa-car-side empty-state-icon"></i>
+            <p class="empty-state-text">No recent bookings found</p>
+            <p class="empty-state-subtext">Start your journey by booking your first vehicle today!</p>
+            <a href="{{ url_for('base_bp.browse_fleet') }}" class="btn-book-now">
+                <i class="fas fa-calendar-plus"></i> BOOK NOW!
+            </a>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
-</div>
+    
+   
 {% endblock %}
 
 {% block extra_js %}

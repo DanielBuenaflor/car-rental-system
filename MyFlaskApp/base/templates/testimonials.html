@@ -444,16 +444,7 @@
     <p>Real reviews from our valued customers</p>
 </div>
 
-<!-- User Stats Section (only shown when logged in) -->
-{% if session.loggedin and session.role != 'admin' %}
-<div class="user-stats">
-    <div class="user-stats-info">
-        <div class="testimonial-count-badge">
-            <i class="fas fa-pen-fancy"></i> My Reviews: {{ user_testimonial_count|default(0) }}
-        </div>
-    </div>
-</div>
-{% endif %}
+
 
 <!-- Testimonials Grid -->
 <div id="testimonialsContainer">
@@ -518,15 +509,7 @@
         <i class="fas fa-star"></i>
         <h3>No reviews yet</h3>
         <p>Be the first to share your experience with us!</p>
-{% if session.loggedin and session.role != 'admin' %}
-<div class="user-stats">
-    <div class="user-stats-info">
-        <div class="testimonial-count-badge">
-            <i class="fas fa-pen-fancy"></i> My Reviews: {{ user_testimonial_count|default(0) }}
-        </div>
-    </div>
-</div>
-{% endif %}
+
     </div>
     {% endif %}
 </div>

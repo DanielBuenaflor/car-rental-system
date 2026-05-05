@@ -8,11 +8,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initLocationMaps();
 });
 
-let pickupMap, returnMap, customPickupMap, customReturnMap;
+let pickupMap, returnMap;
 let pickupLocations = [];
 let pickupMarkers = [], returnMarkers = [];
 let currentOneWayFee = 0;
-let currentDeliveryFee = 0;
 
 async function initLocationMaps() {
     try {
@@ -56,20 +55,6 @@ function initMaps() {
         }).addTo(returnMap);
     }
 
-    if (document.getElementById('customPickupMap')) {
-        customPickupMap = L.map('customPickupMap').setView([12.8797, 121.7740], 6);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(customPickupMap);
-    }
-
-    if (document.getElementById('customReturnMap')) {
-        customReturnMap = L.map('customReturnMap').setView([12.8797, 121.7740], 6);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(customReturnMap);
-    }
-    
     renderLocationCards(pickupLocations, 'pickup');
     renderLocationCards(pickupLocations, 'return');
     
@@ -168,25 +153,15 @@ function setupLocationTabs() {
 async function calculateLocationFee() {
     const pickupIdField = document.getElementById('pickup_location_id');
     const returnIdField = document.getElementById('return_location_id');
-    const customPickupAddress = document.getElementById('custom_pickup_address');
-    const customReturnAddress = document.getElementById('custom_return_address');
     
     if (!pickupIdField || !returnIdField) return;
     
     const pickupId = pickupIdField.value;
     const returnId = returnIdField.value;
     
-    const isCustomPickup = customPickupAddress && customPickupAddress.value.trim().length > 0;
-    const isCustomReturn = customReturnAddress && customReturnAddress.value.trim().length > 0;
-    
     currentOneWayFee = 0;
-    currentDeliveryFee = 0;
     
-    if (isCustomPickup || isCustomReturn) {
-        currentDeliveryFee = 500;
-    }
-    
-    if (pickupId && returnId && !isCustomPickup && !isCustomReturn) {
+    if (pickupId && returnId) {
         try {
             const response = await fetch('/api/locations/pricing', {
                 method: 'POST',
@@ -209,60 +184,4 @@ async function calculateLocationFee() {
 // Export for use in booking form
 window.calculateLocationFee = calculateLocationFee;
 window.currentOneWayFee = currentOneWayFee;
-window.currentDeliveryFee = currentDeliveryFee;
-
-let geocodeTimeout;
-async function geocodeAddress(address, type = 'pickup') {
-    if (!address || address.length < 3) return;
-
-    try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`, {
-            headers: {
-                'User-Agent': 'CarRentalPro/1.0'
-            }
-        });
-        const data = await response.json();
-        
-        if (data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lng = parseFloat(data[0].lon);
-            
-            const map = type === 'pickup' ? customPickupMap : customReturnMap;
-            if (map) {
-                map.setView([lat, lng], 15);
-                map.eachLayer(layer => {
-                    if (layer instanceof L.Marker) map.removeLayer(layer);
-                });
-                L.marker([lat, lng]).addTo(map);
-            }
-            
-            const latField = document.getElementById(`custom_${type}_lat`);
-            const lngField = document.getElementById(`custom_${type}_lng`);
-            if (latField) latField.value = lat;
-            if (lngField) lngField.value = lng;
-        }
-    } catch (e) {
-        console.error('Geocoding error:', e);
-    }
-}
-
-function setupCustomAddressInput() {
-    const customAddressInput = document.getElementById('custom_pickup_address');
-    if (customAddressInput) {
-        customAddressInput.addEventListener('input', (e) => {
-            clearTimeout(geocodeTimeout);
-            geocodeTimeout = setTimeout(() => geocodeAddress(e.target.value, 'pickup'), 1000);
-        });
-    }
-    
-    const customReturnInput = document.getElementById('custom_return_address');
-    if (customReturnInput) {
-        customReturnInput.addEventListener('input', (e) => {
-            clearTimeout(geocodeTimeout);
-            geocodeTimeout = setTimeout(() => geocodeAddress(e.target.value, 'return'), 1000);
-        });
-    }
-}
-
-setupCustomAddressInput();
 }

@@ -33,7 +33,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 admin_bp = Blueprint(
     'admin_bp', 
     __name__, 
-    template_folder='templates',
+    template_folder='../../admin/templates',
     static_folder='static', 
     static_url_path="/admin_statics"
 )
@@ -326,6 +326,8 @@ def manage_users():
 @admin_required
 def manage_bookings():
     """Manage bookings"""
+    from datetime import timedelta, datetime
+    
     conn = get_db_connection()
     if not conn:
         return render_template('manage_bookings.html', bookings=[], session=session)
@@ -346,6 +348,19 @@ def manage_bookings():
             ORDER BY b.created_at DESC
         """)
         bookings = cursor.fetchall()
+        
+        # Convert timedelta and datetime objects to strings for JSON serialization
+        for booking in bookings:
+            for key, value in list(booking.items()):
+                if isinstance(value, timedelta):
+                    total_seconds = int(value.total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    seconds = total_seconds % 60
+                    booking[key] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                elif isinstance(value, datetime):
+                    booking[key] = value.strftime('%Y-%m-%d %H:%M:%S')
+        
         return render_template('manage_bookings.html', bookings=bookings, session=session)
     except Exception as e:
         print(f"Error loading bookings: {e}")
@@ -1666,12 +1681,15 @@ def api_delete_user(user_id):
 @admin_required
 def api_get_bookings():
     """Get all bookings"""
+    print("DEBUG: api_get_bookings called")
     conn = get_db_connection()
     if not conn:
+        print("DEBUG: No database connection")
         return jsonify([])
     
     cursor = conn.cursor(dictionary=True)
     try:
+        print("DEBUG: Executing bookings query")
         cursor.execute("""
             SELECT b.*,
                    CONCAT(u.first_name, ' ', u.last_name) as user_name,
@@ -1685,6 +1703,7 @@ def api_get_bookings():
             ORDER BY b.created_at DESC
         """)
         bookings = cursor.fetchall()
+        print(f"DEBUG: API returning {len(bookings)} bookings")
         return jsonify(bookings)
     except Exception as e:
         print(f"Error getting bookings: {e}")
