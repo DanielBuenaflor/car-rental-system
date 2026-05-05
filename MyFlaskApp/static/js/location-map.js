@@ -112,35 +112,40 @@ function renderLocationCards(locations, type) {
     }
 }
 
-function selectLocation(card, type) {
-    const id = card.dataset.id;
-    const name = card.dataset.name;
-    const lat = parseFloat(card.dataset.lat);
-    const lng = parseFloat(card.dataset.lng);
-    const loc = pickupLocations.find(l => l.id == id);
-    
-    document.querySelectorAll(`#${type}LocationCards .location-card`).forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
-    
-    const idField = document.getElementById(type + '_location_id');
-    const nameField = document.getElementById(type + '_location_name');
-    if (idField) idField.value = id;
-    if (nameField) nameField.value = name;
-    
-    const selectedDiv = document.getElementById(type + 'SelectedLocation');
-    const nameDiv = document.getElementById(type + 'SelectedName');
-    if (selectedDiv && nameDiv) {
-        selectedDiv.style.display = 'block';
-        nameDiv.textContent = name;
+    function selectLocation(card, type) {
+        const id = card.dataset.id;
+        const name = card.dataset.name;
+        const lat = parseFloat(card.dataset.lat);
+        const lng = parseFloat(card.dataset.lng);
+        const loc = pickupLocations.find(l => l.id == id);
+
+        document.querySelectorAll(`#${type}LocationCards .location-card`).forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+
+        const idField = document.getElementById(type + '_location_id');
+        const nameField = document.getElementById(type + '_location_name');
+        if (idField) idField.value = id;
+        if (nameField) nameField.value = name;
+
+        const selectedDiv = document.getElementById(type + 'SelectedLocation');
+        const nameDiv = document.getElementById(type + 'SelectedName');
+        if (selectedDiv && nameDiv) {
+            selectedDiv.style.display = 'block';
+            nameDiv.textContent = name;
+        }
+
+        const map = type === 'pickup' ? pickupMap : returnMap;
+        const markers = type === 'pickup' ? pickupMarkers : returnMarkers;
+        if (map && lat && lng) {
+            markers.forEach(m => map.removeLayer(m));
+            markers.length = 0;
+            const marker = L.marker([lat, lng]).addTo(map).bindPopup(name);
+            markers.push(marker);
+            map.setView([lat, lng], 12);
+        }
+
+        calculateLocationFee();
     }
-    
-    const map = type === 'pickup' ? pickupMap : returnMap;
-    if (map && lat && lng) {
-        map.setView([lat, lng], 12);
-    }
-    
-    calculateLocationFee();
-}
 
 function setupLocationTabs() {
     document.querySelectorAll('.location-tab').forEach(tab => {
