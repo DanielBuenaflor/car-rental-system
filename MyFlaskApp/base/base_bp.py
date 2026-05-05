@@ -32,12 +32,11 @@ def index():
         """)
         all_vehicles = cursor.fetchall()
 
-        # Get approved testimonials
+        # Get testimonials
         cursor.execute("""
             SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name
             FROM testimonials t
             JOIN users u ON t.user_id = u.id
-            WHERE t.status = 'approved'
             ORDER BY t.created_at DESC
             LIMIT 3
         """)
@@ -297,11 +296,23 @@ def api_vehicle_detail(vehicle_id):
         """, (vehicle_id, vehicle['brand_id'], vehicle['fuel_type']))
         similar_vehicles = cursor.fetchall()
 
+        # Get average rating from testimonials
+        cursor.execute("""
+            SELECT AVG(rating) as avg_rating, COUNT(*) as review_count
+            FROM testimonials
+            WHERE vehicle_id = %s
+        """, (vehicle_id,))
+        rating_data = cursor.fetchone()
+        avg_rating = round(rating_data['avg_rating'], 1) if rating_data['avg_rating'] else 0
+        review_count = rating_data['review_count'] if rating_data['review_count'] else 0
+
         return jsonify({
             'success': True,
             'vehicle': vehicle,
             'images': images,
-            'similar_vehicles': similar_vehicles
+            'similar_vehicles': similar_vehicles,
+            'avg_rating': avg_rating,
+            'review_count': review_count
         })
 
     except Exception as e:

@@ -2,9 +2,6 @@
 // Vehicle Modal Functions
 // ============================================
 
-window.isLoggedIn = window.isLoggedIn || false;
-window.userRole = window.userRole || '';
-
 function openVehicleModal(vehicleId) {
     var modal = document.getElementById('vehicleModal');
     modal.style.display = 'flex';
@@ -15,7 +12,7 @@ function openVehicleModal(vehicleId) {
         .then(function(data) {
             if (data.success) {
                 currentVehicleData = data.vehicle;
-                displayVehicleModal(data.vehicle, data.images, data.similar_vehicles);
+                displayVehicleModal(data.vehicle, data.images, data.similar_vehicles, data.avg_rating, data.review_count);
             } else {
                 showError('Failed to load vehicle details');
             }
@@ -26,7 +23,7 @@ function openVehicleModal(vehicleId) {
         });
 }
 
-function displayVehicleModal(vehicle, images, similarVehicles) {
+function displayVehicleModal(vehicle, images, similarVehicles, avgRating, reviewCount) {
     var container = document.getElementById('modalBody');
     
     var imagesHtml = '';
@@ -51,6 +48,37 @@ function displayVehicleModal(vehicle, images, similarVehicles) {
         imagesHtml = '<div class="thumbnail-list"><div class="thumbnail-item active" onclick="changeModalImage(\'' + mainImage + '\', this)"><img src="' + mainImage + '" alt="Vehicle"></div></div>';
     } else {
         imagesHtml = '<div class="thumbnail-list"><div class="thumbnail-item active" onclick="changeModalImage(\'/static/images/placeholder-car.jpg\', this)"><img src="/static/images/placeholder-car.jpg" alt="Vehicle"></div></div>';
+    }
+    
+    // Build star rating HTML
+    var starRatingHtml = '<div class="modal-star-rating" style="text-align: center; padding: 12px 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 16px;">';
+    var avgRatingVal = parseFloat(avgRating) || 0;
+    var reviewCountVal = parseInt(reviewCount) || 0;
+    var fullStars = Math.floor(avgRatingVal);
+    var hasHalfStar = (avgRatingVal - fullStars) >= 0.5;
+    
+    for (var i = 0; i < 5; i++) {
+        if (i < fullStars) {
+            starRatingHtml += '<i class="fas fa-star" style="color: #f59e0b; margin: 0 2px; font-size: 16px;"></i>';
+        } else if (i === fullStars && hasHalfStar) {
+            starRatingHtml += '<i class="fas fa-star-half-alt" style="color: #f59e0b; margin: 0 2px; font-size: 16px;"></i>';
+        } else {
+            starRatingHtml += '<i class="far fa-star" style="color: #d1d5db; margin: 0 2px; font-size: 16px;"></i>';
+        }
+    }
+    if (reviewCountVal > 0) {
+        starRatingHtml += '<span style="margin-left: 8px; color: #64748b; font-size: 14px;">(' + reviewCountVal + ' review' + (reviewCountVal > 1 ? 's' : '') + ')</span>';
+    } else {
+        starRatingHtml += '<span style="margin-left: 8px; color: #64748b; font-size: 14px;">No reviews yet</span>';
+    }
+    starRatingHtml += '</div>';
+    
+    // Build vehicle title HTML
+    var vehicleTitleHtml = '';
+    if (vehicle) {
+        vehicleTitleHtml = '<h2 style="margin: 24px 0; color: #0f3b6f; font-size: 28px;">' + 
+            escapeHtml(vehicle.brand_name || '') + ' ' + 
+            escapeHtml(vehicle.model || '') + '</h2>';
     }
     
     // Build specs HTML with conditional visibility
@@ -80,24 +108,36 @@ function displayVehicleModal(vehicle, images, similarVehicles) {
         specsHtml += '</div>';
     }
     
-    // Build vehicle title HTML
-    var vehicleTitleHtml = '';
-    if (vehicle) {
-        vehicleTitleHtml = '<h2 style="margin: 24px 0; color: #0f3b6f; font-size: 28px;">' + 
-            escapeHtml(vehicle.brand_name || '') + ' ' + 
-            escapeHtml(vehicle.model || '') + '</h2>';
-    }
-    
     // Build vehicle details HTML
     var vehicleDetailsHtml = '';
     var hourlyRate = Math.floor(vehicle.daily_rate / 5);
     
     if (vehicle) {
-        vehicleDetailsHtml = 
+        vehicleDetailsHtml =
             '<div class="vehicle-info-grid">' +
                 '<div class="vehicle-specs">' +
                     '<h3><i class="fas fa-list"></i> Vehicle Specifications</h3>' +
-                    specsHtml +
+                    specsHtml;
+        
+        // Add description inside specs section if it exists
+        if (vehicle.description && vehicle.description.trim()) {
+            vehicleDetailsHtml +=
+                '<div class="description-section">' +
+                    '<h3><i class="fas fa-info-circle"></i> Description</h3>' +
+                    '<p>' + escapeHtml(vehicle.description) + '</p>' +
+                '</div>';
+        }
+        
+        // Add reviews section
+        vehicleDetailsHtml += '<div class="modal-reviews-section">' +
+            '<h3><i class="fas fa-star"></i> Customer Reviews</h3>' +
+            '<div id="modalReviewsList"><p style="color: #64748b; font-style: italic;">Loading reviews...</p></div>' +
+            '<div class="view-all-reviews">' +
+                '<a href="/testimonials" class="btn-view-reviews">View All Reviews <i class="fas fa-arrow-right"></i></a>' +
+            '</div>' +
+        '</div>';
+        
+        vehicleDetailsHtml +=
                 '</div>' +
                 '<div class="booking-card">' +
                     '<div class="modal-price">₱' + parseFloat(vehicle.daily_rate || 0).toLocaleString() + '<small>/day + tax</small></div>' +
@@ -112,7 +152,7 @@ function displayVehicleModal(vehicle, images, similarVehicles) {
                         '<div id="modalCalendar" data-vehicle-id="' + vehicle.id + '" style="margin-bottom: 12px;"></div>' +
                     '</div>';
         
-        var isLoggedIn = window.isLoggedIn === true || window.isLoggedIn === 'true';
+        var isLoggedIn = window.isLoggedIn == true || window.isLoggedIn === 'true';
         var isAdmin = window.userRole === 'admin';
         
         if (isLoggedIn && !isAdmin) {
@@ -122,18 +162,9 @@ function displayVehicleModal(vehicle, images, similarVehicles) {
         }
         
         vehicleDetailsHtml += '</div></div>';
-        
-        // Add description only if it exists
-        if (vehicle.description && vehicle.description.trim()) {
-            vehicleDetailsHtml += 
-                '<div class="description-section">' +
-                    '<h3><i class="fas fa-info-circle"></i> Description</h3>' +
-                    '<p>' + escapeHtml(vehicle.description) + '</p>' +
-                '</div>';
-        }
     }
     
-    var html = 
+    var html =
         '<div class="vehicle-gallery">' +
             '<div class="main-image">' +
                 '<img id="modalMainImage" src="' + mainImage + '" alt="' + escapeHtml(vehicle.brand_name) + ' ' + escapeHtml(vehicle.model) + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' +
@@ -141,6 +172,7 @@ function displayVehicleModal(vehicle, images, similarVehicles) {
             '</div>' +
             imagesHtml +
         '</div>' +
+        starRatingHtml +
         vehicleTitleHtml +
         vehicleDetailsHtml;
     
@@ -163,10 +195,61 @@ function displayVehicleModal(vehicle, images, similarVehicles) {
     
     container.innerHTML = html;
     
-    // Load calendar with booked dates
+    // Load calendar and reviews after DOM is ready
     if (vehicle && vehicle.id) {
         loadVehicleCalendar(vehicle.id);
+        loadVehicleReviews(vehicle.id);
     }
+}
+
+function loadVehicleReviews(vehicleId) {
+    var reviewsList = document.getElementById('modalReviewsList');
+    if (!reviewsList) return;
+    
+    fetch('/api/vehicle/' + vehicleId + '/reviews')
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            if (data.success && data.reviews && data.reviews.length > 0) {
+                var html = data.reviews.map(function(review) {
+                    var stars = '';
+                    for (var i = 0; i < 5; i++) {
+                        if (i < review.rating) {
+                            stars += '<i class="fas fa-star" style="color: #f59e0b; font-size: 12px; margin: 0 1px;"></i>';
+                        } else {
+                            stars += '<i class="far fa-star" style="color: #d1d5db; font-size: 12px; margin: 0 1px;"></i>';
+                        }
+                    }
+                    
+                    var reviewHtml = '<div class="modal-review-item">' +
+                        '<div class="review-header">' +
+                            '<div class="review-author">' +
+                                '<div class="review-avatar">' + (review.user_name ? review.user_name[0].toUpperCase() : 'U') + '</div>' +
+                                '<div class="review-info">' +
+                                    '<strong>' + escapeHtml(review.user_name || 'Anonymous') + '</strong>' +
+                                    '<small>' + (review.created_at ? new Date(review.created_at).toLocaleDateString() : 'Recent') + '</small>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="review-rating">' + stars + '</div>' +
+                        '</div>' +
+                        '<p class="review-comment">' + escapeHtml(review.comment) + '</p>';
+                    
+                    if (review.image_path) {
+                        reviewHtml += '<img src="/uploads/' + review.image_path + '" alt="Review photo" class="review-image">';
+                    }
+                    
+                    reviewHtml += '</div>';
+                    return reviewHtml;
+                }).join('');
+                
+                reviewsList.innerHTML = html;
+            } else {
+                reviewsList.innerHTML = '<p style="color: #64748b; font-style: italic;">No reviews yet for this vehicle.</p>';
+            }
+        })
+        .catch(function(error) {
+            console.error('Error loading reviews:', error);
+            reviewsList.innerHTML = '<p style="color: #ef4444;">Failed to load reviews.</p>';
+        });
 }
 
 function loadVehicleCalendar(vehicleId) {
@@ -246,27 +329,6 @@ function renderCalendar(vehicleId, bookedDates, availableDates) {
         '</div>';
     
     calendarDiv.innerHTML = html;
-}
-
-function loadSimilarVehicle(vehicleId) {
-    fetch('/api/vehicle/' + vehicleId)
-        .then(function(response) { return response.json(); })
-        .then(function(data) {
-            if (data.success && data.similar_vehicles && data.similar_vehicles.length > 0) {
-                var container = document.getElementById('similarVehiclesContainer');
-                if (container) {
-                    container.innerHTML = data.similar_vehicles.map(function(sv) {
-                        return '<div class="similar-card" onclick="openVehicleModal(' + sv.id + ');">' +
-                            '<img src="' + (sv.primary_image || '/static/images/placeholder-car.jpg') + '" alt="' + escapeHtml(sv.brand_name) + ' ' + escapeHtml(sv.model) + '">' +
-                            '<div class="info">' +
-                                '<h4>' + escapeHtml(sv.brand_name) + ' ' + escapeHtml(sv.model) + '</h4>' +
-                                '<div class="price">₱' + sv.daily_rate + '/day</div>' +
-                            '</div>' +
-                        '</div>';
-                    }).join('');
-                }
-            }
-        });
 }
 
 function changeModalImage(imagePath, element) {

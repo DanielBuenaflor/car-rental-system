@@ -4,120 +4,372 @@
 
 {% block extra_css %}
 <style>
+    :root {
+        --primary: #0f3b6f;
+        --primary-light: #1e4a7a;
+        --success: #059669;
+        --blue-accent: #0052a2;
+        --gray-50: #f8fafc;
+        --gray-100: #f1f5f9;
+        --gray-200: #e2e8f0;
+        --gray-500: #64748b;
+        --gray-700: #334155;
+        --gray-800: #1e293b;
+    }
+
     .checkout-container {
-        max-width: 1000px;
-        margin: 40px auto;
+        max-width: 1100px;
+        margin: 30px auto;
+        padding: 0 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: var(--gray-800);
     }
     
-    .gcash-info {
-        background: linear-gradient(135deg, #007c36, #00a859);
-        color: white;
-        padding: 20px;
-        border-radius: 12px;
-        margin: 20px 0;
+    .checkout-header {
+        margin-bottom: 28px;
     }
     
-    .qr-code {
-        text-align: center;
-        padding: 20px;
+    .checkout-header h2 {
+        font-size: 26px;
+        font-weight: 700;
+        margin: 0;
+        color: var(--gray-800);
+    }
+    
+    .checkout-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+    
+    .card {
         background: white;
         border-radius: 12px;
-        margin-top: 15px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        border: 1px solid var(--gray-200);
     }
     
-    .qr-code i {
-        font-size: 120px;
-        color: #007c36;
-    }
-    
-    .reference-number {
-        background: rgba(255,255,255,0.2);
-        padding: 15px;
-        border-radius: 8px;
-        text-align: center;
-        margin-top: 15px;
-    }
-    
-    .reference-number span {
-        font-family: monospace;
-        font-size: 20px;
-        font-weight: bold;
-        letter-spacing: 2px;
-    }
-    
-    .btn-pay {
-        width: 100%;
-        padding: 14px;
-        font-size: 16px;
-        font-weight: 600;
-        border: none;
-        border-radius: 40px;
-        cursor: pointer;
-        transition: all 0.3s;
-        margin-top: 20px;
-        background: #007c36;
-        color: white;
-    }
-    
-    .btn-pay:hover {
-        background: #00a859;
-        transform: translateY(-2px);
-    }
-    
-    .btn-pay:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        transform: none;
-    }
-    
-    .promo-input {
+    .card-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--gray-200);
         display: flex;
+        align-items: center;
         gap: 10px;
     }
     
-    .promo-input input {
-        flex: 1;
-        padding: 12px;
-        border: 1px solid #cbd5e1;
+    .card-header .icon-circle {
+        width: 38px;
+        height: 38px;
+        background: #e0f2fe;
         border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        color: var(--primary);
     }
     
-    .booking-summary-item {
+    .card-header h3 {
+        font-size: 17px;
+        font-weight: 700;
+        margin: 0;
+        color: var(--gray-800);
+    }
+    
+    .card-body {
+        padding: 20px 24px 24px;
+    }
+    
+    /* Booking Summary */
+    .summary-row {
         display: flex;
         justify-content: space-between;
-        padding: 10px 0;
-        border-bottom: 1px solid #e2e8f0;
+        padding: 11px 0;
+        border-bottom: 1px solid #f8fafc;
+        font-size: 14px;
     }
     
-    .total-amount {
-        font-size: 20px;
-        font-weight: bold;
-        color: #007c36;
-        padding-top: 15px;
-        margin-top: 10px;
-        border-top: 2px solid #007c36;
+    .summary-row:last-of-type {
+        border-bottom: none;
     }
     
-    .btn-secondary {
-        background: rgba(255,255,255,0.2);
+    .summary-label {
+        color: var(--gray-500);
+    }
+    
+    .summary-value {
+        font-weight: 600;
+        color: var(--gray-800);
+        text-align: right;
+    }
+    
+    .summary-value.vehicle-name {
+        color: var(--primary);
+        font-weight: 700;
+    }
+    
+    .total-box {
+        background: #f0fdf4;
+        margin: 16px -24px -24px;
+        padding: 18px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 2px solid #bbf7d0;
+    }
+    
+    .total-box span:first-child {
+        font-weight: 700;
+        color: var(--success);
+        font-size: 15px;
+    }
+    
+    .total-box .amount {
+        font-size: 24px;
+        font-weight: 800;
+        color: var(--success);
+        letter-spacing: -0.5px;
+    }
+    
+    .deposit-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 14px;
+        background: #fffbeb;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #92400e;
+        border: 1px solid #fde68a;
+        margin-top: 14px;
+    }
+    
+    .deposit-note i {
+        color: #f59e0b;
+        font-size: 16px;
+        margin-top: 1px;
+    }
+    
+    /* Payment Section */
+    .gcash-card {
+        background: linear-gradient(135deg, #0052a2, #0078d4);
         color: white;
-        border: none;
-        padding: 5px 15px;
+        border-radius: 10px;
+        padding: 22px;
+        margin-bottom: 20px;
+    }
+    
+    .gcash-card h4 {
+        margin: 0 0 16px;
+        font-size: 16px;
+        font-weight: 700;
+    }
+    
+    .step-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 18px;
+        counter-reset: step;
+    }
+    
+    .step-list li {
+        counter-increment: step;
+        padding: 8px 0 8px 36px;
+        position: relative;
+        font-size: 13px;
+        color: rgba(255,255,255,0.9);
+        line-height: 1.5;
+    }
+    
+    .step-list li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 6px;
+        width: 24px;
+        height: 24px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+    }
+    
+    .qr-section {
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        text-align: center;
+        margin-bottom: 12px;
+    }
+    
+    .qr-section i {
+        font-size: 70px;
+        color: #0052a2;
+    }
+    
+    .qr-section p {
+        margin: 8px 0 0;
+        color: #0052a2;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    
+    .ref-section {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px;
+        padding: 14px;
+        text-align: center;
+    }
+    
+    .ref-section .ref-label {
+        font-size: 12px;
+        opacity: 0.8;
+        margin-bottom: 4px;
+    }
+    
+    .ref-section .ref-number {
+        font-family: 'Courier New', monospace;
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        word-break: break-all;
+        margin: 4px 0;
+    }
+    
+    .btn-copy {
+        background: rgba(255,255,255,0.15);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.25);
+        padding: 5px 14px;
         border-radius: 20px;
         cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        margin-top: 6px;
+        transition: all 0.2s;
     }
     
-    .btn-secondary:hover {
-        background: rgba(255,255,255,0.3);
+    .btn-copy:hover {
+        background: rgba(255,255,255,0.25);
+    }
+    
+    .btn-pay-gcash {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 15px;
+        font-size: 15px;
+        font-weight: 700;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        background: linear-gradient(135deg, #0052a2, #0078d4);
+        color: white;
+        text-decoration: none;
+        box-shadow: 0 4px 15px rgba(0, 82, 162, 0.3);
+        transition: all 0.2s;
+    }
+    
+    .btn-pay-gcash:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(0, 82, 162, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    
+    /* Promo Section */
+    .promo-section {
+        margin-top: 18px;
+        padding-top: 18px;
+        border-top: 1px solid var(--gray-200);
+    }
+    
+    .promo-section h4 {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0 0 10px;
+        color: var(--gray-700);
+    }
+    
+    .promo-row {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .promo-row input {
+        flex: 1;
+        padding: 10px 14px;
+        border: 2px solid var(--gray-200);
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: inherit;
+    }
+    
+    .promo-row input:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
+    
+    .btn-apply {
+        background: var(--gray-100);
+        color: var(--gray-700);
+        border: none;
+        padding: 10px 18px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        white-space: nowrap;
+        transition: all 0.2s;
+    }
+    
+    .btn-apply:hover {
+        background: var(--gray-200);
+    }
+    
+    #promoMessage {
+        margin-top: 8px;
+        font-size: 12px;
+        min-height: 18px;
+    }
+    
+    .secure-note {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-top: 14px;
+        font-size: 11px;
+        color: var(--gray-500);
+    }
+    
+    .secure-note i {
+        color: #10b981;
     }
     
     @media (max-width: 768px) {
-        .checkout-container {
-            padding: 0 15px;
+        .checkout-grid {
+            grid-template-columns: 1fr;
         }
         
-        .checkout-container > div {
-            grid-template-columns: 1fr !important;
+        .card-body {
+            padding: 16px 18px 20px;
+        }
+        
+        .total-box {
+            margin: 14px -18px -20px;
+            padding: 14px 18px;
+        }
+        
+        .total-box .amount {
+            font-size: 20px;
         }
     }
 </style>
@@ -125,112 +377,122 @@
 
 {% block content %}
 <div class="checkout-container">
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-        <!-- Left Column: Booking Summary -->
+    <div class="checkout-header">
+        <h2>Checkout</h2>
+    </div>
+    
+    <div class="checkout-grid">
+        <!-- Left: Booking Summary -->
         <div class="card">
-            <h3 style="margin-bottom: 20px;">Booking Summary</h3>
-            
-            <div class="booking-summary-item">
-                <span>Vehicle:</span>
-                <strong>{{ booking.brand_name }} {{ booking.model }}</strong>
+            <div class="card-header">
+                <div class="icon-circle"><i class="fas fa-receipt"></i></div>
+                <h3>Booking Summary</h3>
             </div>
-            
-            <div class="booking-summary-item">
-                <span>Pickup Date:</span>
-                <span>{{ booking.start_date.strftime('%B %d, %Y') }}</span>
-            </div>
-            
-            <div class="booking-summary-item">
-                <span>Return Date:</span>
-                <span>{{ booking.end_date.strftime('%B %d, %Y') }}</span>
-            </div>
-            
-            <div class="booking-summary-item">
-                <span>Rental Days:</span>
-                <span>{{ booking.rental_days }} days</span>
-            </div>
-            
-            <div class="booking-summary-item">
-                <span>Daily Rate:</span>
-                <span>₱{{ "%.2f"|format(booking.daily_rate_applied) }}</span>
-            </div>
-            
-            <div class="booking-summary-item">
-                <span>Subtotal:</span>
-                <span>₱{{ "%.2f"|format(booking.subtotal) }}</span>
-            </div>
-            
-            <div class="booking-summary-item">
-                <span>Tax (10%):</span>
-                <span>₱{{ "%.2f"|format(booking.tax_amount) }}</span>
-            </div>
-            
-            {% if booking.discount_amount > 0 %}
-            <div class="booking-summary-item" style="color: #10b981;">
-                <span>Discount:</span>
-                <span>-₱{{ "%.2f"|format(booking.discount_amount) }}</span>
-            </div>
-            {% endif %}
-            
-            <div class="total-amount">
-                <span>Total Amount:</span>
-                <span>₱{{ "%.2f"|format(booking.total_amount) }}</span>
-            </div>
-            
-            <div style="margin-top: 15px; font-size: 12px; color: #666;">
-                <i class="fas fa-shield-alt"></i> Security Deposit: ₱{{ "%.2f"|format(booking.security_deposit) }}
-                <small>(Refundable after vehicle return)</small>
+            <div class="card-body">
+                <div class="summary-row">
+                    <span class="summary-label">Vehicle</span>
+                    <span class="summary-value vehicle-name">{{ booking.brand_name }} {{ booking.model }}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Year</span>
+                    <span class="summary-value">{{ booking.year }}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Pickup Date</span>
+                    <span class="summary-value">{{ booking.start_date.strftime('%B %d, %Y') }}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Return Date</span>
+                    <span class="summary-value">{{ booking.end_date.strftime('%B %d, %Y') }}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Duration</span>
+                    <span class="summary-value">{{ booking.rental_days }} day(s)</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Daily Rate</span>
+                    <span class="summary-value">₱{{ "%.2f"|format(booking.daily_rate_applied) }}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Subtotal</span>
+                    <span class="summary-value">₱{{ "%.2f"|format(booking.subtotal) }}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Tax (10%)</span>
+                    <span class="summary-value">₱{{ "%.2f"|format(booking.tax_amount) }}</span>
+                </div>
+                {% if booking.discount_amount > 0 %}
+                <div class="summary-row" style="color: #10b981;">
+                    <span class="summary-label">Discount</span>
+                    <span class="summary-value" style="color: #10b981;">-₱{{ "%.2f"|format(booking.discount_amount) }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="total-box">
+                    <span>Total Amount</span>
+                    <span class="amount">₱{{ "%.2f"|format(booking.total_amount) }}</span>
+                </div>
+                
+                <div class="deposit-note">
+                    <i class="fas fa-shield-alt"></i>
+                    <div>
+                        <strong>Security Deposit: ₱{{ "%.2f"|format(booking.security_deposit) }}</strong><br>
+                        <small>Refundable after vehicle return</small>
+                    </div>
+                </div>
             </div>
         </div>
         
-        <!-- Right Column: GCash Payment -->
+        <!-- Right: Payment -->
         <div class="card">
-            <h3 style="margin-bottom: 20px;">Pay with GCash</h3>
-            
-            <!-- GCash Info -->
-            <div class="gcash-info">
-                <i class="fas fa-mobile-alt" style="font-size: 32px; margin-bottom: 10px;"></i>
-                <h4>How to Pay with GCash</h4>
-                
-                <ol style="margin-top: 10px; padding-left: 20px;">
-                    <li>Click "Pay with GCash" button below</li>
-                    <li>You'll be redirected to the payment page</li>
-                    <li>Complete the payment using your GCash app</li>
-                    <li>You'll be redirected back after successful payment</li>
-                </ol>
-                
-                <div class="qr-code">
-                    <i class="fas fa-qrcode"></i>
-                    <p style="margin-top: 10px; color: #007c36;">Scan QR Code with GCash App</p>
+            <div class="card-header">
+                <div class="icon-circle"><i class="fas fa-mobile-alt"></i></div>
+                <h3>Payment</h3>
+            </div>
+            <div class="card-body">
+                <!-- GCash Section -->
+                <div class="gcash-card">
+                    <h4>How to Pay</h4>
+                    <ol class="step-list">
+                        <li>Click the <strong>"Pay with GCash"</strong> button below</li>
+                        <li>You'll be redirected to the secure payment page</li>
+                        <li>Complete the payment using your <strong>GCash app</strong></li>
+                        <li>You'll be redirected back after successful payment</li>
+                    </ol>
+                    
+                    <div class="qr-section">
+                        <i class="fas fa-qrcode"></i>
+                        <p>Scan QR Code with GCash App</p>
+                    </div>
+                    
+                    <div class="ref-section">
+                        <div class="ref-label">Payment Reference Number</div>
+                        <div class="ref-number">CRS-{{ booking.id }}-GCASH</div>
+                        <button class="btn-copy" onclick="copyReference()">
+                            <i class="fas fa-copy"></i> Copy Reference
+                        </button>
+                    </div>
                 </div>
                 
-                <div class="reference-number">
-                    <strong>Reference Number:</strong><br>
-                    <span id="gcashRefNo">CRS-{{ booking.id }}-GCASH</span>
-                    <button class="btn-secondary" onclick="copyReference()" style="margin-top: 10px;">
-                        <i class="fas fa-copy"></i> Copy
-                    </button>
+                <!-- Pay Button -->
+                <a href="{{ url_for('payment_bp.initiate_payment', booking_id=booking.id) }}" class="btn-pay-gcash">
+                    <i class="fas fa-mobile-alt"></i> Pay with GCash — ₱{{ "%.2f"|format(booking.total_amount) }}
+                </a>
+                
+                <!-- Promo Code -->
+                <div class="promo-section">
+                    <h4>Have a Promo Code?</h4>
+                    <div class="promo-row">
+                        <input type="text" id="promoCode" placeholder="Enter promo code">
+                        <button class="btn-apply" onclick="applyPromo()">Apply</button>
+                    </div>
+                    <div id="promoMessage"></div>
+                </div>
+                
+                <div class="secure-note">
+                    <i class="fas fa-lock"></i> Secure payment powered by PayMongo
                 </div>
             </div>
-            
-            <!-- Promo Code Section -->
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-                <h4>Have a promo code?</h4>
-                <div class="promo-input">
-                    <input type="text" id="promoCode" placeholder="Enter promo code">
-                    <button class="btn-secondary" onclick="applyPromo()" style="background: #e2e8f0; color: #1f3a5f;">Apply</button>
-                </div>
-                <div id="promoMessage" style="margin-top: 10px; font-size: 12px;"></div>
-            </div>
-            
-            <!-- Pay Button - using GET to redirect to PayMongo -->
-            <a href="{{ url_for('payment_bp.initiate_payment', booking_id=booking.id) }}" class="btn-pay" style="display: inline-block; text-decoration: none; text-align: center; padding: 15px 30px;">
-                <i class="fas fa-mobile-alt"></i> Pay with GCash - ₱{{ "%.2f"|format(booking.total_amount) }}
-            </a>
-            
-            <p style="text-align: center; margin-top: 15px; font-size: 12px; color: #666;">
-                <i class="fas fa-lock"></i> Secure payment powered by PayMongo
-            </p>
         </div>
     </div>
 </div>
@@ -240,9 +502,15 @@ let currentBookingId = {{ booking.id }};
 let currentAmount = {{ booking.total_amount }};
 
 function copyReference() {
-    const refNo = document.getElementById('gcashRefNo').innerText;
+    const refNo = document.querySelector('.ref-number').textContent.trim();
     navigator.clipboard.writeText(refNo).then(() => {
-        alert('Reference number copied: ' + refNo);
+        const btn = document.querySelector('.btn-copy');
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.style.background = 'rgba(16, 185, 129, 0.3)';
+        setTimeout(() => {
+            btn.innerHTML = '<i class="fas fa-copy"></i> Copy Reference';
+            btn.style.background = 'rgba(255,255,255,0.15)';
+        }, 2000);
     });
 }
 
@@ -251,9 +519,11 @@ function applyPromo() {
     const messageDiv = document.getElementById('promoMessage');
     
     if (!promoCode) {
-        messageDiv.innerHTML = '<span style="color: #ef4444;">Please enter a promo code</span>';
+        messageDiv.innerHTML = '<span style="color:#ef4444;"><i class="fas fa-exclamation-circle"></i> Please enter a promo code</span>';
         return;
     }
+    
+    messageDiv.innerHTML = '<span style="color:#0f3b6f;"><i class="fas fa-spinner fa-spin"></i> Applying...</span>';
     
     fetch('{{ url_for('payment_bp.apply_promo') }}', {
         method: 'POST',
@@ -266,20 +536,31 @@ function applyPromo() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            messageDiv.innerHTML = '<span style="color: #10b981;">✓ ' + data.promotion_name + ' applied! You saved ₱' + data.discount.toFixed(2) + '</span>';
+            messageDiv.innerHTML = '<span style="color:#10b981;"><i class="fas fa-check-circle"></i> ' + data.promotion_name + ' applied! You saved ₱' + data.discount.toFixed(2) + '</span>';
             currentAmount = data.final_amount;
-            document.getElementById('payButton').innerHTML = '<i class="fas fa-mobile-alt"></i> Pay with GCash - ₱' + data.final_amount.toFixed(2);
             
-            // Update displayed total
-            const totalElement = document.querySelector('.total-amount span:last-child');
-            if (totalElement) {
-                totalElement.textContent = '₱' + data.final_amount.toFixed(2);
+            // Update amounts
+            document.querySelector('.amount').textContent = '₱' + data.final_amount.toFixed(2);
+            const payBtn = document.querySelector('.btn-pay-gcash');
+            payBtn.innerHTML = '<i class="fas fa-mobile-alt"></i> Pay with GCash — ₱' + data.final_amount.toFixed(2);
+            
+            // Add discount row
+            if (!document.querySelector('.summary-row[style*="color: #10b981"]')) {
+                const rows = document.querySelectorAll('.summary-row');
+                const lastRow = rows[rows.length - 1];
+                const discountRow = document.createElement('div');
+                discountRow.className = 'summary-row';
+                discountRow.style.color = '#10b981';
+                discountRow.innerHTML = '<span class="summary-label">Discount</span><span class="summary-value" style="color:#10b981;">-₱' + data.discount.toFixed(2) + '</span>';
+                lastRow.parentNode.insertBefore(discountRow, lastRow.nextSibling);
             }
         } else {
-            messageDiv.innerHTML = '<span style="color: #ef4444;">' + data.message + '</span>';
+            messageDiv.innerHTML = '<span style="color:#ef4444;"><i class="fas fa-times-circle"></i> ' + data.message + '</span>';
         }
+    })
+    .catch(() => {
+        messageDiv.innerHTML = '<span style="color:#ef4444;">Error applying promo code</span>';
     });
 }
-
 </script>
 {% endblock %}

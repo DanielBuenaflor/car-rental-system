@@ -2,133 +2,287 @@
 
 {% block title %}Manage Contact Details - CarRental Pro{% endblock %}
 
-{% block content %}
-<div style="margin: 40px 0;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-        <h2>Manage Contact Details</h2>
-        <button class="btn-primary" onclick="showAddDetailModal()">
-            <i class="fas fa-plus"></i> Add New Contact
-        </button>
-    </div>
-    
-    <div class="card">
-        <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="background-color: #f8fafc;">
-                        <th style="padding: 12px; text-align: left;">Type</th>
-                        <th style="padding: 12px; text-align: left;">Label</th>
-                        <th style="padding: 12px; text-align: left;">Value</th>
-                        <th style="padding: 12px; text-align: left;">Icon</th>
-                        <th style="padding: 12px; text-align: left;">Order</th>
-                        <th style="padding: 12px; text-align: left;">Actions</th>
-                    </thead>
-                <tbody id="contactTableBody">
-                    {% for contact in contacts %}
-                    <tr>
-                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
-                            <span class="badge badge-{{ contact.contact_type }}">{{ contact.contact_type }}</span>
-                         </td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;"><strong>{{ contact.label }}</strong></td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ contact.value }}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
-                            {% if contact.icon %}
-                                <i class="fas fa-{{ contact.icon }}"></i> {{ contact.icon }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ contact.order_position }}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
-                            <button class="btn-sm btn-primary" onclick="editContact({{ contact.id }})">Edit</button>
-                            <button class="btn-sm btn-danger" onclick="deleteContact({{ contact.id }})">Delete</button>
-                        </td>
-                     </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" style="text-align: center; padding: 40px;">No contact details found</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Add/Edit Contact Modal -->
-<div id="contactModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 500px;">
-        <div class="modal-header">
-            <h3 id="modalTitle">Add Contact Detail</h3>
-            <span class="close" onclick="closeModal()">&times;</span>
-        </div>
-        <form id="contactForm">
-            <input type="hidden" id="contactId" name="contact_id">
-            <div class="form-group">
-                <label>Type</label>
-                <select id="contactType" required>
-                    <option value="phone">Phone</option>
-                    <option value="email">Email</option>
-                    <option value="address">Address</option>
-                    <option value="social">Social Media</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Label</label>
-                <input type="text" id="contactLabel" required placeholder="e.g., Customer Support">
-            </div>
-            <div class="form-group">
-                <label>Value</label>
-                <input type="text" id="contactValue" required placeholder="e.g., +1 234 567 890 or info@example.com">
-            </div>
-            <div class="form-group">
-                <label>Icon (Font Awesome class)</label>
-                <input type="text" id="contactIcon" placeholder="e.g., phone-alt, envelope, map-marker-alt">
-                <small>Without the 'fa-' prefix</small>
-            </div>
-            <div class="form-group">
-                <label>Display Order</label>
-                <input type="number" id="contactOrder" value="0">
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">Save</button>
-                <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
-            </div>
-        </form>
-    </div>
-</div>
-
+{% block extra_css %}
 <style>
+    /* ============================================================================
+       MAIN CONTAINER
+       ============================================================================ */
+    .contacts-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    /* ============================================================================
+       HEADER SECTION
+       ============================================================================ */
+    .contacts-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .contacts-header h2 {
+        margin: 0;
+        color: #0f3b6f;
+        font-size: 24px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .contacts-header h2 i {
+        color: #0f3b6f;
+        font-size: 22px;
+    }
+    
+    .btn-add {
+        background: #0f3b6f;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-add:hover {
+        background: #1a4a7a;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(15, 59, 111, 0.2);
+    }
+    
+    /* ============================================================================
+       TABLE CONTAINER
+       ============================================================================ */
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+    
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* ============================================================================
+       TABLE STYLES
+       ============================================================================ */
+    .contacts-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    
+    .contacts-table thead {
+        background: #f8fafc;
+    }
+    
+    .contacts-table th {
+        padding: 14px 16px;
+        text-align: left;
+        font-weight: 600;
+        color: #0f3b6f;
+        border-bottom: 2px solid #e2e8f0;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+    
+    .contacts-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+        color: #334155;
+    }
+    
+    .contacts-table tbody tr:hover {
+        background: #f8fafc;
+    }
+    
+    .contacts-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    /* Column widths */
+    .contacts-table th:nth-child(1),
+    .contacts-table td:nth-child(1) {
+        width: 120px;
+    }
+    
+    .contacts-table th:nth-child(2),
+    .contacts-table td:nth-child(2) {
+        min-width: 150px;
+    }
+    
+    .contacts-table th:nth-child(3),
+    .contacts-table td:nth-child(3) {
+        min-width: 180px;
+    }
+    
+    .contacts-table th:nth-child(4),
+    .contacts-table td:nth-child(4) {
+        width: 140px;
+    }
+    
+    .contacts-table th:nth-child(5),
+    .contacts-table td:nth-child(5) {
+        width: 80px;
+        text-align: center;
+    }
+    
+    .contacts-table th:nth-child(6),
+    .contacts-table td:nth-child(6) {
+        width: 160px;
+    }
+    
+    /* ============================================================================
+       STATUS BADGES
+       ============================================================================ */
     .badge {
         padding: 4px 12px;
         border-radius: 20px;
         font-size: 12px;
         font-weight: 600;
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
     }
-    .badge-phone { background: #dbeafe; color: #1e40af; }
-    .badge-email { background: #d1fae5; color: #065f46; }
-    .badge-address { background: #fed7aa; color: #9b2c1d; }
-    .badge-social { background: #f3e8ff; color: #7c3aed; }
+    
+    .badge-phone { 
+        background: #dbeafe; 
+        color: #1e40af; 
+    }
+    
+    .badge-email { 
+        background: #d1fae5; 
+        color: #065f46; 
+    }
+    
+    .badge-address { 
+        background: #fed7aa; 
+        color: #9a3412; 
+    }
+    
+    .badge-social { 
+        background: #f3e8ff; 
+        color: #7c3aed; 
+    }
+    
+    .badge-emergency { 
+        background: #fee2e2; 
+        color: #991b1b; 
+    }
+    
+    .badge-other { 
+        background: #f1f5f9; 
+        color: #475569; 
+    }
+    
+    /* ============================================================================
+       ICON DISPLAY
+       ============================================================================ */
+    .icon-display {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #64748b;
+        font-size: 13px;
+    }
+    
+    .icon-display i {
+        font-size: 16px;
+        color: #0f3b6f;
+        width: 20px;
+        text-align: center;
+    }
+    
+    /* ============================================================================
+       ACTION BUTTONS
+       ============================================================================ */
+    .action-buttons {
+        display: flex;
+        gap: 6px;
+    }
+    
     .btn-sm {
-        padding: 5px 12px;
+        padding: 6px 12px;
         font-size: 12px;
-        margin: 0 3px;
         border: none;
-        border-radius: 5px;
+        border-radius: 6px;
         cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
     }
-    .btn-primary {
-        background: #0f3b6f;
-        color: white;
+    
+    .btn-sm:hover {
+        transform: translateY(-1px);
     }
-    .btn-danger {
+    
+    .btn-edit { 
+        background: #0f3b6f; 
+        color: white; 
+    }
+    
+    .btn-edit:hover {
+        background: #1a4a7a;
+        box-shadow: 0 2px 8px rgba(15, 59, 111, 0.2);
+    }
+    
+    .btn-delete { 
+        background: #ef4444; 
+        color: white; 
+    }
+    
+    .btn-delete:hover {
         background: #dc2626;
-        color: white;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
     }
-    .btn-danger:hover {
-        background: #b91c1c;
+    
+    /* ============================================================================
+       EMPTY STATE
+       ============================================================================ */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #64748b;
     }
+    
+    .empty-state i {
+        font-size: 48px;
+        color: #cbd5e1;
+        margin-bottom: 15px;
+    }
+    
+    .empty-state p {
+        font-size: 16px;
+        margin: 0;
+        color: #475569;
+    }
+    
+    /* ============================================================================
+       MODAL STYLES
+       ============================================================================ */
     .modal {
         position: fixed;
         z-index: 1000;
@@ -138,142 +292,605 @@
         height: 100%;
         background-color: rgba(0,0,0,0.5);
         display: none;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        box-sizing: border-box;
     }
+    
     .modal-content {
         background-color: white;
-        margin: 5% auto;
-        padding: 20px;
-        width: 90%;
+        width: 100%;
         max-width: 500px;
         border-radius: 12px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
     }
+    
     .modal-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 20px;
+        padding: 20px;
+        border-bottom: 1px solid #e2e8f0;
     }
-    .close {
-        font-size: 28px;
+    
+    .modal-header h3 {
+        margin: 0;
+        color: #0f3b6f;
+        font-size: 18px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .close-modal {
+        font-size: 24px;
         cursor: pointer;
+        color: #94a3b8;
+        transition: color 0.2s;
+        background: none;
+        border: none;
+        padding: 0;
+        line-height: 1;
     }
+    
+    .close-modal:hover {
+        color: #475569;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
     .form-group {
-        margin-bottom: 15px;
+        margin-bottom: 18px;
     }
+    
+    .form-group:last-child {
+        margin-bottom: 0;
+    }
+    
     .form-group label {
         display: block;
-        margin-bottom: 5px;
+        margin-bottom: 6px;
         font-weight: 600;
+        color: #334155;
+        font-size: 13px;
     }
-    .form-group input, .form-group select {
+    
+    .form-group input,
+    .form-group select {
         width: 100%;
-        padding: 8px 12px;
-        border: 1px solid #cbd5e1;
+        padding: 10px 12px;
+        border: 1px solid #e2e8f0;
         border-radius: 8px;
+        font-size: 14px;
+        transition: all 0.3s;
+        background: white;
+        box-sizing: border-box;
     }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: #0f3b6f;
+        box-shadow: 0 0 0 3px rgba(15, 59, 111, 0.1);
+    }
+    
+    .form-group small {
+        display: block;
+        margin-top: 4px;
+        color: #94a3b8;
+        font-size: 12px;
+    }
+    
     .form-actions {
         display: flex;
         gap: 10px;
         justify-content: flex-end;
-        margin-top: 20px;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid #e2e8f0;
     }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    th {
-        background-color: #f8fafc;
+    
+    .btn-primary {
+        background: #0f3b6f;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
         font-weight: 600;
-        color: #0f3b6f;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
+    
+    .btn-primary:hover {
+        background: #1a4a7a;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(15, 59, 111, 0.2);
+    }
+    
+    .btn-secondary {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-secondary:hover {
+        background: #e2e8f0;
+    }
+    
+    /* ============================================================================
+       NOTIFICATIONS
+       ============================================================================ */
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 18px;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        z-index: 1100;
+        animation: slideIn 0.3s ease;
+        max-width: 400px;
+        font-size: 14px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .notification.success {
+        border-left: 4px solid #10b981;
+    }
+    
+    .notification.error {
+        border-left: 4px solid #ef4444;
+    }
+    
+    .notification i {
+        font-size: 18px;
+    }
+    
+    .notification.success i {
+        color: #10b981;
+    }
+    
+    .notification.error i {
+        color: #ef4444;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    /* ============================================================================
+       RESPONSIVE DESIGN
+       ============================================================================ */
+    @media (max-width: 1024px) {
+        .contacts-table th:nth-child(4),
+        .contacts-table td:nth-child(4) {
+            width: 120px;
+        }
+    }
+    
     @media (max-width: 768px) {
-        th, td {
-            padding: 8px;
+        .contacts-container {
+            padding: 15px;
+        }
+        
+        .contacts-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .contacts-header h2 {
+            font-size: 20px;
+        }
+        
+        .btn-add {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .contacts-table th,
+        .contacts-table td {
+            padding: 10px 12px;
             font-size: 12px;
         }
+        
+        .contacts-table th:nth-child(4),
+        .contacts-table td:nth-child(4) {
+            display: none;
+        }
+        
+        .contacts-table th:nth-child(5),
+        .contacts-table td:nth-child(5) {
+            width: 60px;
+        }
+        
+        .contacts-table th:nth-child(6),
+        .contacts-table td:nth-child(6) {
+            width: 130px;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+            gap: 4px;
+        }
+        
         .btn-sm {
-            padding: 4px 8px;
-            font-size: 11px;
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            margin: 0;
+            max-height: 100vh;
+            border-radius: 0;
+        }
+        
+        .notification {
+            left: 20px;
+            right: 20px;
+            max-width: none;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .contacts-table th:nth-child(1),
+        .contacts-table td:nth-child(1) {
+            width: 80px;
+        }
+        
+        .badge {
+            padding: 3px 8px;
+            font-size: 10px;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+        }
+        
+        .btn-primary,
+        .btn-secondary {
+            width: 100%;
+            justify-content: center;
         }
     }
 </style>
+{% endblock %}
+
+{% block content %}
+<div class="contacts-container">
+    <!-- Header Section -->
+    <div class="contacts-header">
+        <h2>
+            <i class="fas fa-address-book"></i>
+            Manage Contact Details
+        </h2>
+        <button class="btn-add" onclick="showAddDetailModal()">
+            <i class="fas fa-plus"></i> Add New Contact
+        </button>
+    </div>
+    
+    <!-- Table Section -->
+    <div class="table-container">
+        <div class="table-wrapper">
+            <table class="contacts-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Label</th>
+                        <th>Value</th>
+                        <th>Icon</th>
+                        <th>Order</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="contactTableBody">
+                    {% if contacts %}
+                        {% for contact in contacts %}
+                        <tr id="contact-row-{{ contact.id }}">
+                            <td>
+                                <span class="badge badge-{{ contact.contact_type }}">
+                                    {% if contact.contact_type == 'phone' %}
+                                        <i class="fas fa-phone-alt"></i>
+                                    {% elif contact.contact_type == 'email' %}
+                                        <i class="fas fa-envelope"></i>
+                                    {% elif contact.contact_type == 'address' %}
+                                        <i class="fas fa-map-marker-alt"></i>
+                                    {% elif contact.contact_type == 'social' %}
+                                        <i class="fas fa-share-alt"></i>
+                                    {% elif contact.contact_type == 'emergency' %}
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                    {% else %}
+                                        <i class="fas fa-circle"></i>
+                                    {% endif %}
+                                    {{ contact.contact_type | capitalize }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong>{{ contact.label }}</strong>
+                            </td>
+                            <td>{{ contact.value }}</td>
+                            <td>
+                                {% if contact.icon %}
+                                <span class="icon-display">
+                                    <i class="fas fa-{{ contact.icon }}"></i>
+                                    {{ contact.icon }}
+                                </span>
+                                {% else %}
+                                <span class="icon-display" style="color: #94a3b8;">
+                                    <i class="fas fa-minus"></i>
+                                    No icon
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: center;">
+                                <span style="font-weight: 600; color: #0f3b6f;">{{ contact.order_position }}</span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-sm btn-edit" onclick="editContact({{ contact.id }})">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                    <button class="btn-sm btn-delete" onclick="deleteContact({{ contact.id }})">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <i class="fas fa-address-book"></i>
+                                    <p>No contact details found</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Contact Modal -->
+<div id="contactModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">
+                <i class="fas fa-plus-circle"></i>
+                Add Contact Detail
+            </h3>
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="contactForm" novalidate>
+                <input type="hidden" id="contactId" name="contact_id">
+                
+                <div class="form-group">
+                    <label for="contactType">Type *</label>
+                    <select id="contactType" required>
+                        <option value="">-- Select Type --</option>
+                        <option value="phone">Phone</option>
+                        <option value="email">Email</option>
+                        <option value="address">Address</option>
+                        <option value="social">Social Media</option>
+                        <option value="emergency">Emergency</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contactLabel">Label *</label>
+                    <input type="text" id="contactLabel" required placeholder="e.g., Customer Support">
+                </div>
+                
+                <div class="form-group">
+                    <label for="contactValue">Value *</label>
+                    <input type="text" id="contactValue" required placeholder="e.g., +1 234 567 890 or info@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="contactIcon">Icon (Font Awesome)</label>
+                    <input type="text" id="contactIcon" placeholder="e.g., phone-alt, envelope, map-marker-alt">
+                    <small>Enter the icon name without the 'fa-' prefix</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contactOrder">Display Order</label>
+                    <input type="number" id="contactOrder" value="0" min="0">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-save"></i> Save Contact
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script>
 let allContacts = [];
 
+// Show notification
+function showNotification(message, type = 'success') {
+    const existingNotif = document.querySelector('.notification');
+    if (existingNotif) {
+        existingNotif.remove();
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+        <span>${message}</span>
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Load contacts
 function loadContacts() {
     fetch('{{ url_for('admin_bp.api_get_contact_details') }}')
         .then(response => response.json())
         .then(contacts => {
             allContacts = contacts;
         })
-        .catch(error => console.error('Error loading contacts:', error));
+        .catch(error => {
+            console.error('Error loading contacts:', error);
+            showNotification('Error loading contacts', 'error');
+        });
 }
 
+// Show add modal
+function showAddDetailModal() {
+    document.getElementById('modalTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Add Contact Detail';
+    document.getElementById('contactForm').reset();
+    document.getElementById('contactId').value = '';
+    document.getElementById('contactType').value = '';
+    document.getElementById('contactModal').style.display = 'flex';
+}
+
+// Edit contact
 function editContact(contactId) {
     const contact = allContacts.find(c => c.id === contactId);
     if (contact) {
-        document.getElementById('modalTitle').textContent = 'Edit Contact Detail';
+        document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Contact Detail';
         document.getElementById('contactId').value = contact.id;
         document.getElementById('contactType').value = contact.contact_type;
         document.getElementById('contactLabel').value = contact.label;
         document.getElementById('contactValue').value = contact.value;
         document.getElementById('contactIcon').value = contact.icon || '';
-        document.getElementById('contactOrder').value = contact.order_position;
-        document.getElementById('contactModal').style.display = 'block';
+        document.getElementById('contactOrder').value = contact.order_position || 0;
+        document.getElementById('contactModal').style.display = 'flex';
+    } else {
+        showNotification('Contact not found', 'error');
     }
 }
 
+// Delete contact
 function deleteContact(contactId) {
     openConfirmModal({
-        icon: 'danger',
+        icon: 'warning',
         title: 'Delete Contact Detail',
         message: 'Are you sure you want to delete this contact detail? This action cannot be undone.',
         confirmText: 'Yes, Delete',
         confirmClass: 'confirm-btn-danger',
         onConfirm: function() {
+            const button = document.querySelector(`#contact-row-${contactId} .btn-delete`);
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+            
             fetch(`{{ url_for('admin_bp.api_delete_contact_detail', detail_id=0) }}`.replace('0', contactId), {
                 method: 'DELETE'
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Contact deleted successfully');
-                    location.reload();
+                    showNotification('Contact deleted successfully', 'success');
+                    setTimeout(() => location.reload(), 1000);
                 } else {
-                    alert('Error deleting contact: ' + (data.message || 'Unknown error'));
+                    showNotification(data.message || 'Error deleting contact', 'error');
+                    if (button) {
+                        button.disabled = false;
+                        button.innerHTML = '<i class="fas fa-trash"></i> Delete';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error deleting contact', 'error');
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = '<i class="fas fa-trash"></i> Delete';
                 }
             });
         }
     });
 }
 
-function showAddDetailModal() {
-    document.getElementById('modalTitle').textContent = 'Add Contact Detail';
-    document.getElementById('contactForm').reset();
-    document.getElementById('contactId').value = '';
-    document.getElementById('contactModal').style.display = 'block';
-}
-
+// Form submission
 document.getElementById('contactForm').addEventListener('submit', function(e) {
     e.preventDefault();
+    
     const contactId = document.getElementById('contactId').value;
-    const data = {
-        contact_type: document.getElementById('contactType').value,
-        label: document.getElementById('contactLabel').value,
-        value: document.getElementById('contactValue').value,
-        icon: document.getElementById('contactIcon').value,
-        order_position: parseInt(document.getElementById('contactOrder').value) || 0
-    };
+    const contactType = document.getElementById('contactType').value;
+    const label = document.getElementById('contactLabel').value.trim();
+    const value = document.getElementById('contactValue').value.trim();
+    const icon = document.getElementById('contactIcon').value.trim();
+    const orderPosition = parseInt(document.getElementById('contactOrder').value) || 0;
     
     // Validate required fields
-    if (!data.contact_type || !data.label || !data.value) {
-        alert('Please fill in all required fields');
+    if (!contactType) {
+        showNotification('Please select a contact type', 'error');
+        return;
+    }
+    if (!label) {
+        showNotification('Please enter a label', 'error');
+        return;
+    }
+    if (!value) {
+        showNotification('Please enter a value', 'error');
         return;
     }
     
-    const url = contactId ? `{{ url_for('admin_bp.api_update_contact_detail', detail_id=0) }}`.replace('0', contactId) : '{{ url_for('admin_bp.api_create_contact_detail') }}';
+    const data = {
+        contact_type: contactType,
+        label: label,
+        value: value,
+        icon: icon,
+        order_position: orderPosition
+    };
+    
+    const url = contactId ? 
+        `{{ url_for('admin_bp.api_update_contact_detail', detail_id=0) }}`.replace('0', contactId) : 
+        '{{ url_for('admin_bp.api_create_contact_detail') }}';
     const method = contactId ? 'PUT' : 'POST';
+    
+    const submitBtn = document.querySelector('#contactForm button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     
     fetch(url, {
         method: method,
@@ -283,17 +900,34 @@ document.getElementById('contactForm').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(contactId ? 'Contact updated successfully' : 'Contact created successfully');
+            showNotification(contactId ? 'Contact updated successfully' : 'Contact created successfully', 'success');
             closeModal();
-            location.reload();
+            setTimeout(() => location.reload(), 1000);
         } else {
-            alert('Error: ' + (data.message || 'Unknown error'));
+            showNotification(data.message || 'Error saving contact', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error saving contact', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     });
 });
 
+// Close modal
 function closeModal() {
     document.getElementById('contactModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('contactModal');
+    if (event.target === modal) {
+        closeModal();
+    }
 }
 
 // Load contacts on page load

@@ -112,11 +112,8 @@ def testimonials():
     try:
         is_admin = session.get('loggedin') and session.get('role') == 'admin'
         
-        # Get total count - all for admin, approved only for users
-        if is_admin:
-            cursor.execute("SELECT COUNT(*) as total FROM testimonials")
-        else:
-            cursor.execute("SELECT COUNT(*) as total FROM testimonials WHERE status = 'approved'")
+        # Get total count
+        cursor.execute("SELECT COUNT(*) as total FROM testimonials")
         total_result = cursor.fetchone()
         total_testimonials = total_result['total'] if total_result else 0
         
@@ -124,30 +121,17 @@ def testimonials():
         total_pages = (total_testimonials + per_page - 1) // per_page
         offset = (page - 1) * per_page
         
-        # Get paginated testimonials - all for admin, approved only for users
-        if is_admin:
-            cursor.execute("""
-                SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name,
-                       v.brand_id, vb.name as brand_name, v.model
-                FROM testimonials t
-                JOIN users u ON t.user_id = u.id
-                LEFT JOIN vehicles v ON t.vehicle_id = v.id
-                LEFT JOIN vehicle_brands vb ON v.brand_id = vb.id
-                ORDER BY t.created_at DESC
-                LIMIT %s OFFSET %s
-            """, (per_page, offset))
-        else:
-            cursor.execute("""
-                SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name,
-                       v.brand_id, vb.name as brand_name, v.model
-                FROM testimonials t
-                JOIN users u ON t.user_id = u.id
-                LEFT JOIN vehicles v ON t.vehicle_id = v.id
-                LEFT JOIN vehicle_brands vb ON v.brand_id = vb.id
-                WHERE t.status = 'approved'
-                ORDER BY t.created_at DESC
-                LIMIT %s OFFSET %s
-            """, (per_page, offset))
+        # Get paginated testimonials
+        cursor.execute("""
+            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as name,
+                   v.brand_id, vb.name as brand_name, v.model
+            FROM testimonials t
+            JOIN users u ON t.user_id = u.id
+            LEFT JOIN vehicles v ON t.vehicle_id = v.id
+            LEFT JOIN vehicle_brands vb ON v.brand_id = vb.id
+            ORDER BY t.created_at DESC
+            LIMIT %s OFFSET %s
+        """, (per_page, offset))
         testimonials = cursor.fetchall()
         
         # Get user's testimonial count (if logged in and not admin)
@@ -273,6 +257,39 @@ def filter_vehicles():
         conn.close()
 
 # ============================================================================
+# GET VEHICLE REVIEWS
+# ============================================================================
+@base_bp.route('/api/vehicle/<int:vehicle_id>/reviews')
+def api_vehicle_reviews(vehicle_id):
+    """API endpoint to get testimonials for a specific vehicle"""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database error'}), 500
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) as user_name
+            FROM testimonials t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.vehicle_id = %s
+            ORDER BY t.created_at DESC
+            LIMIT 2
+        """, (vehicle_id,))
+        reviews = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'reviews': reviews
+        })
+    except Exception as e:
+        print(f"Reviews error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+# ============================================================================
 # VEHICLE DETAILS ROUTE
 # ============================================================================
 @base_bp.route('/api/vehicle/<int:vehicle_id>')
@@ -315,11 +332,23 @@ def api_vehicle_detail(vehicle_id):
         """, (vehicle_id, vehicle['brand_id'], vehicle['fuel_type']))
         similar_vehicles = cursor.fetchall()
 
+        # Get average rating from testimonials
+        cursor.execute("""
+            SELECT AVG(rating) as avg_rating, COUNT(*) as review_count
+            FROM testimonials
+            WHERE vehicle_id = %s
+        """, (vehicle_id,))
+        rating_data = cursor.fetchone()
+        avg_rating = round(rating_data['avg_rating'], 1) if rating_data and rating_data['avg_rating'] else 0
+        review_count = rating_data['review_count'] if rating_data and rating_data['review_count'] else 0
+
         return jsonify({
             'success': True,
             'vehicle': vehicle,
             'images': images,
-            'similar_vehicles': similar_vehicles
+            'similar_vehicles': similar_vehicles,
+            'avg_rating': avg_rating,
+            'review_count': review_count
         })
 
     except Exception as e:

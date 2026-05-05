@@ -4,185 +4,520 @@
     <meta charset="UTF-8">
     <title>Invoice {{ invoice.invoice_number }}</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+        
+        * {
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            line-height: 1.5;
+            color: #1f3a5f;
+            font-size: 13px;
+            background: #f8fafc;
             padding: 20px;
         }
+        
         .invoice-container {
-            max-width: 800px;
+            max-width: 200mm;
             margin: 0 auto;
             background: white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
         }
+        
+        /* Header */
         .header {
             background: #0f3b6f;
             color: white;
-            padding: 20px;
-            text-align: center;
-        }
-        .content {
-            padding: 30px;
-        }
-        .invoice-info {
+            padding: 24px 32px;
             display: flex;
             justify-content: space-between;
-            margin-bottom: 30px;
+            align-items: flex-start;
+        }
+        
+        .header-brand h1 {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+        
+        .header-brand .invoice-type {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+        
+        .header-info {
+            text-align: right;
+            font-size: 12px;
+            opacity: 0.85;
+            line-height: 1.8;
+        }
+        
+        /* Content */
+        .content {
+            padding: 28px 32px 24px;
+        }
+        
+        /* Info Grid */
+        .info-grid {
+            display: flex;
+            gap: 32px;
+            margin-bottom: 24px;
             padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
+            border-bottom: 2px solid #e2e8f0;
         }
-        .customer-info, .company-info {
-            width: 48%;
+        
+        .info-box {
+            flex: 1;
+            min-width: 0;
         }
+        
+        .info-box h4 {
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .info-box p {
+            font-size: 13px;
+            line-height: 1.8;
+            color: #374151;
+            word-wrap: break-word;
+        }
+        
+        .info-box p strong {
+            color: #1f3a5f;
+            font-size: 14px;
+        }
+        
+        .info-box .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 13px;
+        }
+        
+        .info-box .detail-row .label {
+            color: #64748b;
+            font-weight: 500;
+        }
+        
+        .info-box .detail-row .value {
+            font-weight: 600;
+            color: #1f3a5f;
+            text-align: right;
+        }
+        
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-paid { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fed7aa; color: #9a3412; }
+        .status-overdue { background: #fee2e2; color: #991b1b; }
+        .status-cancelled { background: #f1f5f9; color: #64748b; }
+        
+        /* Section */
+        .section {
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        /* Tables */
         .details-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 20px 0;
+            margin-bottom: 16px;
         }
-        .details-table th, .details-table td {
-            padding: 12px;
+        
+        .details-table th,
+        .details-table td {
+            padding: 10px 14px;
             text-align: left;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 13px;
         }
+        
         .details-table th {
             background: #f8fafc;
-            font-weight: bold;
+            font-weight: 600;
+            color: #64748b;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: 35%;
+            white-space: nowrap;
         }
-        .totals {
-            margin-top: 20px;
+        
+        .details-table td {
+            color: #374151;
+        }
+        
+        .details-table tr:last-child th,
+        .details-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        /* Payment Table */
+        .payment-table th {
+            width: 65%;
+        }
+        
+        .payment-table td:last-child {
             text-align: right;
+            font-weight: 600;
+            font-family: 'SF Mono', 'Courier New', monospace;
         }
-        .totals div {
-            padding: 5px 0;
+        
+        /* Totals Box */
+        .totals-box {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-top: 8px;
         }
-        .grand-total {
-            font-size: 18px;
-            font-weight: bold;
-            color: #0f3b6f;
+        
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 7px 0;
+            font-size: 13px;
+            color: #64748b;
+        }
+        
+        .totals-row .amount {
+            font-weight: 600;
+            color: #1f3a5f;
+            font-family: 'SF Mono', 'Courier New', monospace;
+        }
+        
+        .totals-row.discount {
+            color: #10b981;
+        }
+        
+        .totals-row.discount .amount {
+            color: #10b981;
+        }
+        
+        .totals-divider {
             border-top: 2px solid #0f3b6f;
-            margin-top: 10px;
-            padding-top: 10px;
+            margin: 12px 0;
+            padding-top: 12px;
         }
+        
+        .totals-row.grand-total {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f3b6f;
+        }
+        
+        .totals-row.grand-total .amount {
+            font-size: 20px;
+            font-weight: 800;
+            color: #059669;
+        }
+        
+        .totals-row.balance-due {
+            color: #dc2626;
+            font-weight: 600;
+        }
+        
+        .totals-row.balance-due .amount {
+            color: #dc2626;
+        }
+        
+        /* Payment Instructions */
+        .instructions {
+            margin-top: 16px;
+            padding: 14px 18px;
+            background: #f0fdf4;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #065f46;
+            border-left: 3px solid #10b981;
+            line-height: 1.6;
+        }
+        
+        .instructions strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+        
+        /* Footer */
         .footer {
             text-align: center;
-            padding: 20px;
-            font-size: 12px;
-            color: #666;
-            border-top: 1px solid #eee;
-            margin-top: 30px;
+            padding: 16px 32px;
+            font-size: 11px;
+            color: #94a3b8;
+            border-top: 1px solid #e2e8f0;
+            background: #fafbfc;
         }
+        
+        .footer p {
+            margin: 3px 0;
+        }
+        
+        .footer .company-name {
+            font-weight: 700;
+            color: #64748b;
+            font-size: 12px;
+        }
+        
+        /* Print Styles */
         @media print {
             body {
+                background: white;
                 padding: 0;
             }
+            
             .invoice-container {
                 box-shadow: none;
+                border-radius: 0;
+                max-width: 100%;
             }
+            
+            .header {
+                background: #0f3b6f !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .details-table th {
+                background: #f8fafc !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .totals-box {
+                background: #f8fafc !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .status-badge {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .status-paid { background: #d1fae5 !important; color: #065f46 !important; }
+            .status-pending { background: #fed7aa !important; color: #9a3412 !important; }
+            .status-overdue { background: #fee2e2 !important; color: #991b1b !important; }
         }
     </style>
 </head>
 <body>
     <div class="invoice-container">
+        <!-- Header -->
         <div class="header">
-            <h2>CarRental Pro</h2>
-            <p>TAX INVOICE</p>
+            <div class="header-brand">
+                <h1>CarRental Pro</h1>
+                <div class="invoice-type">Tax Invoice</div>
+            </div>
+            <div class="header-info">
+                <p>123 Rental Street, Downtown</p>
+                <p>City, 12345</p>
+                <p>support@carrentalpro.com</p>
+                <p>(555) 123-4567</p>
+            </div>
         </div>
+        
+        <!-- Content -->
         <div class="content">
-            <div class="invoice-info">
-                <div class="customer-info">
-                    <h4>Bill To:</h4>
+            <!-- Bill To & Invoice Details -->
+            <div class="info-grid">
+                <div class="info-box">
+                    <h4>Bill To</h4>
                     <p>
                         <strong>{{ user.first_name }} {{ user.last_name }}</strong><br>
-                        {{ user.address or 'N/A' }}<br>
-                        {{ user.city or '' }} {{ user.state or '' }} {{ user.postal_code or '' }}<br>
-                        {{ user.country or 'USA' }}<br>
-                        Email: {{ user.email }}<br>
-                        Phone: {{ user.phone or 'N/A' }}
+                        {% if user.address and user.address != 'N/A' %}
+                            {{ user.address }}<br>
+                        {% endif %}
+                        {% if user.city or user.state %}
+                            {{ user.city }}{% if user.city and user.state %}, {% endif %}{{ user.state }}{% if user.postal_code %} {{ user.postal_code }}{% endif %}<br>
+                        {% endif %}
+                        {% if user.country and user.country != 'USA' %}
+                            {{ user.country }}<br>
+                        {% endif %}
+                        <span style="color: #64748b;">Email:</span> {{ user.email }}<br>
+                        <span style="color: #64748b;">Phone:</span> {{ user.phone or 'N/A' }}
                     </p>
                 </div>
-                <div class="company-info">
-                    <h4>Invoice Details:</h4>
-                    <p>
-                        <strong>Invoice #:</strong> {{ invoice.invoice_number }}<br>
-                        <strong>Date:</strong> {{ invoice.invoice_date.strftime('%B %d, %Y') }}<br>
-                        <strong>Due Date:</strong> {{ invoice.due_date.strftime('%B %d, %Y') }}<br>
-                        <strong>Status:</strong> {{ invoice.status.upper() }}
-                    </p>
+                <div class="info-box">
+                    <h4>Invoice Details</h4>
+                    <div class="detail-row">
+                        <span class="label">Invoice #</span>
+                        <span class="value">{{ invoice.invoice_number }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Date</span>
+                        <span class="value">{{ invoice.invoice_date.strftime('%B %d, %Y') }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Due Date</span>
+                        <span class="value">{{ invoice.due_date.strftime('%B %d, %Y') }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Status</span>
+                        <span class="value">
+                            <span class="status-badge status-{{ invoice.status.lower() }}">{{ invoice.status.upper() }}</span>
+                        </span>
+                    </div>
                 </div>
             </div>
             
-            <h4>Booking Details:</h4>
-            <table class="details-table">
-                <tr>
-                    <th>Booking Reference</th>
-                    <td>{{ booking.booking_reference }}</td>
-                </tr>
-                <tr>
-                    <th>Vehicle</th>
-                    <td>{{ vehicle.brand_name }} {{ vehicle.model }}</td>
-                </tr>
-                <tr>
-                    <th>Rental Period</th>
-                    <td>{{ booking.start_date.strftime('%B %d, %Y') }} - {{ booking.end_date.strftime('%B %d, %Y') }}</td>
-                </tr>
-                <tr>
-                    <th>Rental Days</th>
-                    <td>{{ booking.rental_days }} days</td>
-                </tr>
-                <tr>
-                    <th>Pickup Location</th>
-                    <td>{{ booking.pickup_location }}</td>
-                </tr>
-                <tr>
-                    <th>Return Location</th>
-                    <td>{{ booking.return_location }}</td>
-                </tr>
-            </table>
-            
-            <h4>Payment Details:</h4>
-            <table class="details-table">
-                <tr>
-                    <th>Description</th>
-                    <th>Amount</th>
-                </tr>
-                <tr>
-                    <td>Daily Rate (₱{{ "%.2f"|format(booking.daily_rate_applied) }} × {{ booking.rental_days }} days)</td>
-                    <td>${{ "%.2f"|format(booking.subtotal) }}</td>
-                </tr>
-                <tr>
-                    <td>Tax (10%)</td>
-                    <td>₱{{ "%.2f"|format(booking.tax_amount) }}</td>
-                </tr>
-                {% if booking.discount_amount > 0 %}
-                <tr>
-                    <td>Discount</td>
-                    <td>₱{{ "%.2f"|format(booking.discount_amount) }}</td>
-                </tr>
-                {% endif %}
-            </table>
-            
-            <div class="totals">
-                <div><strong>Subtotal:</strong> ₱{{ "%.2f"|format(booking.subtotal) }}</div>
-                <div><strong>Tax:</strong> ₱{{ "%.2f"|format(booking.tax_amount) }}</div>
-                {% if booking.discount_amount > 0 %}
-                <div><strong>Discount:</strong> -₱{{ "%.2f"|format(booking.discount_amount) }}</div>
-                {% endif %}
-                <div class="grand-total"><strong>Total:</strong> ₱{{ "%.2f"|format(booking.total_amount) }}</div>
-                <div><strong>Amount Paid:</strong> ₱{{ "%.2f"|format(invoice.amount_paid) }}</div>
-                <div><strong>Balance Due:</strong> ₱{{ "%.2f"|format(invoice.balance_due) }}</div>
+            <!-- Booking Details -->
+            <div class="section">
+                <div class="section-title">Booking Details</div>
+                <table class="details-table">
+                    <tr>
+                        <th>Booking Reference</th>
+                        <td>{{ booking.booking_reference }}</td>
+                    </tr>
+                    <tr>
+                        <th>Vehicle</th>
+                        <td>{{ vehicle.brand_name }} {{ vehicle.model }} ({{ vehicle.year }})</td>
+                    </tr>
+                    <tr>
+                        <th>License Plate</th>
+                        <td>{{ vehicle.license_plate or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Rental Period</th>
+                        <td>{{ booking.start_date.strftime('%B %d, %Y') }} — {{ booking.end_date.strftime('%B %d, %Y') }}</td>
+                    </tr>
+                    <tr>
+                        <th>Rental Days</th>
+                        <td>{{ booking.rental_days }} day(s)</td>
+                    </tr>
+                    <tr>
+                        <th>Pickup Location</th>
+                        <td>{{ booking.pickup_location }}</td>
+                    </tr>
+                    <tr>
+                        <th>Return Location</th>
+                        <td>{{ booking.return_location }}</td>
+                    </tr>
+                    {% if booking.security_deposit %}
+                    <tr>
+                        <th>Security Deposit</th>
+                        <td>₱{{ "%.2f"|format(booking.security_deposit) }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
             </div>
             
-            <div style="margin-top: 30px; padding: 15px; background: #f8fafc; border-radius: 8px;">
-                <strong>Payment Instructions:</strong><br>
+            <!-- Payment Details -->
+            <div class="section">
+                <div class="section-title">Payment Details</div>
+                <table class="details-table payment-table">
+                    <tr>
+                        <th>Description</th>
+                        <th>Amount</th>
+                    </tr>
+                    <tr>
+                        <td>Daily Rate (₱{{ "%.2f"|format(booking.daily_rate_applied) }} × {{ booking.rental_days }} days)</td>
+                        <td>₱{{ "%.2f"|format(booking.subtotal) }}</td>
+                    </tr>
+                    <tr>
+                        <td>Tax (10%)</td>
+                        <td>₱{{ "%.2f"|format(booking.tax_amount) }}</td>
+                    </tr>
+                    {% if booking.discount_amount > 0 %}
+                    <tr>
+                        <td>Discount</td>
+                        <td style="color: #10b981;">-₱{{ "%.2f"|format(booking.discount_amount) }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+                
+                <!-- Totals -->
+                <div class="totals-box">
+                    <div class="totals-row">
+                        <span>Subtotal</span>
+                        <span class="amount">₱{{ "%.2f"|format(booking.subtotal) }}</span>
+                    </div>
+                    <div class="totals-row">
+                        <span>Tax (10%)</span>
+                        <span class="amount">₱{{ "%.2f"|format(booking.tax_amount) }}</span>
+                    </div>
+                    {% if booking.discount_amount > 0 %}
+                    <div class="totals-row discount">
+                        <span>Discount</span>
+                        <span class="amount">-₱{{ "%.2f"|format(booking.discount_amount) }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="totals-divider"></div>
+                    
+                    <div class="totals-row grand-total">
+                        <span>Total Amount</span>
+                        <span class="amount">₱{{ "%.2f"|format(booking.total_amount) }}</span>
+                    </div>
+                    
+                    <div class="totals-row">
+                        <span>Amount Paid</span>
+                        <span class="amount">₱{{ "%.2f"|format(invoice.amount_paid) }}</span>
+                    </div>
+                    
+                    {% if invoice.balance_due > 0 %}
+                    <div class="totals-row balance-due">
+                        <span>Balance Due</span>
+                        <span class="amount">₱{{ "%.2f"|format(invoice.balance_due) }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if invoice.balance_due > 0 %}
+            <div class="instructions">
+                <strong>Payment Instructions</strong>
                 Please pay the balance due by the due date to avoid late fees.<br>
                 For questions about this invoice, contact support@carrentalpro.com
             </div>
+            {% endif %}
         </div>
+        
+        <!-- Footer -->
         <div class="footer">
-            <p>CarRental Pro | 123 Rental Street, Downtown, City, 12345</p>
-            <p>support@carrentalpro.com | (555) 123-4567</p>
+            <p class="company-name">CarRental Pro</p>
+            <p>123 Rental Street, Downtown, City, 12345 | support@carrentalpro.com | (555) 123-4567</p>
             <p>Thank you for choosing CarRental Pro!</p>
         </div>
     </div>

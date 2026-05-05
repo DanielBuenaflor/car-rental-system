@@ -1,0 +1,625 @@
+    /* ============================================
+       DASHBOARD HEADER
+       ============================================ */
+    .dashboard-header {
+        margin: 30px 0 40px;
+    }
+
+    .dashboard-header h2 {
+        font-size: clamp(1.5rem, 4vw, 2rem);
+        margin-bottom: 8px;
+        background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        display: inline-block;
+    }
+
+    .dashboard-header p {
+        font-size: clamp(0.875rem, 2vw, 1rem);
+        color: #64748b;
+        margin-bottom: 24px;
+    }
+
+    /* ============================================
+       VERIFICATION STATUS
+       ============================================ */
+    .verification-status {
+        margin-bottom: 24px;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 20px;
+        min-height: 44px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 500;
+        flex-wrap: wrap;
+        border-left: 4px solid transparent;
+    }
+
+    .status-message {
+        font-size: 13px;
+        margin-left: 10px;
+    }
+
+    .status-badge.verified {
+        background: #d1fae5;
+        color: #065f46;
+        border-left-color: #059669;
+    }
+
+    .status-badge.pending {
+        background: #fed7aa;
+        color: #9b2c1d;
+        border-left-color: #d97706;
+    }
+
+    .status-badge.rejected {
+        background: #fee2e2;
+        color: #991b1b;
+        border-left-color: #dc2626;
+    }
+
+    .status-badge.unverified {
+        background: #e2e8f0;
+        color: #1f3a5f;
+        border-left-color: #0f3b6f;
+    }
+
+    .btn-verify {
+        background: #0f3b6f;
+        color: white;
+        padding: 8px 16px;
+        min-height: 44px;
+        border-radius: 8px;
+        text-decoration: none;
+        margin-left: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.3s;
+        font-size: 13px;
+    }
+
+    .btn-verify:hover {
+        background: #1e4a7a;
+        color: white;
+        text-decoration: none;
+    }
+
+    /* ============================================
+       STATS GRID
+       ============================================ */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .container-full .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px 16px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .stat-icon {
+        font-size: 24px;
+        color: #0f3b6f;
+        margin-bottom: 8px;
+    }
+
+    .stat-number {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .stat-label {
+        font-size: 13px;
+        color: #64748b;
+        margin-top: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* ============================================
+       DASHBOARD GRID
+       ============================================ */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin: 24px 0;
+    }
+
+    .container-full .dashboard-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+    }
+
+    .card {
+        text-align: center;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
+        padding: 24px 20px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: white;
+    }
+
+    .card i {
+        font-size: 36px;
+        color: #0f3b6f;
+        margin-bottom: 12px;
+        display: block;
+    }
+
+    .card h3 {
+        margin-bottom: 8px;
+        color: #1e293b;
+        font-size: 18px;
+    }
+
+    .card p {
+        font-size: 14px;
+        color: #64748b;
+        margin-bottom: 16px;
+        line-height: 1.5;
+    }
+
+    .card .btn-primary {
+        margin-top: 12px;
+        font-size: 14px;
+    }
+
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+
+    /* ============================================
+       UPCOMING BOOKINGS
+       ============================================ */
+    .upcoming-bookings {
+        margin-bottom: 24px;
+        background: linear-gradient(135deg, #eff6ff, #dbeafe);
+        border-left: 4px solid #1e40af;
+        padding: 16px 20px;
+        border-radius: 12px;
+    }
+
+    .upcoming-bookings h4 {
+        margin: 0 0 12px 0;
+        color: #1e40af;
+        font-size: 15px;
+    }
+
+    .upcoming-booking-item {
+        padding: 12px 16px;
+        background: white;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #e0e7ff;
+        transition: all 0.2s ease;
+    }
+
+    .upcoming-booking-item:hover {
+        border-color: #bfdbfe;
+        background: #fafcff;
+    }
+
+    .upcoming-booking-item strong {
+        display: block;
+        margin-bottom: 6px;
+        color: #0f3b6f;
+        font-size: 14px;
+    }
+
+    .upcoming-booking-item small {
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    /* ============================================
+       ACTIVE RENTALS
+       ============================================ */
+    .active-rentals-card {
+        margin-bottom: 20px;
+    }
+
+    .active-rentals-card h3 {
+        font-size: 16px;
+        margin-bottom: 12px;
+        color: #1e293b;
+    }
+
+    .rental-card {
+        border-radius: 8px;
+        margin-bottom: 8px;
+        border-left: 3px solid #059669;
+        background: #fafbfc;
+        padding: 12px 16px;
+        transition: background 0.2s ease;
+    }
+
+    .rental-card:hover {
+        background: #f1f5f9;
+    }
+
+    .rental-card-overdue {
+        border-left-color: #dc2626;
+    }
+
+    .rental-card-warning {
+        border-left-color: #d97706;
+    }
+
+    .rental-card-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .rental-card-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .rental-card-info h4 {
+        margin: 0;
+        color: #1e293b;
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .rental-details {
+        color: #94a3b8;
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .rental-card-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+    }
+
+    .rental-countdown {
+        font-size: 13px;
+        font-weight: 600;
+        color: #059669;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .rental-buttons {
+        display: flex;
+        gap: 6px;
+    }
+
+    .rental-buttons .btn-secondary,
+    .rental-buttons .btn-primary {
+        padding: 4px 12px;
+        font-size: 11px;
+        min-height: 28px;
+        border-radius: 6px;
+        white-space: nowrap;
+    }
+
+    /* ============================================
+       BOOKINGS TABLE
+       ============================================ */
+    .recent-bookings-card {
+        margin-top: 24px;
+    }
+
+    .bookings-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .bookings-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 600px;
+    }
+
+    .bookings-table thead {
+        background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    }
+
+    .bookings-table th {
+        padding: 14px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #0f3b6f;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .bookings-table td {
+        padding: 12px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+        color: #475569;
+    }
+
+    .bookings-table tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    .bookings-table tbody tr:nth-child(even) {
+        background: #fafbfc;
+    }
+
+    .booking-location {
+        font-size: 12px;
+    }
+
+    .booking-location.pickup {
+        color: #059669;
+        margin-bottom: 2px;
+    }
+
+    .booking-location.return {
+        color: #dc2626;
+    }
+
+    .booking-actions {
+        white-space: nowrap;
+    }
+
+    .btn-small {
+        padding: 6px 12px;
+        font-size: 11px;
+        min-height: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border-radius: 6px;
+    }
+
+    /* ============================================
+       NOTIFICATIONS
+       ============================================ */
+    .notifications-card {
+        margin-top: 24px;
+    }
+
+    .notification-item {
+        padding: 14px 16px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        transition: background 0.2s;
+        border: 1px solid transparent;
+    }
+
+    .notification-item:hover {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+    }
+
+    .notification-item.unread {
+        background: #eff6ff;
+        border-left: 3px solid #0f3b6f;
+    }
+
+    .notification-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 16px;
+    }
+
+    .notification-content {
+        flex: 1;
+    }
+
+    .notification-content p {
+        margin: 0 0 6px 0;
+        font-size: 14px;
+        color: #334155;
+    }
+
+    .notification-time {
+        font-size: 12px;
+        color: #94a3b8;
+    }
+
+    .notification-actions {
+        margin-top: 10px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .notification-empty {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #64748b;
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 18px;
+    }
+
+    .view-all-link {
+        text-align: center;
+        margin-top: 15px;
+    }
+
+    /* ============================================
+       BADGES
+       ============================================ */
+    .badge-pending { background: #fed7aa; color: #9b2c1d; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+    .badge-confirmed { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+    .badge-active { background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+    .badge-completed { background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+    .badge-cancelled { background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+
+    /* ============================================
+       RESPONSIVE DESIGN
+       ============================================ */
+    @media (max-width: 768px) {
+        .dashboard-header {
+            margin: 20px 0;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .stat-card {
+            padding: 16px 12px;
+        }
+
+        .stat-icon {
+            font-size: 20px;
+            margin-bottom: 6px;
+        }
+
+        .stat-number {
+            font-size: 20px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+        }
+
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .card {
+            padding: 20px 16px;
+        }
+
+        .card i {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .rental-card-content {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .rental-card-info {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+
+        .rental-card-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .rental-buttons {
+            width: auto;
+        }
+
+        .notifications-card .notification-item {
+            flex-direction: column;
+        }
+
+        .notification-actions {
+            flex-direction: column;
+        }
+
+        .notification-actions .btn-secondary {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .stat-card {
+            display: flex;
+            align-items: center;
+            text-align: left;
+            gap: 12px;
+            padding: 14px 12px;
+        }
+
+        .stat-icon {
+            margin-bottom: 0;
+            font-size: 24px;
+        }
+
+        .status-badge {
+            flex-direction: column;
+            text-align: center;
+            padding: 12px 16px;
+        }
+
+        .btn-verify {
+            margin-left: 0;
+            margin-top: 8px;
+        }
+
+        .dashboard-header h2 {
+            font-size: 1.25rem;
+        }
+    }
+
+    @media (min-width: 1200px) {
+        .container-full .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 28px;
+        }
+
+        .container-full .dashboard-grid {
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 40px;
+        }
+
+        .stat-card {
+            padding: 24px;
+        }
+    }

@@ -2,154 +2,536 @@
 
 {% block title %}Manage Extensions - CarRental Pro{% endblock %}
 
-{% block content %}
-<div style="margin: 40px 0;">
-    <h2 style="margin-bottom: 20px;">Extension Requests</h2>
-    
-    <div id="extensionsList">
-        {% for extension in extensions %}
-        <div class="extension-card">
-            <div class="extension-header">
-                <div>
-                    <span class="user-info">{{ extension.user_name }}</span><br>
-                    <small>Booking: {{ extension.booking_reference }}</small><br>
-                    <small>Vehicle: {{ extension.brand_name }} {{ extension.model }}</small>
-                </div>
-                <span class="badge badge-{{ extension.status }}">{{ extension.status }}</span>
-            </div>
-            <div><strong>Requested:</strong> {{ extension.requested_extension_days }} days</div>
-            <div><strong>New End Date:</strong> {{ extension.requested_new_end_date.strftime('%Y-%m-%d') if extension.requested_new_end_date else 'N/A' }}</div>
-            <div><strong>Reason:</strong> {{ extension.reason or 'No reason provided' }}</div>
-            <div><strong>Additional Fee:</strong> ₱{ "%.2f"|format(extension.additional_fee) }}</div>
-            {% if extension.status == 'pending' %}
-            <div style="margin-top: 15px;">
-                <button class="btn-sm btn-success" onclick="approveExtension({{ extension.id }})">Approve</button>
-                <button class="btn-sm btn-warning" onclick="rejectExtension({{ extension.id }})">Reject</button>
-            </div>
-            {% endif %}
-        </div>
-        {% else %}
-        <div class="card" style="text-align: center; padding: 40px;">No extension requests</div>
-        {% endfor %}
-    </div>
-</div>
-
+{% block extra_css %}
 <style>
+    /* ============================================================================
+       MAIN CONTAINER
+       ============================================================================ */
+    .extensions-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .extensions-container h2 {
+        margin: 0 0 20px 0;
+        color: #0f3b6f;
+        font-size: 24px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .extensions-container h2 i {
+        color: #0f3b6f;
+        font-size: 22px;
+    }
+    
+    /* ============================================================================
+       EXTENSION CARD
+       ============================================================================ */
+    .extensions-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    
     .extension-card {
         background: white;
         border-radius: 12px;
         padding: 20px;
-        margin-bottom: 20px;
         border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         transition: all 0.3s;
     }
+    
     .extension-card:hover {
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
+    
     .extension-header {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
+        align-items: flex-start;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f1f5f9;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 12px;
     }
-    .user-info {
-        font-weight: bold;
+    
+    .user-details {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .user-name {
+        font-weight: 700;
         color: #0f3b6f;
         font-size: 16px;
+        display: block;
+        margin-bottom: 4px;
     }
+    
+    .booking-ref {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 2px;
+    }
+    
+    .vehicle-name {
+        font-size: 13px;
+        color: #64748b;
+    }
+    
+    .extension-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .extension-detail {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .extension-detail.full-width {
+        grid-column: 1 / -1;
+    }
+    
+    .detail-label {
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .detail-value {
+        font-size: 14px;
+        color: #1e293b;
+        font-weight: 500;
+    }
+    
+    .reason-text {
+        background: #f8fafc;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        font-size: 13px;
+        color: #475569;
+        font-style: italic;
+        line-height: 1.5;
+    }
+    
+    .fee-amount {
+        font-family: monospace;
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f3b6f;
+    }
+    
+    .extension-actions {
+        display: flex;
+        gap: 10px;
+        padding-top: 12px;
+        border-top: 1px solid #f1f5f9;
+    }
+    
+    /* ============================================================================
+       STATUS BADGES
+       ============================================================================ */
     .badge {
         padding: 4px 12px;
         border-radius: 20px;
         font-size: 12px;
         font-weight: 600;
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
     }
-    .badge-pending { background: #fed7aa; color: #9b2c1d; }
-    .badge-approved { background: #d1fae5; color: #065f46; }
-    .badge-rejected { background: #fee2e2; color: #991b1b; }
+    
+    .badge-pending { 
+        background: #fed7aa; 
+        color: #9a3412; 
+    }
+    
+    .badge-approved { 
+        background: #d1fae5; 
+        color: #065f46; 
+    }
+    
+    .badge-rejected { 
+        background: #fee2e2; 
+        color: #991b1b; 
+    }
+    
+    /* ============================================================================
+       BUTTONS
+       ============================================================================ */
     .btn-sm {
-        padding: 6px 14px;
-        font-size: 12px;
-        margin: 0 5px;
+        padding: 8px 16px;
+        font-size: 13px;
         border: none;
-        border-radius: 20px;
+        border-radius: 8px;
         cursor: pointer;
         font-weight: 600;
         transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
+    
+    .btn-sm:hover {
+        transform: translateY(-1px);
+    }
+    
     .btn-success { 
         background: #10b981; 
         color: white; 
     }
+    
     .btn-success:hover {
         background: #059669;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
     }
+    
     .btn-warning { 
         background: #f59e0b; 
         color: white; 
     }
+    
     .btn-warning:hover {
         background: #d97706;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
     }
+    
+    /* ============================================================================
+       EMPTY STATE
+       ============================================================================ */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: #f8fafc;
+        border-radius: 12px;
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .empty-state i {
+        font-size: 48px;
+        color: #cbd5e1;
+        margin-bottom: 15px;
+    }
+    
+    .empty-state p {
+        font-size: 16px;
+        margin: 0;
+        color: #475569;
+    }
+    
+    /* ============================================================================
+       NOTIFICATIONS
+       ============================================================================ */
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 18px;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+        max-width: 400px;
+        font-size: 14px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .notification.success {
+        border-left: 4px solid #10b981;
+    }
+    
+    .notification.error {
+        border-left: 4px solid #ef4444;
+    }
+    
+    .notification i {
+        font-size: 18px;
+    }
+    
+    .notification.success i {
+        color: #10b981;
+    }
+    
+    .notification.error i {
+        color: #ef4444;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    /* ============================================================================
+       RESPONSIVE DESIGN
+       ============================================================================ */
     @media (max-width: 768px) {
+        .extensions-container {
+            padding: 15px;
+        }
+        
+        .extensions-container h2 {
+            font-size: 20px;
+        }
+        
+        .extension-body {
+            grid-template-columns: 1fr;
+        }
+        
         .extension-header {
             flex-direction: column;
             align-items: flex-start;
         }
+        
+        .extension-actions {
+            flex-direction: column;
+        }
+        
         .btn-sm {
-            padding: 5px 12px;
-            font-size: 11px;
+            width: 100%;
+            justify-content: center;
+            padding: 10px 16px;
+        }
+        
+        .notification {
+            left: 20px;
+            right: 20px;
+            max-width: none;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .extension-card {
+            padding: 15px;
+        }
+        
+        .user-name {
+            font-size: 14px;
+        }
+        
+        .detail-value {
+            font-size: 13px;
+        }
+        
+        .fee-amount {
+            font-size: 14px;
         }
     }
 </style>
+{% endblock %}
+
+{% block content %}
+<div class="extensions-container">
+    <h2>
+        <i class="fas fa-clock"></i>
+        Extension Requests
+    </h2>
+    
+    <div class="extensions-list" id="extensionsList">
+        {% if extensions %}
+            {% for extension in extensions %}
+            <div class="extension-card" id="extension-{{ extension.id }}">
+                <div class="extension-header">
+                    <div class="user-details">
+                        <span class="user-name">
+                            <i class="fas fa-user-circle"></i>
+                            {{ extension.user_name }}
+                        </span>
+                        <div class="booking-ref">
+                            <i class="fas fa-ticket-alt"></i>
+                            Booking: <strong>{{ extension.booking_reference }}</strong>
+                        </div>
+                        <div class="vehicle-name">
+                            <i class="fas fa-car"></i>
+                            Vehicle: {{ extension.brand_name }} {{ extension.model }}
+                        </div>
+                    </div>
+                    <span class="badge badge-{{ extension.status }}">
+                        {% if extension.status == 'pending' %}
+                            <i class="fas fa-clock"></i>
+                        {% elif extension.status == 'approved' %}
+                            <i class="fas fa-check-circle"></i>
+                        {% elif extension.status == 'rejected' %}
+                            <i class="fas fa-times-circle"></i>
+                        {% endif %}
+                        {{ extension.status | capitalize }}
+                    </span>
+                </div>
+                
+                <div class="extension-body">
+                    <div class="extension-detail">
+                        <span class="detail-label">Requested Extension</span>
+                        <span class="detail-value">{{ extension.requested_extension_days }} day(s)</span>
+                    </div>
+                    
+                    <div class="extension-detail">
+                        <span class="detail-label">New End Date</span>
+                        <span class="detail-value">
+                            <i class="far fa-calendar-alt"></i>
+                            {{ extension.requested_new_end_date.strftime('%Y-%m-%d') if extension.requested_new_end_date else 'N/A' }}
+                        </span>
+                    </div>
+                    
+                    <div class="extension-detail full-width">
+                        <span class="detail-label">Reason</span>
+                        <div class="reason-text">
+                            {{ extension.reason or 'No reason provided' }}
+                        </div>
+                    </div>
+                    
+                    <div class="extension-detail">
+                        <span class="detail-label">Additional Fee</span>
+                        <span class="fee-amount">₱{{ "%.2f"|format(extension.additional_fee) }}</span>
+                    </div>
+                </div>
+                
+                {% if extension.status == 'pending' %}
+                <div class="extension-actions">
+                    <button class="btn-sm btn-success" onclick="approveExtension({{ extension.id }})">
+                        <i class="fas fa-check"></i> Approve Extension
+                    </button>
+                    <button class="btn-sm btn-warning" onclick="rejectExtension({{ extension.id }})">
+                        <i class="fas fa-times"></i> Reject Extension
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No extension requests at this time</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
 
 <script>
-let allExtensions = [];
-
-function loadExtensions() {
-    fetch('{{ url_for('admin_bp.api_get_extensions') }}')
-        .then(response => response.json())
-        .then(data => {
-            allExtensions = data;
-        })
-        .catch(error => console.error('Error loading extensions:', error));
+// Show notification
+function showNotification(message, type = 'success') {
+    const existingNotif = document.querySelector('.notification');
+    if (existingNotif) {
+        existingNotif.remove();
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+        <span>${message}</span>
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
+// Approve extension
 function approveExtension(extensionId) {
+    const button = event.target.closest('button');
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    
     fetch(`{{ url_for('admin_bp.api_approve_extension', extension_id=0) }}`.replace('0', extensionId), {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Extension approved successfully');
-            location.reload();
+            showNotification('Extension approved successfully', 'success');
+            // Reload after short delay
+            setTimeout(() => location.reload(), 1000);
         } else {
-            alert('Error approving extension: ' + (data.message || 'Unknown error'));
+            showNotification(data.message || 'Error approving extension', 'error');
+            button.disabled = false;
+            button.innerHTML = originalText;
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error approving extension', 'error');
+        button.disabled = false;
+        button.innerHTML = originalText;
     });
 }
 
+// Reject extension
 function rejectExtension(extensionId) {
-    if (confirm('Are you sure you want to reject this extension request?')) {
-        fetch(`{{ url_for('admin_bp.api_reject_extension', extension_id=0) }}`.replace('0', extensionId), {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Extension rejected successfully');
-                location.reload();
-            } else {
-                alert('Error rejecting extension: ' + (data.message || 'Unknown error'));
+    openConfirmModal({
+        icon: 'warning',
+        title: 'Reject Extension',
+        message: 'Are you sure you want to reject this extension request?',
+        confirmText: 'Yes, Reject',
+        confirmClass: 'confirm-btn-danger',
+        onConfirm: function() {
+            const button = document.querySelector(`#extension-${extensionId} .btn-warning`);
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
             }
-        });
-    }
+            
+            fetch(`{{ url_for('admin_bp.api_reject_extension', extension_id=0) }}`.replace('0', extensionId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Extension rejected successfully', 'success');
+                    // Reload after short delay
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showNotification(data.message || 'Error rejecting extension', 'error');
+                    if (button) {
+                        button.disabled = false;
+                        button.innerHTML = '<i class="fas fa-times"></i> Reject Extension';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error rejecting extension', 'error');
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = '<i class="fas fa-times"></i> Reject Extension';
+                }
+            });
+        }
+    });
 }
-
-// Load extensions on page load
-loadExtensions();
 </script>
 {% endblock %}

@@ -9,10 +9,30 @@
         border-collapse: collapse;
     }
     
+    .bookings-table {
+        width: 100%;
+        table-layout: auto;
+    }
+
     .bookings-table th, .bookings-table td {
-        padding: 12px;
+        padding: 16px;
         text-align: left;
         border-bottom: 1px solid #e2e8f0;
+        font-size: 15px;
+    }
+
+    .bookings-table th {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #0f3b6f;
+    }
+
+    .bookings-table th:last-child,
+    .bookings-table td:last-child {
+        min-width: 280px;
     }
     
     .bookings-table th {
@@ -28,12 +48,45 @@
     .badge-cancelled { background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
     
     .btn-sm {
-        padding: 5px 12px;
-        font-size: 12px;
-        margin: 0 3px;
+        padding: 3px 8px;
+        font-size: 11px;
         border: none;
-        border-radius: 20px;
+        border-radius: 16px;
         cursor: pointer;
+        text-align: center;
+        white-space: nowrap;
+        line-height: 1.4;
+    }
+
+    /* Action buttons - inline layout */
+    td:last-child {
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    td:last-child form {
+        display: inline-block;
+        margin:0 2px;
+        padding:0;
+        vertical-align: middle;
+    }
+
+    td:last-child .btn-sm {
+        margin:0 2px;
+        vertical-align: middle;
+    }
+
+    td:last-child span.btn-sm {
+        vertical-align: middle;
+    }
+
+    .booking-actions form {
+        display: inline-flex;
+        margin: 0;
+    }
+
+    .booking-actions .btn-sm {
+        margin: 0;
     }
     
     .btn-danger { background: #dc2626; color: white; }
@@ -169,6 +222,86 @@
             width: 95%;
             margin: 10px;
         }
+        /* Hide table on mobile, show cards instead */
+        .bookings-table {
+            display: none;
+        }
+        .booking-cards-mobile {
+            display: block;
+        }
+    }
+
+    @media (min-width: 769px) {
+        .booking-cards-mobile {
+            display: none;
+        }
+    }
+
+    /* Mobile Card Styles */
+    .booking-card-mobile {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s;
+    }
+
+    .booking-card-mobile:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    }
+
+    .booking-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .booking-ref {
+        font-weight: 700;
+        color: #0f3b6f;
+        font-size: 14px;
+    }
+
+    .booking-card-body {
+        margin-bottom: 12px;
+    }
+
+    .booking-card-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-size: 13px;
+    }
+
+    .booking-card-label {
+        color: #64748b;
+        font-weight: 500;
+    }
+
+    .booking-card-value {
+        color: #1e293b;
+        font-weight: 600;
+    }
+
+    .booking-card-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding-top: 12px;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .booking-card-actions .btn-sm {
+        flex: 1;
+        min-width: 100px;
+        text-align: center;
+        text-decoration: none;
     }
 
     /* Review Modal Redesign */
@@ -322,13 +455,13 @@
 {% endblock %}
 
 {% block content %}
-<div style="margin: 40px 0;">
-    <h2 style="margin-bottom: 20px;">My Bookings</h2>
+<div style="margin-top: 40px; margin-bottom: 40px;">
+    <h2 style="margin-bottom: 30px; font-size: clamp(2rem, 5vw, 3.5rem);">My Bookings</h2>
     
     {% if bookings %}
-    <div class="card">
+    <div style="background: white; border-radius: 0; padding: 24px 0; box-shadow: none; border: none; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
         <div style="overflow-x: auto;">
-            <table class="bookings-table">
+            <table class="bookings-table" style="width: 100%; table-layout: auto;">
                 <thead>
                     <tr>
                         <th>Reference</th>
@@ -355,52 +488,90 @@
                                 {{ booking.status }}
                             </span>
                         </td>
-                        <td>
-                             {% if booking.status in ['pending', 'confirmed'] %}
-                             <form method="POST" action="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" style="display:inline;">
-                                 <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
-                                 <button type="submit" class="btn-sm btn-danger">
-                                     Cancel
-                                 </button>
-                             </form>
-                             {% endif %}
-                            <button class="btn-sm btn-info" onclick="viewBooking({{ booking.id }})">
-                                Details
-                            </button>
-                            {% if booking.status == 'pending' %}
-                            <a href="{{ url_for('payment_bp.checkout', booking_id=booking.id) }}" class="btn-sm btn-primary">
-                                Pay Now
-                            </a>
+                        <td style="white-space: nowrap; min-width: 300px;">
+                            {% if booking.status in ['pending', 'confirmed'] %}
+                            <form method="POST" action="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" style="display: inline-block; margin: 0 2px;">
+                                <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+                                <button type="submit" class="btn-sm btn-danger">Cancel</button>
+                            </form>
                             {% endif %}
-                             {% if booking.status in ['confirmed', 'paid'] %}
-                             <span class="btn-sm" style="background: #9ca3af; color: white; cursor: default;">
-                                 <i class="fas fa-file-pdf"></i> Invoice
-                             </span>
-                             {% endif %}
-                             {% if booking.status == 'completed' %}
-                                 {% if booking.reviewed %}
-                                 <span class="btn-sm" style="background: #10b981; color: white; cursor: default; display: inline-block;">
-                                     <i class="fas fa-check-circle"></i> Review Done
-                                 </span>
-                                 {% else %}
-                                 <button class="btn-sm btn-primary" onclick="openReviewModal({{ booking.id }}, '{{ booking.brand_name }} {{ booking.model }}')">
-                                     <i class="fas fa-star"></i> Write Review
-                                 </button>
-                                 {% endif %}
-                             {% endif %}
-                         </td>
+                            <button class="btn-sm btn-info" onclick="viewBooking({{ booking.id }})" style="margin: 0 2px;">Details</button>
+                            {% if booking.status == 'pending' %}
+                            <a href="{{ url_for('payment_bp.checkout', booking_id=booking.id) }}" class="btn-sm btn-primary" style="margin: 0 2px;">Pay Now</a>
+                            {% endif %}
+                            {% if booking.status == 'completed' %}
+                                {% if booking.reviewed %}
+                                <span class="btn-sm" style="background: #10b981; color: white; cursor: default; margin: 0 2px;">
+                                    <i class="fas fa-check-circle"></i> Review Done
+                                </span>
+                                {% else %}
+                                <button class="btn-sm btn-primary" onclick="openReviewModal({{ booking.id }}, '{{ booking.brand_name }} {{ booking.model }}')" style="margin: 0 2px;">
+                                    <i class="fas fa-star"></i> Write Review
+                                </button>
+                                {% endif %}
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+
+    <!-- Mobile Card Layout -->
+    <div class="booking-cards-mobile">
+        {% for booking in bookings %}
+        <div class="booking-card-mobile">
+            <div class="booking-card-header">
+                <span class="booking-ref">{{ booking.booking_reference or 'N/A' }}</span>
+                <span class="badge badge-{{ booking.status }}">{{ booking.status }}</span>
+            </div>
+            <div class="booking-card-body">
+                <div class="booking-card-row">
+                    <span class="booking-card-label">Vehicle:</span>
+                    <span class="booking-card-value">{{ booking.brand_name }} {{ booking.model }}</span>
+                </div>
+                <div class="booking-card-row">
+                    <span class="booking-card-label">Dates:</span>
+                    <span class="booking-card-value">{{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }} to {{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}</span>
+                </div>
+                <div class="booking-card-row">
+                    <span class="booking-card-label">Total:</span>
+                    <span class="booking-card-value">₱{{ "%.2f"|format(booking.total_amount) }}</span>
+                </div>
+            </div>
+            <div class="booking-card-actions">
+                <button class="btn-sm btn-info" onclick="viewBooking({{ booking.id }})" style="flex: 1;">
+                    Details
+                </button>
+                {% if booking.status in ['pending', 'confirmed'] %}
+                <form method="POST" action="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" style="flex: 1;">
+                    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+                    <button type="submit" class="btn-sm btn-danger" style="width: 100%;">
+                        Cancel
+                    </button>
+                </form>
+                {% endif %}
+                {% if booking.status == 'pending' %}
+                <a href="{{ url_for('payment_bp.checkout', booking_id=booking.id) }}" class="btn-sm btn-primary" style="flex: 1; text-align: center;">
+                    Pay Now
+                </a>
+                {% endif %}
+                {% if booking.status == 'completed' and not booking.reviewed %}
+                <button class="btn-sm btn-primary" onclick="openReviewModal({{ booking.id }}, '{{ booking.brand_name }} {{ booking.model }}')" style="flex: 1;">
+                    <i class="fas fa-star"></i> Review
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
     {% else %}
-    <div class="card" style="text-align: center; padding: 60px;">
-        <i class="fas fa-calendar-alt" style="font-size: 64px; color: #0f3b6f; margin-bottom: 20px;"></i>
+    <div class="no-results">
+        <i class="fas fa-calendar-alt"></i>
         <h3>No Bookings Yet</h3>
         <p>You haven't made any bookings. Start your journey with us!</p>
-        <a href="{{ url_for('base_bp.browse_fleet') }}" class="btn-primary" style="margin-top: 20px;">Browse Vehicles</a>
+        <a href="{{ url_for('base_bp.browse_fleet') }}" class="btn-primary" style="margin-top: 20px; display: inline-block;">Browse Vehicles</a>
     </div>
     {% endif %}
 </div>
@@ -414,6 +585,7 @@
         </div>
         <div class="modal-body">
             <form id="reviewForm" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
                 <input type="hidden" id="reviewBookingId" name="booking_id">
                 
                 <!-- Vehicle Info -->
@@ -470,15 +642,16 @@
 </div>
 
 <!-- Booking Details Modal -->
-<div id="bookingModal" class="modal">
-    <div class="modal-content">
+<div id="bookingModal" class="vehicle-modal">
+    <div class="vehicle-modal-content">
         <div class="modal-header">
-            <h3><i class="fas fa-info-circle"></i> Booking Details</h3>
-            <span class="close" onclick="closeModal()">&times;</span>
+            <h2><i class="fas fa-info-circle"></i> Booking Details</h2>
+            <span class="close-vehicle-modal" onclick="closeModal()">&times;</span>
         </div>
         <div class="modal-body" id="bookingDetailsContent">
-            <div style="text-align: center; padding: 20px;">
-                <i class="fas fa-spinner fa-spin"></i> Loading...
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 32px; color: #0f3b6f;"></i>
+                <p style="margin-top: 16px; color: #64748b;">Loading booking details...</p>
             </div>
         </div>
     </div>
@@ -664,11 +837,6 @@ function viewBooking(bookingId) {
             <a href="{{ url_for('payment_bp.checkout', booking_id=0) }}".replace('0', booking.id) class="btn-sm btn-primary" style="flex: 1; text-align: center;">
                 <i class="fas fa-credit-card"></i> Pay Now
             </a>
-            ` : ''}
-            ${(booking.status === 'confirmed' || booking.status === 'paid') ? `
-            <span class="btn-sm" style="background: #9ca3af; color: white; flex: 1; text-align: center; display: inline-block; cursor: default;">
-                <i class="fas fa-file-pdf"></i> Invoice
-            </span>
             ` : ''}
             ${booking.status === 'pending' || booking.status === 'confirmed' ? `
             <button class="btn-sm btn-danger" onclick="cancelAndClose(${booking.id})" style="flex: 1;">

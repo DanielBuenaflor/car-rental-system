@@ -214,9 +214,10 @@ def handle_checkout_session_paid(event_data):
             # Get user and booking details for notification
             cursor.execute("""
                 SELECT b.user_id, b.booking_reference, b.total_amount,
-                       v.brand_name, v.model
+                       vb.name as brand_name, v.model
                 FROM bookings b
                 JOIN vehicles v ON b.vehicle_id = v.id
+                JOIN vehicle_brands vb ON v.brand_id = vb.id
                 WHERE b.id = %s
             """, (booking_id,))
             booking_details = cursor.fetchone()

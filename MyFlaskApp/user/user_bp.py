@@ -731,11 +731,13 @@ def my_bookings():
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT b.*, v.model, v.year, v.license_plate, v.daily_rate, 
-                   vb.name as brand_name, vb.id as brand_id
+            SELECT b.*, v.model, v.year, v.license_plate, v.daily_rate, v.transmission,
+                   vb.name as brand_name, vb.id as brand_id,
+                   CONCAT(u.first_name, ' ', u.last_name) as user_name
             FROM bookings b
             JOIN vehicles v ON b.vehicle_id = v.id
             JOIN vehicle_brands vb ON v.brand_id = vb.id
+            JOIN users u ON b.user_id = u.id
             WHERE b.user_id = %s
             ORDER BY b.created_at DESC
         """, (session['user_id'],))
@@ -752,7 +754,7 @@ def my_bookings():
         for booking in bookings:
             booking['reviewed'] = booking['id'] in reviewed_bookings
         
-        return render_template('my_bookings.html', bookings=bookings)
+        return render_template('my_bookings.html', bookings=bookings, session=session)
     except Exception as e:
         print(f"My bookings error: {e}")
         return render_template('my_bookings.html', bookings=[], session=session)
@@ -1050,10 +1052,6 @@ def invoice_pdf(invoice_id):
 @user_bp.route('/verification')
 @login_required
 def verification_page():
-    # Debug: Write to file to ensure output isn't suppressed
-    with open('D:\\verification_debug.log', 'a') as f:
-        f.write(f"[{datetime.now()}] ENTERING verification_page()\n")
-    print("DEBUG: ===== ENTERING verification_page() =====")
     """Show verification page"""
     conn = get_db_connection()
     if not conn:
@@ -1212,7 +1210,12 @@ def book_vehicle():
         conn.commit()
         
         # Get vehicle and user details for notifications
-        cursor.execute("SELECT brand_name, model FROM vehicles WHERE id = %s", (vehicle_id,))
+        cursor.execute("""
+            SELECT vb.name as brand_name, v.model
+            FROM vehicles v
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE v.id = %s
+        """, (vehicle_id,))
         vehicle = cursor.fetchone()
         
         # Notify USER about pending booking
@@ -1220,7 +1223,7 @@ def book_vehicle():
             create_notification(
                 session['user_id'],
                 'Booking Submitted',
-                f'Your booking for {vehicle[0]} {vehicle[1]} is pending payment. Reference: {booking_reference}',
+                f'Your booking for {vehicle["brand_name"]} {vehicle["model"]} is pending payment. Reference: {booking_reference}',
                 'booking_confirmation',
                 url_for('user_bp.my_bookings')
             )
@@ -1575,6 +1578,11 @@ def get_vehicle(vehicle_id):
 @login_required
 def submit_review():
     """Submit a review for a completed booking with optional photo"""
+    # Validate CSRF token
+    valid, error = _validate_state_change_csrf()
+    if not valid:
+        return jsonify({'success': False, 'message': error}), 403
+    
     booking_id = request.form.get('booking_id', type=int)
     rating = request.form.get('rating', type=int)
     comment = request.form.get('comment', '').strip()
@@ -1606,54 +1614,49 @@ def submit_review():
             return jsonify({'success': False, 'message': 'Invalid booking or booking not yet completed'})
 
         # Check if already reviewed this specific booking
-        cursor.execute("SELECT id FROM testimonials WHERE user_id = %s AND booking_id = %s", 
-                   (session['user_id'], booking_id))
+        cursor.execute("SELECT id FROM testimonials WHERE user_id = %s AND booking_id = %s",
+                       (session['user_id'], booking_id))
         if cursor.fetchone():
             return jsonify({'success': False, 'message': 'You have already reviewed this booking'})
 
         # Handle image upload
         image_path = None
-        print(f"DEBUG: Files in request: {list(request.files.keys())}")
         if 'review_image' in request.files:
             file = request.files['review_image']
-            print(f"DEBUG: review_image file: {file}, filename: {file.filename if file else 'None'}")
             if file and file.filename:
                 upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'base', 'uploads', 'reviews')
-                print(f"DEBUG: upload_dir: {upload_dir}")
-                print(f"DEBUG: upload_dir exists: {os.path.exists(upload_dir)}")
                 os.makedirs(upload_dir, exist_ok=True)
-                
-                # Generate safe filename
-                import uuid
-                ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'jpg'
-                filename = f"review_{uuid.uuid4().hex[:8]}.{ext}"
-                filepath = os.path.join(upload_dir, filename)
-                
-                # Save file directly (this should work now)
-                try:
-                    file.save(filepath)
-                    image_path = f"reviews/{filename}"
-                    print(f"DEBUG: Image saved - filename: {filename}, image_path: {image_path}")
-                    print(f"DEBUG: File exists: {os.path.exists(filepath)}")
-                    print(f"DEBUG: File size: {os.path.getsize(filepath) if os.path.exists(filepath) else 'N/A'}")
-                except Exception as save_err:
-                    print(f"DEBUG: Error saving file: {save_err}")
+                # Read file data into memory to avoid file closing issues
+                file_data = file.read()
+                if file_data:
+                    # Generate unique filename
+                    from MyFlaskApp.utils.secure_upload import generate_safe_filename
+                    ext = os.path.splitext(file.filename)[1].lower() or '.jpg'
+                    filename = generate_safe_filename('review', ext)
+                    filepath = os.path.join(upload_dir, filename)
+                    try:
+                        with open(filepath, 'wb') as f:
+                            f.write(file_data)
+                        image_path = f"reviews/{filename}"
+                        print(f"[DEBUG] Image saved successfully: {image_path}")
+                    except Exception as e:
+                        print(f"Image save error: {e}")
+                else:
+                    print(f"[DEBUG] No file data read")
 
-        # Insert review (no approval needed - status set to 'approved')
+        # Insert review
         cursor.execute("""
-            INSERT INTO testimonials (user_id, booking_id, vehicle_id, rating, comment, image_path, status)
-            VALUES (%s, %s, %s, %s, %s, %s, 'approved')
+            INSERT INTO testimonials (user_id, booking_id, vehicle_id, rating, comment, image_path)
+            VALUES (%s, %s, %s, %s, %s, %s)
         """, (session['user_id'], booking_id, booking['vehicle_id'], rating, comment, image_path))
 
         # Notify all admins about new review
-        print(f"DEBUG: Creating admin notifications...")
-        
         # Get user name
-        cursor.execute("SELECT CONCAT(first_name, ' ', last_name) as name FROM users WHERE id = %s", 
-                   (session['user_id'],))
+        cursor.execute("SELECT CONCAT(first_name, ' ', last_name) as name FROM users WHERE id = %s",
+                       (session['user_id'],))
         user_result = cursor.fetchone()
-        user_name = user_result[0] if user_result else 'A user'
-        
+        user_name = user_result['name'] if user_result else 'A user'
+
         # Get vehicle name
         cursor.execute("""
             SELECT CONCAT(vb.name, ' ', v.model) as vehicle
@@ -1663,34 +1666,26 @@ def submit_review():
             WHERE b.id = %s
         """, (booking_id,))
         vehicle_result = cursor.fetchone()
-        vehicle_name = vehicle_result[0] if vehicle_result else 'a vehicle'
-        
-        print(f"DEBUG: User: {user_name}, Vehicle: {vehicle_name}")
-        
+        vehicle_name = vehicle_result['vehicle'] if vehicle_result else 'a vehicle'
+
         # Get all admin users
         cursor.execute("SELECT id FROM users WHERE role = 'admin'")
         admin_users = cursor.fetchall()
-        
-        print(f"DEBUG: Found {len(admin_users)} admin(s)")
-        
+
         if admin_users:
             notification_title = "New Review Submitted"
             notification_message = f"{user_name} submitted a review for {vehicle_name}"
             notification_link = "/admin/testimonials"
-            
+
             for admin in admin_users:
-                print(f"DEBUG: Creating notification for admin {admin[0]}")
                 cursor.execute("""
                     INSERT INTO notifications (user_id, title, message, type, link, created_at)
                     VALUES (%s, %s, %s, 'system', %s, NOW())
-                """, (admin[0], notification_title, notification_message, notification_link))
-            
-            print(f"DEBUG: Admin notifications created")
+                """, (admin['id'], notification_title, notification_message, notification_link))
         
         # Commit everything together (review + notifications)
         conn.commit()
-        print(f"DEBUG: Review and notifications committed successfully")
-        
+
         return jsonify({'success': True, 'message': 'Thank you for your review!'})
     except Exception as e:
         conn.rollback()
@@ -1705,71 +1700,49 @@ def submit_review():
 # ============================================================================
 @user_bp.route('/submit-verification', methods=['POST'])
 @login_required
-@require_csrf
 def submit_verification():
-    # Debug: Write to file
-    with open('D:\\verification_debug.log', 'a') as f:
-        f.write(f"[{datetime.now()}] ENTERING submit_verification()\n")
-        f.write(f"[{datetime.now()}] Form keys: {list(request.form.keys())}\n")
-        f.write(f"[{datetime.now()}] csrf_token: {request.form.get('csrf_token')}\n")
-    print("DEBUG: ===== ENTERING submit_verification() =====")
     """Submit verification documents with OCR extraction for admin review"""
     
-    # Check if already verified
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({'success': False, 'message': 'Database error'}), 500
+    # Validate CSRF token
+    valid, error = _validate_state_change_csrf(clear_token=True)
+    if not valid:
+        return jsonify({'success': False, 'message': error}), 403
     
-    cursor = conn.cursor(dictionary=True)
-    try:
-        cursor.execute("""
-            SELECT verification_status FROM verifications 
-            WHERE user_id = %s AND verification_status = 'approved'
-        """, (session['user_id'],))
-        existing = cursor.fetchone()
-        
-        if existing:
-            return jsonify({'success': False, 'message': 'Your account is already verified'}), 400
-    finally:
-        cursor.close()
-    
-    # Get form data
+    # Get form data - collect ALL required fields for NOT NULL columns
+    license_number = request.form.get('license_number', '').strip()
+    license_expiry_date = request.form.get('license_expiry', '').strip()
     id_card_type = request.form.get('id_card_type', '').strip()
+    id_card_number = request.form.get('id_card_number', '').strip()
     
-    # DEBUG: Log received data
-    print(f"DEBUG: id_card_type={id_card_type}")
-    print(f"DEBUG: license_front_base64 length={len(request.form.get('license_front_base64', ''))}")
-    print(f"DEBUG: license_back_base64 length={len(request.form.get('license_back_base64', ''))}")
-    print(f"DEBUG: id_card_image_base64 length={len(request.form.get('id_card_image_base64', ''))}")
-    print(f"DEBUG: selfie_image_base64 length={len(request.form.get('selfie_image_base64', ''))}")
-    
-    # Validate required fields
+    # Validate required form fields
+    if not license_number:
+        return jsonify({'success': False, 'message': 'License number is required'}), 400
+    if not license_expiry_date:
+        return jsonify({'success': False, 'message': 'License expiry date is required'}), 400
     if not id_card_type:
         return jsonify({'success': False, 'message': 'ID card type is required'}), 400
+    if not id_card_number:
+        return jsonify({'success': False, 'message': 'ID card number is required'}), 400
     
     # Handle image uploads (base64 from camera OR file upload)
-    # Check for base64 camera data first, fall back to file upload
     license_front_base64 = request.form.get('license_front_base64', '').strip()
     license_back_base64 = request.form.get('license_back_base64', '').strip()
     id_card_base64 = request.form.get('id_card_image_base64', '').strip()
     selfie_base64 = request.form.get('selfie_image_base64', '').strip()
     
-    # Also check for file uploads as fallback
     license_front_file = request.files.get('license_front')
     license_back_file = request.files.get('license_back')
     id_card_file = request.files.get('id_card_image')
     selfie_file = request.files.get('selfie_image')
     
-    # DEBUG: Log file uploads
-    print(f"DEBUG: license_front_file={license_front_file.filename if license_front_file else 'None'}")
-    print(f"DEBUG: license_back_file={license_back_file.filename if license_back_file else 'None'}")
-    print(f"DEBUG: id_card_file={id_card_file.filename if id_card_file else 'None'}")
-    print(f"DEBUG: selfie_file={selfie_file.filename if selfie_file else 'None'}")
-    
-    # Validate that license front image is provided (required field)
+    # Validate that BOTH license images are provided (table requires NOT NULL)
     has_license_front = bool(license_front_base64) or (license_front_file and allowed_file(license_front_file.filename))
+    has_license_back = bool(license_back_base64) or (license_back_file and allowed_file(license_back_file.filename))
+    
     if not has_license_front:
         return jsonify({'success': False, 'message': 'License front image is required'}), 400
+    if not has_license_back:
+        return jsonify({'success': False, 'message': 'License back image is required'}), 400
     
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     
@@ -1777,102 +1750,58 @@ def submit_verification():
     license_back_path = None
     id_card_path = None
     selfie_path = None
-    
     prefix = f"user_{session['user_id']}"
     
-    # License Front Image
-    if license_front_base64:
-        filename, error = save_base64_upload(
-            license_front_base64, UPLOAD_FOLDER, 
-            ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, 
-            f"{prefix}_license_front"
-        )
-        if error:
-            return jsonify({'success': False, 'message': f'License front: {error}'}), 400
-        license_front_path = filename
-    elif license_front_file and allowed_file(license_front_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_license_front_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            license_front_file.save(filepath)
-            license_front_path = filename
-        except Exception as e:
-            return jsonify({'success': False, 'message': f'License front: Error saving file: {str(e)}'}), 400
+    def save_image(base64_data, file_obj, image_type):
+        """Helper to save image from base64 or file upload"""
+        if base64_data:
+            filename, error = save_base64_upload(
+                base64_data, UPLOAD_FOLDER,
+                ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB,
+                f"{prefix}_{image_type}"
+            )
+            return filename, error
+        elif file_obj and allowed_file(file_obj.filename):
+            filename = f"{prefix}_{image_type}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            try:
+                file_obj.save(filepath)
+                return filename, None
+            except Exception as e:
+                return None, f"Error saving file: {str(e)}"
+        return None, None
     
-    # License Back Image
-    if license_back_base64:
-        filename, error = save_base64_upload(
-            license_back_base64, UPLOAD_FOLDER,
-            ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB,
-            f"{prefix}_license_back"
-        )
-        if error:
-            if license_front_path:
-                os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
-            return jsonify({'success': False, 'message': f'License back: {error}'}), 400
-        license_back_path = filename
-    elif license_back_file and allowed_file(license_back_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_license_back_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            license_back_file.save(filepath)
-            license_back_path = filename
-        except Exception as e:
-            if license_front_path:
-                os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
-            return jsonify({'success': False, 'message': f'License back: Error saving file: {str(e)}'}), 400
+    # Save License Front
+    license_front_path, error = save_image(license_front_base64, license_front_file, "license_front")
+    if error:
+        return jsonify({'success': False, 'message': f'License front: {error}'}), 400
     
-    # ID Card Image
-    if id_card_base64:
-        filename, error = save_base64_upload(
-            id_card_base64, UPLOAD_FOLDER,
-            ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB,
-            f"{prefix}_id"
-        )
-        if error:
-            if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
-            if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
-            return jsonify({'success': False, 'message': f'ID card: {error}'}), 400
-        id_card_path = filename
-    elif id_card_file and allowed_file(id_card_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_id_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            id_card_file.save(filepath)
-            id_card_path = filename
-        except Exception as e:
-            if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
-            if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
-            return jsonify({'success': False, 'message': f'ID card: Error saving file: {str(e)}'}), 400
+    # Save License Back
+    license_back_path, error = save_image(license_back_base64, license_back_file, "license_back")
+    if error:
+        if license_front_path:
+            os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
+        return jsonify({'success': False, 'message': f'License back: {error}'}), 400
     
-    # Selfie Image
-    if selfie_base64:
-        filename, error = save_base64_upload(
-            selfie_base64, UPLOAD_FOLDER,
-            ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB,
-            f"{prefix}_selfie"
-        )
-        if error:
-            if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
-            if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
-            if id_card_path: os.remove(os.path.join(UPLOAD_FOLDER, id_card_path))
-            return jsonify({'success': False, 'message': f'Selfie: {error}'}), 400
-        selfie_path = filename
-    elif selfie_file and allowed_file(selfie_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_selfie_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            selfie_file.save(filepath)
-            selfie_path = filename
-        except Exception as e:
-            if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
-            if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
-            if id_card_path: os.remove(os.path.join(UPLOAD_FOLDER, id_card_path))
-            return jsonify({'success': False, 'message': f'Selfie: Error saving file: {str(e)}'}), 400
+    # Save ID Card
+    id_card_path, error = save_image(id_card_base64, id_card_file, "id_card")
+    if error:
+        if license_front_path:
+            os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
+        if license_back_path:
+            os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
+        return jsonify({'success': False, 'message': f'ID card: {error}'}), 400
+    
+    # Save Selfie
+    selfie_path, error = save_image(selfie_base64, selfie_file, "selfie")
+    if error:
+        if license_front_path:
+            os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
+        if license_back_path:
+            os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
+        if id_card_path:
+            os.remove(os.path.join(UPLOAD_FOLDER, id_card_path))
+        return jsonify({'success': False, 'message': f'Selfie: {error}'}), 400
     
     # ============================================================
     # OCR VALIDATION - Extract data for admin review
@@ -1882,12 +1811,11 @@ def submit_verification():
         front_full_path = os.path.join(UPLOAD_FOLDER, license_front_path) if license_front_path else None
         back_full_path = os.path.join(UPLOAD_FOLDER, license_back_path) if license_back_path else None
         
-        if front_full_path:
+        if front_full_path and os.path.exists(front_full_path):
             ocr_result = LicenseOCRService.validate_license(
                 front_image_path=front_full_path,
                 back_image_path=back_full_path
             )
-            
     except Exception as e:
         print(f"OCR Error: {e}")
         ocr_result = {
@@ -1896,45 +1824,83 @@ def submit_verification():
             'errors': [str(e)]
         }
     
-    # Insert into database with OCR results
+    # Database operations
+    conn = get_db_connection()
+    if not conn:
+        # Clean up uploaded files
+        for f in [license_front_path, license_back_path, id_card_path, selfie_path]:
+            if f:
+                try:
+                    os.remove(os.path.join(UPLOAD_FOLDER, f))
+                except:
+                    pass
+        return jsonify({'success': False, 'message': 'Database error'}), 500
+    
     cursor = conn.cursor()
     try:
-        # Check if user already has pending verification
+        # Check if user already has pending or approved verification
         cursor.execute("""
-            SELECT id FROM verifications 
+            SELECT id, verification_status FROM verifications 
             WHERE user_id = %s AND verification_status IN ('pending', 'approved')
+            ORDER BY created_at DESC LIMIT 1
         """, (session['user_id'],))
         existing = cursor.fetchone()
         
         if existing:
-            return jsonify({'success': False, 'message': 'You already have a pending verification request'}), 400
+            if existing[1] == 'approved':
+                # Clean up uploaded files
+                for f in [license_front_path, license_back_path, id_card_path, selfie_path]:
+                    if f:
+                        try:
+                            os.remove(os.path.join(UPLOAD_FOLDER, f))
+                        except:
+                            pass
+                return jsonify({'success': False, 'message': 'Your account is already verified'}), 400
+            else:
+                # Delete old pending verification and files
+                cursor.execute("""
+                    SELECT license_front_image, license_back_image, id_card_image, selfie_image
+                    FROM verifications WHERE id = %s
+                """, (existing[0],))
+                old_files = cursor.fetchone()
+                if old_files:
+                    for old_file in old_files:
+                        if old_file:
+                            try:
+                                os.remove(os.path.join(UPLOAD_FOLDER, old_file))
+                            except:
+                                pass
+                cursor.execute("DELETE FROM verifications WHERE id = %s", (existing[0],))
+                conn.commit()
         
         # Build OCR data for storage
         ocr_data = {
             'confidence_score': ocr_result.get('confidence_score', 0) if ocr_result else 0,
             'extracted_license_number': ocr_result.get('extracted_license_number') if ocr_result else None,
-            'extracted_id_number': ocr_result.get('extracted_id_number') if ocr_result else None,
             'extracted_expiry': ocr_result.get('extracted_expiry') if ocr_result else None,
-            'license_match': None,
-            'expiry_match': None,
-            'is_expired': None,
             'errors': ocr_result.get('errors', []) if ocr_result else []
         }
         
-        # Convert to JSON string for database storage
         ocr_json = json.dumps(ocr_data)
         
+        # Insert into verifications table with ALL NOT NULL fields
         cursor.execute("""
             INSERT INTO verifications (
-                user_id, license_front_image, license_back_image,
-                id_card_type, id_card_image, selfie_image,
+                user_id, license_number, license_expiry_date, license_front_image, license_back_image,
+                id_card_type, id_card_number, id_card_image, selfie_image,
                 verification_status, ocr_confidence_score, ocr_extracted_license, 
                 ocr_extracted_expiry, ocr_raw_data, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, NOW())
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, NOW())
         """, (
             session['user_id'],
-            license_front_path, license_back_path,
-            id_card_type, id_card_path, selfie_path,
+            license_number,
+            license_expiry_date,
+            license_front_path,
+            license_back_path,
+            id_card_type,
+            id_card_number,
+            id_card_path,
+            selfie_path,
             ocr_data['confidence_score'],
             ocr_data['extracted_license_number'],
             ocr_data['extracted_expiry'],
@@ -1943,37 +1909,43 @@ def submit_verification():
         
         conn.commit()
         
-        # Create notification for admin
-        cursor.execute("""
-            INSERT INTO notifications (user_id, type, title, message, link, created_at)
-            VALUES (%s, 'verification', 'New Verification Request', 
-                    'A new verification request needs review', '/admin/manage-verifications', NOW())
-        """, (1,))  # Admin user ID = 1
+        # Create notification for admin (notify all admins)
+        cursor.execute("SELECT id FROM users WHERE role = 'admin'")
+        admin_users = cursor.fetchall()
+        
+        for admin in admin_users:
+            cursor.execute("""
+                INSERT INTO notifications (user_id, type, title, message, link, created_at)
+                VALUES (%s, 'verification', 'New Verification Request', 
+                        'A new verification request needs review', '/admin/manage-verifications', NOW())
+            """, (admin[0],))
         
         conn.commit()
         
-        # Prepare response with OCR feedback for user
+        # Prepare response with OCR feedback
         response_data = {
             'success': True, 
             'message': 'Verification documents submitted successfully! Admin will review your documents.',
         }
         
-        # Add OCR feedback if available
         if ocr_result:
             confidence = ocr_result.get('confidence_score', 0)
             response_data['ocr_confidence'] = confidence
             
             if confidence < 0.5:
                 response_data['ocr_warning'] = 'Image quality is low. Admin may request clearer images.'
-            elif ocr_result.get('license_match') is False:
-                response_data['ocr_warning'] = 'Extracted license number does not match your input. Please verify.'
-            elif ocr_result.get('expiry_match') is False:
-                response_data['ocr_warning'] = 'Extracted expiry date does not match your input. Please verify.'
         
         return jsonify(response_data)
         
     except Exception as e:
         conn.rollback()
+        # Clean up uploaded files on error
+        for f in [license_front_path, license_back_path, id_card_path, selfie_path]:
+            if f:
+                try:
+                    os.remove(os.path.join(UPLOAD_FOLDER, f))
+                except:
+                    pass
         return jsonify({'success': False, 'message': str(e)}), 500
     finally:
         cursor.close()

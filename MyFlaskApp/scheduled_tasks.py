@@ -18,9 +18,10 @@ def send_rental_reminders():
     try:
         # Rentals starting in 24h
         cursor.execute("""
-            SELECT b.id, b.user_id, b.booking_reference, v.brand_name, v.model
+            SELECT b.id, b.user_id, b.booking_reference, vb.name as brand_name, v.model
             FROM bookings b
             JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
             WHERE DATE(b.start_date) = CURDATE() + INTERVAL 1 DAY
             AND b.status = 'confirmed'
         """)
@@ -38,9 +39,10 @@ def send_rental_reminders():
         
         # Rentals ending in 24h
         cursor.execute("""
-            SELECT b.id, b.user_id, b.booking_reference, v.brand_name, v.model
+            SELECT b.id, b.user_id, b.booking_reference, vb.name as brand_name, v.model
             FROM bookings b
             JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
             WHERE DATE(b.end_date) = CURDATE() + INTERVAL 1 DAY
             AND b.status = 'active'
         """)
@@ -88,9 +90,10 @@ def check_overdue_bookings():
         # Notify users with overdue bookings
         if overdue_count > 0:
             cursor.execute("""
-                SELECT b.user_id, b.booking_reference, b.id, v.brand_name, v.model
+                SELECT b.user_id, b.booking_reference, b.id, vb.name as brand_name, v.model
                 FROM bookings b
                 JOIN vehicles v ON b.vehicle_id = v.id
+                JOIN vehicle_brands vb ON v.brand_id = vb.id
                 WHERE b.status = 'overdue' 
                 AND DATE(b.end_date) = CURDATE() - INTERVAL 1 DAY
             """)
@@ -131,8 +134,9 @@ def send_maintenance_reminders():
     try:
         # Vehicles with maintenance due in 7 days
         cursor.execute("""
-            SELECT v.id, v.brand_name, v.model, v.next_service_date
+            SELECT v.id, vb.name as brand_name, v.model, v.next_service_date
             FROM vehicles v
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
             WHERE DATE(v.next_service_date) = CURDATE() + INTERVAL 7 DAY
             AND v.status != 'maintenance'
         """)

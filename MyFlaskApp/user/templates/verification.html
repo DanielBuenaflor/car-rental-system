@@ -30,6 +30,7 @@
         
         {% if not verification or verification.verification_status != 'approved' %}
         <form id="verificationForm" enctype="multipart/form-data" method="POST" action="{{ url_for('user_bp.submit_verification') }}">
+            <input type="hidden" name="csrf_token" value="{{ global_csrf_token }}">
             <div class="form-section">
                 <h3><i class="fas fa-id-card"></i> Driver's License Information</h3>
                 

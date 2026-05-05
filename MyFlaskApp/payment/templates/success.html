@@ -2,29 +2,236 @@
 
 {% block title %}Payment {% if verified %}Successful{% else %}Status{% endif %} - CarRental Pro{% endblock %}
 
+{% block extra_css %}
+<style>
+    .payment-status-container {
+        max-width: 520px;
+        margin: 60px auto;
+        padding: 0 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    .status-card {
+        background: white;
+        border-radius: 20px;
+        padding: 48px 36px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+        border: 1px solid #e2e8f0;
+    }
+    
+    .status-icon-wrapper {
+        width: 88px;
+        height: 88px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 24px;
+        font-size: 42px;
+    }
+    
+    .status-icon-wrapper.success {
+        background: #ecfdf5;
+        color: #10b981;
+    }
+    
+    .status-icon-wrapper.pending {
+        background: #fffbeb;
+        color: #f59e0b;
+    }
+    
+    .status-icon-wrapper.failed {
+        background: #fef2f2;
+        color: #ef4444;
+    }
+    
+    .status-card h2 {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 12px;
+    }
+    
+    .status-card .message {
+        color: #64748b;
+        font-size: 15px;
+        line-height: 1.6;
+        margin: 0 0 28px;
+    }
+    
+    .btn-download-invoice {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: #059669;
+        color: white;
+        padding: 14px 28px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 15px;
+        text-decoration: none;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+        margin-bottom: 28px;
+    }
+    
+    .btn-download-invoice:hover {
+        background: #047857;
+        color: white;
+        text-decoration: none;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(5, 150, 105, 0.35);
+    }
+    
+    .info-note {
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 14px 18px;
+        font-size: 13px;
+        color: #64748b;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        text-align: left;
+        margin-bottom: 28px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .info-note i {
+        color: #0f3b6f;
+        font-size: 16px;
+        margin-top: 2px;
+        flex-shrink: 0;
+    }
+    
+    .status-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #0f3b6f;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .btn-primary:hover {
+        background: #1e4a7a;
+        color: white;
+        text-decoration: none;
+    }
+    
+    .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #f1f5f9;
+        color: #334155;
+        padding: 12px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+        transition: all 0.2s;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .btn-secondary:hover {
+        background: #e2e8f0;
+        color: #1e293b;
+        text-decoration: none;
+    }
+    
+    .help-text {
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid #f1f5f9;
+        font-size: 13px;
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+    
+    .help-text i {
+        color: #0f3b6f;
+    }
+    
+    @media (max-width: 480px) {
+        .payment-status-container {
+            margin: 30px auto;
+        }
+        
+        .status-card {
+            padding: 32px 20px;
+            border-radius: 16px;
+        }
+        
+        .status-icon-wrapper {
+            width: 70px;
+            height: 70px;
+            font-size: 34px;
+            margin-bottom: 18px;
+        }
+        
+        .status-card h2 {
+            font-size: 20px;
+        }
+        
+        .status-actions {
+            flex-direction: column;
+        }
+        
+        .btn-primary,
+        .btn-secondary {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="max-width: 600px; margin: 80px auto; text-align: center;">
-    <div class="card" style="padding: 40px;">
+<div class="payment-status-container">
+    <div class="status-card">
         {% if verified %}
-            <i class="fas fa-check-circle" style="font-size: 80px; color: #10b981; margin-bottom: 20px;"></i>
-            <h2 style="margin-bottom: 15px;">Payment Successful!</h2>
-            <p style="margin-bottom: 30px; color: #666;">
-                Your booking has been confirmed. A confirmation email has been sent to your email address.
-            </p>
+            <!-- Success State -->
+            <div class="status-icon-wrapper success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h2>Payment Successful!</h2>
+            <p class="message">Your booking has been confirmed. A confirmation email has been sent to your email address.</p>
             
             {% if invoice_id %}
-            <a href="{{ url_for('user_bp.download_invoice', invoice_id=invoice_id) }}" class="btn-secondary" style="background: #0f3b6f; color: white; margin-bottom: 20px;">
+            <a href="{{ url_for('user_bp.download_invoice', invoice_id=invoice_id) }}" class="btn-download-invoice">
                 <i class="fas fa-file-pdf"></i> Download Invoice
             </a>
             {% else %}
-            <p style="margin-bottom: 20px; font-size: 14px; color: #666;">
-                <i class="fas fa-info-circle"></i> Your invoice is being generated and will be available in your dashboard shortly.
-            </p>
+            <div class="info-note">
+                <i class="fas fa-info-circle"></i>
+                <span>Your invoice is being generated and will be available in your dashboard shortly.</span>
+            </div>
             {% endif %}
+            
         {% else %}
-            <i class="fas fa-clock" style="font-size: 80px; color: #f59e0b; margin-bottom: 20px;"></i>
-            <h2 style="margin-bottom: 15px;">Payment Pending</h2>
-            <p style="margin-bottom: 30px; color: #666;">
+            <!-- Pending State -->
+            <div class="status-icon-wrapper pending">
+                <i class="fas fa-clock"></i>
+            </div>
+            <h2>Payment Pending</h2>
+            <p class="message">
                 {% if error %}
                     {{ error }}
                 {% else %}
@@ -33,16 +240,21 @@
             </p>
         {% endif %}
         
-        <div style="display: flex; gap: 15px; justify-content: center;">
-            <a href="{{ url_for('user_bp.my_bookings') }}" class="btn-primary">View My Bookings</a>
-            <a href="{{ url_for('base_bp.index') }}" class="btn-secondary">Back to Home</a>
+        <!-- Action Buttons -->
+        <div class="status-actions">
+            <a href="{{ url_for('user_bp.my_bookings') }}" class="btn-primary">
+                <i class="fas fa-list"></i> View My Bookings
+            </a>
+            <a href="{{ url_for('base_bp.index') }}" class="btn-secondary">
+                <i class="fas fa-home"></i> Back to Home
+            </a>
         </div>
         
         {% if not verified %}
-        <p style="margin-top: 20px; font-size: 12px; color: #666;">
-            <i class="fas fa-info-circle"></i> 
+        <div class="help-text">
+            <i class="fas fa-question-circle"></i>
             If you've completed the payment but don't see confirmation, please check your email or contact support.
-        </p>
+        </div>
         {% endif %}
     </div>
 </div>

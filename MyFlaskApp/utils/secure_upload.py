@@ -414,7 +414,7 @@ def save_base64_upload(base64_data: str,
         with open(filepath, 'wb') as f:
             f.write(image_bytes)
         
-        if check_magic_bytes(ext):
+        if check_magic_bytes:
             if not validate_magic_bytes(filepath, ext):
                 os.remove(filepath)
                 return None, "Invalid image content"

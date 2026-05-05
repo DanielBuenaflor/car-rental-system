@@ -1673,11 +1673,11 @@ def api_get_bookings():
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT b.*, 
+            SELECT b.*,
                    CONCAT(u.first_name, ' ', u.last_name) as user_name,
                    u.email as user_email,
                    u.phone as user_phone,
-                   v.model, v.license_plate, vb.name as brand_name
+                   v.model, v.year, v.license_plate, vb.name as brand_name
             FROM bookings b
             JOIN users u ON b.user_id = u.id
             JOIN vehicles v ON b.vehicle_id = v.id

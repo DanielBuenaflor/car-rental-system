@@ -116,7 +116,6 @@ def require_csrf(f):
         if not valid:
             return jsonify({'success': False, 'message': error}), 403
         
-        clear_csrf_token()
         return f(*args, **kwargs)
     
     return decorated_function
