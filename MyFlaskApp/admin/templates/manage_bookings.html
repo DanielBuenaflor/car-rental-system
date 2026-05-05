@@ -57,7 +57,7 @@
                 <tbody id="bookingsTableBody">
                     {% for booking in bookings %}
                     <tr>
-                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;"><strong>{{ booking.booking_reference or 'N/A' }}</strong></td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; word-break: break-all;"><strong>{{ booking.booking_reference or 'N/A' }}</strong></td>
                         <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
                             {{ booking.user_name }}<br>
                             <small>{{ booking.user_email }}</small>
@@ -69,7 +69,7 @@
                         <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }}</td>
                         <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}</td>
                         <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{{ booking.rental_days }}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">₱{ "%.2f"|format(booking.total_amount) }}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">₱{{ "%.2f"|format(booking.total_amount) }}</td>
                         <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
                             <span class="badge-{{ booking.status }}">{{ booking.status }}</span>
                         </td>
@@ -374,7 +374,7 @@ function displayBookings(bookings) {
             <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${new Date(booking.start_date).toLocaleDateString()}</td>
             <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${new Date(booking.end_date).toLocaleDateString()}</td>
             <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${booking.rental_days}</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">₱${Number(booking.total_amount || 0).toFixed(2)}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">₱${Number(booking.total_amount || 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
             <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;"><span class="badge-${booking.status}">${booking.status}</span></td>
             <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
                 <button class="btn-sm btn-primary" onclick="viewBooking(${booking.id})">View</button>

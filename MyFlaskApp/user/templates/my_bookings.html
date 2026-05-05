@@ -35,6 +35,23 @@
         border-radius: 20px;
         cursor: pointer;
     }
+
+    .actions-cell {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        justify-content: flex-start;
+    }
+
+    .bookings-table th:last-child {
+        min-width: 220px;
+    }
+
+    .btn-action-group {
+        display: flex;
+        gap: 5px;
+    }
     
     .btn-danger { background: #dc2626; color: white; }
     .btn-info { background: #3b82f6; color: white; }
@@ -152,10 +169,12 @@
     
     .modal-actions {
         display: flex;
-        gap: 12px;
+        flex-wrap: wrap;
+        gap: 8px;
         margin-top: 20px;
         padding-top: 20px;
         border-top: 1px solid #e2e8f0;
+        align-items: center;
     }
     
     @media (max-width: 768px) {
@@ -355,7 +374,7 @@
                                 {{ booking.status }}
                             </span>
                         </td>
-                        <td>
+                        <td class="actions-cell">
                              {% if booking.status in ['pending', 'confirmed'] %}
                              <form method="POST" action="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" style="display:inline;">
                                  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
@@ -364,31 +383,39 @@
                                  </button>
                              </form>
                              {% endif %}
-                            <button class="btn-sm btn-info" onclick="viewBooking({{ booking.id }})">
-                                Details
-                            </button>
-                            {% if booking.status == 'pending' %}
-                            <a href="{{ url_for('payment_bp.checkout', booking_id=booking.id) }}" class="btn-sm btn-primary">
-                                Pay Now
-                            </a>
-                            {% endif %}
-                             {% if booking.status in ['confirmed', 'paid'] %}
-                             <span class="btn-sm" style="background: #9ca3af; color: white; cursor: default;">
-                                 <i class="fas fa-file-pdf"></i> Invoice
-                             </span>
+<div class="btn-action-group">
+    <button class="btn-sm btn-info" onclick="viewBooking({{ booking.id }})">
+        Details
+    </button>
+    {% if booking.status in ['confirmed', 'paid'] %}
+        {% if booking.invoice_id %}
+        <a href="{{ url_for('user_bp.download_invoice', invoice_id=booking.invoice_id) }}" class="btn-sm btn-primary" style="text-decoration: none;">
+            <i class="fas fa-file-pdf"></i> Invoice
+        </a>
+        {% else %}
+        <span class="btn-sm" style="background: #9ca3af; color: white; cursor: default;">
+            <i class="fas fa-file-pdf"></i> Invoice
+        </span>
+        {% endif %}
+    {% endif %}
+</div>
+                             {% if booking.status == 'pending' %}
+                             <a href="{{ url_for('payment_bp.checkout', booking_id=booking.id) }}" class="btn-sm btn-primary">
+                                 Pay Now
+                             </a>
                              {% endif %}
-                             {% if booking.status == 'completed' %}
-                                 {% if booking.reviewed %}
-                                 <span class="btn-sm" style="background: #10b981; color: white; cursor: default; display: inline-block;">
-                                     <i class="fas fa-check-circle"></i> Review Done
-                                 </span>
-                                 {% else %}
-                                 <button class="btn-sm btn-primary" onclick="openReviewModal({{ booking.id }}, '{{ booking.brand_name }} {{ booking.model }}')">
-                                     <i class="fas fa-star"></i> Write Review
-                                 </button>
-                                 {% endif %}
-                             {% endif %}
-                         </td>
+                              {% if booking.status == 'completed' %}
+                                  {% if booking.reviewed %}
+                                  <span class="btn-sm" style="background: #10b981; color: white; cursor: default; display: inline-block;">
+                                      <i class="fas fa-check-circle"></i> Review Done
+                                  </span>
+                                  {% else %}
+                                  <button class="btn-sm btn-primary" onclick="openReviewModal({{ booking.id }}, '{{ booking.brand_name }} {{ booking.model }}')">
+                                      <i class="fas fa-star"></i> Write Review
+                                  </button>
+                                  {% endif %}
+                              {% endif %}
+                          </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -660,16 +687,6 @@ function viewBooking(bookingId) {
         </div>
         
         <div class="modal-actions">
-            ${booking.status === 'pending' ? `
-            <a href="{{ url_for('payment_bp.checkout', booking_id=0) }}".replace('0', booking.id) class="btn-sm btn-primary" style="flex: 1; text-align: center;">
-                <i class="fas fa-credit-card"></i> Pay Now
-            </a>
-            ` : ''}
-            ${(booking.status === 'confirmed' || booking.status === 'paid') ? `
-            <span class="btn-sm" style="background: #9ca3af; color: white; flex: 1; text-align: center; display: inline-block; cursor: default;">
-                <i class="fas fa-file-pdf"></i> Invoice
-            </span>
-            ` : ''}
             ${booking.status === 'pending' || booking.status === 'confirmed' ? `
             <button class="btn-sm btn-danger" onclick="cancelAndClose(${booking.id})" style="flex: 1;">
                 <i class="fas fa-times"></i> Cancel Booking
@@ -678,6 +695,15 @@ function viewBooking(bookingId) {
             <button class="btn-sm btn-info" onclick="closeModal()" style="flex: 1;">
                 <i class="fas fa-times"></i> Close
             </button>
+            ${(booking.status === 'confirmed' || booking.status === 'paid') && booking.invoice_id ? `
+            <a href="{{ url_for('user_bp.download_invoice', invoice_id=0) }}".replace('0', booking.invoice_id) class="btn-sm btn-primary" style="flex: 1; text-align: center; text-decoration: none;">
+                <i class="fas fa-file-pdf"></i> Invoice
+            </a>
+            ` : (booking.status === 'confirmed' || booking.status === 'paid') ? `
+            <span class="btn-sm" style="background: #9ca3af; color: white; flex: 1; text-align: center; display: inline-block; cursor: default;">
+                <i class="fas fa-file-pdf"></i> Invoice
+            </span>
+            ` : ''}
         </div>
     `;
     
