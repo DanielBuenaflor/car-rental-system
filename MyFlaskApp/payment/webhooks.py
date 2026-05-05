@@ -11,25 +11,42 @@ from datetime import datetime
 webhook_bp = Blueprint('webhook_bp', __name__)
 
 
-def verify_paymongo_signature(payload, signature):
+def verify_paymongo_signature(payload, signature_header):
     """
     Verify PayMongo webhook signature for security
-    Optional but recommended for production
+    Signature format: t=<timestamp>,te=<test_sig>,li=<live_sig>
     """
     webhook_secret = os.environ.get('PAYMONGO_WEBHOOK_SECRET', '')
-    
+    paymongo_mode = os.environ.get('PAYMONGO_MODE', 'sandbox')
+
     if not webhook_secret:
         # If no webhook secret is set, skip verification (for development)
         return True
-    
+
     try:
-        computed_signature = hmac.new(
+        # Parse signature header
+        parts = dict(item.split('=', 1) for item in signature_header.split(',') if '=' in item)
+        timestamp = parts.get('t', '')
+        test_sig = parts.get('te', '')
+        live_sig = parts.get('li', '')
+
+        # Choose signature based on mode
+        expected_sig = test_sig if paymongo_mode == 'sandbox' else live_sig
+        if not expected_sig:
+            print(f"❌ No signature found for mode: {paymongo_mode}")
+            return False
+
+        # Build signature string: timestamp.payload
+        signature_string = f"{timestamp}.{payload.decode('utf-8')}"
+
+        # Compute HMAC
+        computed = hmac.new(
             webhook_secret.encode('utf-8'),
-            payload,
+            signature_string.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
-        
-        return hmac.compare_digest(computed_signature, signature)
+
+        return hmac.compare_digest(computed, expected_sig)
     except Exception as e:
         print(f"Signature verification error: {e}")
         return False
@@ -42,11 +59,11 @@ def paymongo_webhook_handler():
     payload = request.get_data()
     print(f"📨 Webhook received - checking event type...")
     
-    # Signature verification disabled for testing
-    # signature = request.headers.get('PayMongo-Signature', '')
-    # if not verify_paymongo_signature(payload, signature):
-    #     print("❌ Invalid webhook signature - rejecting request")
-    #     return jsonify({'error': 'Invalid signature'}), 401
+    # Verify PayMongo signature for security (enabled now that webhook secret is configured)
+    signature = request.headers.get('PayMongo-Signature', '')
+    if not verify_paymongo_signature(payload, signature):
+        print("❌ Invalid webhook signature - rejecting request")
+        return jsonify({'error': 'Invalid signature'}), 401
     
     try:
         data = request.get_json()
@@ -214,9 +231,10 @@ def handle_checkout_session_paid(event_data):
             # Get user and booking details for notification
             cursor.execute("""
                 SELECT b.user_id, b.booking_reference, b.total_amount,
-                       v.brand_name, v.model
+                       vb.name as brand_name, v.model
                 FROM bookings b
                 JOIN vehicles v ON b.vehicle_id = v.id
+                JOIN vehicle_brands vb ON v.brand_id = vb.id
                 WHERE b.id = %s
             """, (booking_id,))
             booking_details = cursor.fetchone()
@@ -472,9 +490,9 @@ def handle_payment_paid(event_data):
         attributes = event_data.get('attributes', {})
         metadata = attributes.get('metadata', {})
         booking_id = metadata.get('booking_id')
-        
+
         print(f"💰 Payment paid: {payment_id}")
-        
+
         if booking_id:
             conn = get_db_connection()
             if conn:
@@ -482,46 +500,53 @@ def handle_payment_paid(event_data):
                 try:
                     # Update booking status
                     cursor.execute("""
-                        UPDATE bookings 
+                        UPDATE bookings
                         SET status = 'confirmed'
                         WHERE id = %s
                     """, (booking_id,))
                     conn.commit()
-                    
+
                     # Notify ADMIN about confirmed booking
                     try:
                         cursor.execute("SELECT id FROM users WHERE role = 'admin'")
                         admin_users = cursor.fetchall()
-                        
+
                         if admin_users:
                             cursor.execute("SELECT booking_reference FROM bookings WHERE id = %s", (booking_id,))
                             booking_ref = cursor.fetchone()
                             ref = booking_ref[0] if booking_ref else 'N/A'
-                            
+
                             notification_title = "Booking Confirmed"
                             notification_message = f"Booking {ref} has been confirmed (payment received)"
                             notification_link = "/admin/manage-bookings"
-                            
+
                             for admin in admin_users:
                                 cursor.execute("""
                                     INSERT INTO notifications (user_id, title, message, type, link, created_at)
                                     VALUES (%s, %s, %s, 'system', %s, NOW())
                                 """, (admin[0], notification_title, notification_message, notification_link))
-                            
+
                             conn.commit()
                             print(f"DEBUG: Notified {len(admin_users)} admin(s) about booking confirmation")
                     except Exception as notify_err:
                         print(f"DEBUG: Error notifying admins about confirmation: {notify_err}")
-                    
+
                     print(f"✅ Booking {booking_id} confirmed")
                 except Exception as e:
                     print(f"Error updating booking: {e}")
                 finally:
                     cursor.close()
                     conn.close()
-            
+
+            else:
+                print(f"❌ Database connection failed for booking {booking_id}")
+                return jsonify({'success': False, 'message': 'Database error'}), 500
+
             return jsonify({'success': True}), 200
-        
+        else:
+            print(f"⚠️ No booking_id in payment.paid metadata")
+            return jsonify({'success': True, 'message': 'No booking_id found'}), 200
+
     except Exception as e:
         print(f"Error handling payment paid: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500

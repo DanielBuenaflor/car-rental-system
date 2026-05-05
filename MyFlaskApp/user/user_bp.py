@@ -5,6 +5,7 @@ import os
 import json
 import base64
 import re
+import math
 from urllib.parse import urlparse
 from functools import wraps
 from datetime import datetime, timedelta
@@ -73,7 +74,6 @@ def create_booking_notification(booking_id, title, message, notif_type, link=Non
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS  # Use secure upload module's extensions
 MAX_FILE_SIZE_MB = 5
 UPLOAD_FOLDER = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), 
@@ -111,11 +111,6 @@ def save_base64_image(base64_data, filepath):
     except Exception as e:
         print(f"Error saving base64 image: {e}")
         return None
-
-def allowed_file(filename):
-    """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
 
 def _is_safe_notification_link(link):
     """Allow only internal app-relative notification links."""
@@ -727,34 +722,57 @@ def my_bookings():
     conn = get_db_connection()
     if not conn:
         return render_template('my_bookings.html', bookings=[], session=session)
-    
+
     cursor = conn.cursor(dictionary=True)
     try:
+        # Ensure user_id is integer
+        user_id = int(session['user_id']) if 'user_id' in session else None
+        if not user_id:
+            return render_template('my_bookings.html', bookings=[], session=session)
+
         cursor.execute("""
-            SELECT b.*, v.model, v.year, v.license_plate, v.daily_rate, 
+            SELECT b.*, v.model, v.year, v.license_plate, v.daily_rate,
                    vb.name as brand_name, vb.id as brand_id
             FROM bookings b
             JOIN vehicles v ON b.vehicle_id = v.id
             JOIN vehicle_brands vb ON v.brand_id = vb.id
             WHERE b.user_id = %s
             ORDER BY b.created_at DESC
-        """, (session['user_id'],))
+        """, (user_id,))
         bookings = cursor.fetchall()
-        
+
         # Get all bookings user has already reviewed
-        cursor.execute("""
-            SELECT DISTINCT booking_id FROM testimonials 
-            WHERE user_id = %s
-        """, (session['user_id'],))
-        reviewed_bookings = {row['booking_id'] for row in cursor.fetchall()}
-        
+        try:
+            cursor.execute("""
+                SELECT DISTINCT booking_id FROM testimonials
+                WHERE user_id = %s
+            """, (user_id,))
+            reviewed_bookings = {row['booking_id'] for row in cursor.fetchall()}
+        except Exception as te:
+            print(f"Testimonials query error: {te}")
+            reviewed_bookings = set()
+
         # Add 'reviewed' flag to each booking
         for booking in bookings:
             booking['reviewed'] = booking['id'] in reviewed_bookings
-        
+
+        # Convert timedelta objects to strings for JSON serialization
+        from datetime import timedelta
+        for booking in bookings:
+            for key, value in list(booking.items()):
+                if isinstance(value, timedelta):
+                    total_seconds = int(value.total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    seconds = total_seconds % 60
+                    booking[key] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                # NOTE: Don't convert datetime objects - template uses .strftime()
+
         return render_template('my_bookings.html', bookings=bookings)
     except Exception as e:
         print(f"My bookings error: {e}")
+        import traceback
+        traceback.print_exc()
         return render_template('my_bookings.html', bookings=[], session=session)
     finally:
         cursor.close()
@@ -764,18 +782,19 @@ def my_bookings():
 @user_bp.route('/active-rentals')
 @login_required
 def active_rentals():
-    """View active rentals with countdown"""
+    """View active rentals with countdown and penalty estimation"""
     conn = get_db_connection()
     if not conn:
         return render_template('rental_tracking.html', active_rentals=[], session=session)
-    
+
     cursor = conn.cursor(dictionary=True)
     try:
-        # Get active rentals for the user
+        # Get active rentals for the user (include rates for penalty calculation)
         cursor.execute("""
             SELECT b.*, v.model, v.license_plate, v.current_odometer, vb.name as brand_name,
                    rt.pickup_time, rt.expected_return_time, rt.tracking_status,
-                   rt.pickup_odometer_reading, rt.fuel_level_at_pickup
+                   rt.pickup_odometer_reading, rt.fuel_level_at_pickup,
+                   COALESCE(b.daily_rate_applied, v.daily_rate) as effective_daily_rate
             FROM bookings b
             JOIN vehicles v ON b.vehicle_id = v.id
             JOIN vehicle_brands vb ON v.brand_id = vb.id
@@ -785,26 +804,42 @@ def active_rentals():
         """, (session['user_id'],))
         active_rentals = cursor.fetchall()
 
+        # Get late fee multiplier from settings
+        cursor.execute("SELECT setting_value FROM system_settings WHERE setting_key = 'late_fee_daily_rate'")
+        rate_setting = cursor.fetchone()
+        late_fee_multiplier = float(rate_setting['setting_value']) if rate_setting else 1.5
+
+        # Auto-update status: confirmed → active if start_date has passed
+        now = datetime.now()
+        for rental in active_rentals:
+            if rental['status'] == 'confirmed' and rental['start_date'] and now >= rental['start_date']:
+                cursor.execute("UPDATE bookings SET status = 'active' WHERE id = %s", (rental['id'],))
+                rental['status'] = 'active'
+                conn.commit()
+
         for rental in active_rentals:
             pickup_odometer = rental.get('pickup_odometer_reading')
             current_odometer = rental.get('current_odometer')
             baseline = pickup_odometer if pickup_odometer is not None else current_odometer
             rental['minimum_return_odometer'] = int(baseline) if baseline is not None else 0
-        
-        # Calculate countdown for each rental
-        now = datetime.now()
+            rental['current_vehicle_odometer'] = int(current_odometer) if current_odometer is not None else 0
+            # Initialize penalty fields (set default values for non-overdue rentals)
+            rental['estimated_penalty'] = 0
+            rental['late_detail'] = ""
+
+        # Calculate countdown and penalty estimation for each rental
         for rental in active_rentals:
             if rental['start_date']:
                 start = rental['start_date']
-                
+
                 if now < start:
                     # Rental hasn't started yet
                     days_left = (start - now).days
                     hours_left = (start - now).seconds // 3600
                     rental['status_message'] = f"Starts in {days_left} days, {hours_left} hours"
                     rental['countdown_type'] = 'upcoming'
-                elif rental['end_date']:
-                    # Rental is active
+                elif rental['status'] == 'active' and rental['end_date']:
+                    # Only mark as overdue if status is 'active' and past end date
                     end = rental['end_date']
                     if now < end:
                         days_left = (end - now).days
@@ -812,11 +847,46 @@ def active_rentals():
                         rental['status_message'] = f"Ends in {days_left} days, {hours_left} hours"
                         rental['countdown_type'] = 'active'
                     else:
+                        # Calculate estimated penalty for overdue rentals
+                        lateness_delta = now - end
+                        total_minutes_late = lateness_delta.total_seconds() / 60
+                        grace_period_minutes = 30
+
+                        if total_minutes_late > grace_period_minutes:
+                            effective_minutes_late = total_minutes_late - grace_period_minutes
+                            hours_late_rounded = math.ceil(effective_minutes_late / 60)
+                            daily_rate = float(rental.get('effective_daily_rate', 0))
+
+                            if hours_late_rounded <= 24:
+                                hourly_rate = (daily_rate * late_fee_multiplier) / 24
+                                estimated_penalty = hourly_rate * hours_late_rounded
+                                rental['estimated_penalty'] = round(estimated_penalty, 2)
+                                rental['late_detail'] = f"{hours_late_rounded}h late (after 30-min grace)"
+                            else:
+                                days_late_rounded = math.ceil(hours_late_rounded / 24)
+                                estimated_penalty = daily_rate * late_fee_multiplier * days_late_rounded
+                                rental['estimated_penalty'] = round(estimated_penalty, 2)
+                                rental['late_detail'] = f"{days_late_rounded}d late (after 30-min grace)"
+                        else:
+                            rental['estimated_penalty'] = 0
+                            rental['late_detail'] = "Within grace period"
+
                         rental['status_message'] = "OVERDUE - Please return vehicle"
                         rental['countdown_type'] = 'overdue'
-        
-        return render_template('rental_tracking.html', active_rentals=active_rentals, session=session)
-        
+                elif rental['status'] == 'confirmed':
+                    # Confirmed but not yet active - show awaiting activation with start date
+                    if rental['start_date']:
+                        start_str = rental['start_date'].strftime('%B %d, %Y, %H:%M')
+                        rental['status_message'] = f"Booking confirmed, starts on {start_str}"
+                    else:
+                        rental['status_message'] = "Booking confirmed, awaiting activation"
+                    rental['countdown_type'] = 'upcoming'
+
+        return render_template('rental_tracking.html',
+                               active_rentals=active_rentals,
+                               late_fee_multiplier=late_fee_multiplier,
+                               session=session)
+
     except Exception as e:
         print(f"Error loading active rentals: {e}")
         return render_template('rental_tracking.html', active_rentals=[], session=session)
@@ -1092,6 +1162,9 @@ def verification_page():
 @login_required
 def book_vehicle():
     """Book a vehicle (only for verified users)"""
+    conn = None
+    cursor = None
+
     valid, error = _validate_state_change_csrf()
     if not valid:
         return jsonify({'success': False, 'message': error}), 403
@@ -1104,16 +1177,20 @@ def book_vehicle():
     return_time = data.get('return_time')
     pickup_location = data.get('pickup_location')
     return_location = data.get('return_location')
-    
+
     if not all([vehicle_id, start_date, end_date, pickup_location, return_location]):
         return jsonify({'success': False, 'message': 'All fields are required'})
-    
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'message': 'User session expired'}), 401
+
     conn = get_db_connection()
     if not conn:
         return jsonify({'success': False, 'message': 'Database error'}), 500
-    
+
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         cursor.execute("""
             SELECT verification_status FROM verifications 
@@ -1143,13 +1220,13 @@ def book_vehicle():
 
         if start.date() < datetime.now().date():
             return jsonify({'success': False, 'message': 'Start date cannot be in the past'})
-        
-        if days <= 0:
-            return jsonify({'success': False, 'message': 'End date must be after start date'})
-        
+
         is_same_day = start_date == end_date
         is_hourly = is_same_day and pickup_time and return_time
-        
+
+        if not is_hourly and days <= 0:
+            return jsonify({'success': False, 'message': 'End date must be after start date'})
+
         if is_hourly:
             pickup_h = int(pickup_time.split(':')[0])
             return_h = int(return_time.split(':')[0])
@@ -1212,19 +1289,24 @@ def book_vehicle():
         conn.commit()
         
         # Get vehicle and user details for notifications
-        cursor.execute("SELECT brand_name, model FROM vehicles WHERE id = %s", (vehicle_id,))
+        cursor.execute("""
+            SELECT vb.name as brand_name, v.model
+            FROM vehicles v
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE v.id = %s
+        """, (vehicle_id,))
         vehicle = cursor.fetchone()
         
         # Notify USER about pending booking
         if vehicle:
             create_notification(
-                session['user_id'],
+                user_id,
                 'Booking Submitted',
-                f'Your booking for {vehicle[0]} {vehicle[1]} is pending payment. Reference: {booking_reference}',
+                f'Your booking for {vehicle["brand_name"]} {vehicle["model"]} is pending payment. Reference: {booking_reference}',
                 'booking_confirmation',
                 url_for('user_bp.my_bookings')
             )
-        
+
         # Notify ADMIN about new pending booking
         try:
             cursor.execute("SELECT id FROM users WHERE role = 'admin'")
@@ -1232,7 +1314,7 @@ def book_vehicle():
             
             if admin_users:
                 # Get user name from database (more reliable than session)
-                cursor.execute("SELECT CONCAT(first_name, ' ', last_name) as full_name FROM users WHERE id = %s", (session['user_id'],))
+                cursor.execute("SELECT CONCAT(first_name, ' ', last_name) as full_name FROM users WHERE id = %s", (user_id,))
                 user_result = cursor.fetchone()
                 user_display = user_result[0] if user_result else 'A user'
                 
@@ -1260,11 +1342,17 @@ def book_vehicle():
         })
         
     except Exception as e:
-        conn.rollback()
+        if conn:
+            conn.rollback()
+        print(f"Book vehicle error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 @user_bp.route('/cancel-booking/<int:booking_id>', methods=['POST'])
@@ -1423,10 +1511,12 @@ def request_extension(booking_id):
         conn.close()
 
 
+import math
+
 @user_bp.route('/return-vehicle/<int:booking_id>', methods=['POST'])
 @login_required
 def return_vehicle(booking_id):
-    """Mark vehicle as returned"""
+    """Mark vehicle as returned with automatic fine calculation for late returns"""
     valid, error = _validate_state_change_csrf()
     if not valid:
         return jsonify({'success': False, 'message': error}), 403
@@ -1435,7 +1525,7 @@ def return_vehicle(booking_id):
     return_odometer = data.get('odometer')
     fuel_level = data.get('fuel_level')
     condition_notes = data.get('condition_notes', '')
-    
+
     if return_odometer is None or return_odometer == '' or not fuel_level:
         return jsonify({'success': False, 'message': 'Please provide odometer reading and fuel level'})
 
@@ -1446,15 +1536,17 @@ def return_vehicle(booking_id):
 
     if return_odometer <= 0:
         return jsonify({'success': False, 'message': 'Odometer reading must be greater than zero'})
-    
+
     conn = get_db_connection()
     if not conn:
         return jsonify({'success': False, 'message': 'Database error'})
-    
+
     cursor = conn.cursor(dictionary=True)
     try:
+        # Get booking details including end_date and rates for fine calculation
         cursor.execute("""
-            SELECT b.id, b.vehicle_id, rt.pickup_odometer_reading, v.current_odometer
+            SELECT b.id, b.vehicle_id, b.end_date, b.daily_rate_applied, b.booking_reference,
+                   b.user_id, rt.pickup_odometer_reading, v.current_odometer, v.daily_rate
             FROM bookings b
             JOIN vehicles v ON b.vehicle_id = v.id
             LEFT JOIN rental_tracking rt ON b.id = rt.booking_id
@@ -1486,6 +1578,67 @@ def return_vehicle(booking_id):
                 'message': f'Odometer reading cannot be lower than {minimum_return_odometer} km'
             })
 
+        # ============================================================
+        # FINE CALCULATION FOR LATE RETURNS
+        # ============================================================
+        fine_amount = 0
+        hours_late = 0
+        days_late = 0
+        fine_created = False
+        fine_message = ""
+
+        now = datetime.now()
+        end_date = booking['end_date']
+
+        if now > end_date:
+            # Calculate raw lateness
+            lateness_delta = now - end_date
+            total_seconds_late = lateness_delta.total_seconds()
+            total_minutes_late = total_seconds_late / 60
+
+            # Apply 30-minute grace period
+            grace_period_minutes = 30
+            if total_minutes_late > grace_period_minutes:
+                # Calculate hours late (with grace period subtracted)
+                effective_minutes_late = total_minutes_late - grace_period_minutes
+                hours_late = math.ceil(effective_minutes_late / 60)  # Round up to nearest hour
+
+                # Get late fee multiplier from system settings (default 1.5)
+                cursor.execute("""
+                    SELECT setting_value FROM system_settings
+                    WHERE setting_key = 'late_fee_daily_rate'
+                """)
+                rate_setting = cursor.fetchone()
+                late_fee_multiplier = float(rate_setting['setting_value']) if rate_setting else 1.5
+
+                # Use daily_rate_applied from booking, fallback to vehicle's daily_rate
+                daily_rate = float(booking['daily_rate_applied']) if booking['daily_rate_applied'] else float(booking['daily_rate'])
+
+                # Calculate penalty
+                if hours_late <= 24:
+                    # Hourly penalty (rounded up)
+                    hourly_rate = (daily_rate * late_fee_multiplier) / 24
+                    fine_amount = hourly_rate * hours_late
+                    fine_message = f"Late return: {hours_late} hour(s) past due (within 24h, 30-min grace period applied)"
+                else:
+                    # Full-day penalty
+                    days_late = math.ceil(hours_late / 24)
+                    fine_amount = daily_rate * late_fee_multiplier * days_late
+                    fine_message = f"Late return: {days_late} day(s) past due (30-min grace period applied)"
+
+                # Create fine record
+                cursor.execute("""
+                    INSERT INTO fines (booking_id, user_id, hours_late, days_late,
+                                    hourly_rate, daily_rate, fine_amount, reason, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending', NOW())
+                """, (booking_id, session['user_id'], hours_late, days_late,
+                      (daily_rate * late_fee_multiplier) / 24 if hours_late <= 24 else None,
+                      daily_rate * late_fee_multiplier if hours_late > 24 else None,
+                      fine_amount, fine_message))
+                fine_created = True
+
+        # ============================================================
+
         # Update booking
         cursor.execute("""
             UPDATE bookings 
@@ -1511,23 +1664,70 @@ def return_vehicle(booking_id):
             WHERE id = (SELECT vehicle_id FROM bookings WHERE id = %s)
         """, (return_odometer, booking_id))
         
-        # Get booking reference for notification
-        cursor.execute("SELECT booking_reference FROM bookings WHERE id = %s", (booking_id,))
-        booking_info = cursor.fetchone()
-        
         conn.commit()
         
-        # Send notification
-        if booking_info:
-            create_notification(
-                session['user_id'],
-                'Vehicle Returned Successfully',
-                f'Your vehicle return for booking {booking_info[0]} has been recorded. Thank you!',
-                'booking_confirmation',
-                url_for('user_bp.my_bookings')
-            )
+        # ============================================================
+        # SEND NOTIFICATIONS AND EMAIL
+        # ============================================================
+        # Get user and vehicle details for notifications
+        cursor.execute("""
+            SELECT u.email, u.first_name, v.model, vb.name as brand_name
+            FROM bookings b
+            JOIN users u ON b.user_id = u.id
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE b.id = %s
+        """, (booking_id,))
+        user_vehicle_info = cursor.fetchone()
         
-        return jsonify({'success': True, 'message': 'Vehicle returned successfully! Thank you!'})
+        # Send notification to user
+        notification_message = f'Your vehicle return for booking {booking["booking_reference"]} has been recorded.'
+        if fine_created and fine_amount > 0:
+            notification_message += f' A late return penalty of ₱{fine_amount:.2f} has been applied.'
+        
+        create_notification(
+            session['user_id'],
+            'Vehicle Returned Successfully',
+            notification_message,
+            'booking_confirmation',
+            url_for('user_bp.my_bookings')
+        )
+        
+        # Send fine notice email if late
+        if fine_created and fine_amount > 0 and user_vehicle_info:
+            try:
+                from MyFlaskApp.services.email import EmailService
+                
+                # Get fine record
+                cursor.execute("""
+                    SELECT * FROM fines 
+                    WHERE booking_id = %s 
+                    ORDER BY created_at DESC LIMIT 1
+                """, (booking_id,))
+                fine_record = cursor.fetchone()
+                
+                if fine_record:
+                    EmailService.send_fine_notice(
+                        user={'email': user_vehicle_info['email'], 'first_name': user_vehicle_info['first_name']},
+                        fine=fine_record,
+                        booking=booking,
+                        vehicle={'brand_name': user_vehicle_info['brand_name'], 'model': user_vehicle_info['model']}
+                    )
+            except Exception as email_err:
+                print(f"Error sending fine notice email: {email_err}")
+        
+        # ============================================================
+        # PREPARE RESPONSE
+        # ============================================================
+        response_data = {'success': True, 'message': 'Vehicle returned successfully! Thank you!'}
+        
+        if fine_created and fine_amount > 0:
+            response_data['fine_applied'] = True
+            response_data['fine_amount'] = round(fine_amount, 2)
+            response_data['late_message'] = fine_message
+            response_data['message'] = f'Vehicle returned successfully! Late penalty: ₱{fine_amount:.2f}'
+        
+        return jsonify(response_data)
         
     except Exception as e:
         conn.rollback()
@@ -1622,22 +1822,13 @@ def submit_review():
                 print(f"DEBUG: upload_dir: {upload_dir}")
                 print(f"DEBUG: upload_dir exists: {os.path.exists(upload_dir)}")
                 os.makedirs(upload_dir, exist_ok=True)
-                
-                # Generate safe filename
-                import uuid
-                ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'jpg'
-                filename = f"review_{uuid.uuid4().hex[:8]}.{ext}"
-                filepath = os.path.join(upload_dir, filename)
-                
-                # Save file directly (this should work now)
-                try:
-                    file.save(filepath)
+
+                filename, error = save_upload(file, upload_dir, allowed_extensions=ALLOWED_EXTENSIONS)
+                if error:
+                    print(f"DEBUG: Error saving file: {error}")
+                else:
                     image_path = f"reviews/{filename}"
                     print(f"DEBUG: Image saved - filename: {filename}, image_path: {image_path}")
-                    print(f"DEBUG: File exists: {os.path.exists(filepath)}")
-                    print(f"DEBUG: File size: {os.path.getsize(filepath) if os.path.exists(filepath) else 'N/A'}")
-                except Exception as save_err:
-                    print(f"DEBUG: Error saving file: {save_err}")
 
         # Insert review (no approval needed - status set to 'approved')
         cursor.execute("""
@@ -1767,7 +1958,7 @@ def submit_verification():
     print(f"DEBUG: selfie_file={selfie_file.filename if selfie_file else 'None'}")
     
     # Validate that license front image is provided (required field)
-    has_license_front = bool(license_front_base64) or (license_front_file and allowed_file(license_front_file.filename))
+    has_license_front = bool(license_front_base64) or (license_front_file and license_front_file.filename)
     if not has_license_front:
         return jsonify({'success': False, 'message': 'License front image is required'}), 400
     
@@ -1790,15 +1981,11 @@ def submit_verification():
         if error:
             return jsonify({'success': False, 'message': f'License front: {error}'}), 400
         license_front_path = filename
-    elif license_front_file and allowed_file(license_front_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_license_front_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            license_front_file.save(filepath)
-            license_front_path = filename
-        except Exception as e:
-            return jsonify({'success': False, 'message': f'License front: Error saving file: {str(e)}'}), 400
+    elif license_front_file and license_front_file.filename:
+        filename, error = save_upload(license_front_file, UPLOAD_FOLDER, allowed_extensions=ALLOWED_EXTENSIONS)
+        if error:
+            return jsonify({'success': False, 'message': f'License front: {error}'}), 400
+        license_front_path = filename
     
     # License Back Image
     if license_back_base64:
@@ -1812,17 +1999,13 @@ def submit_verification():
                 os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
             return jsonify({'success': False, 'message': f'License back: {error}'}), 400
         license_back_path = filename
-    elif license_back_file and allowed_file(license_back_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_license_back_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            license_back_file.save(filepath)
-            license_back_path = filename
-        except Exception as e:
+    elif license_back_file and license_back_file.filename:
+        filename, error = save_upload(license_back_file, UPLOAD_FOLDER, allowed_extensions=ALLOWED_EXTENSIONS)
+        if error:
             if license_front_path:
                 os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
-            return jsonify({'success': False, 'message': f'License back: Error saving file: {str(e)}'}), 400
+            return jsonify({'success': False, 'message': f'License back: {error}'}), 400
+        license_back_path = filename
     
     # ID Card Image
     if id_card_base64:
@@ -1836,17 +2019,13 @@ def submit_verification():
             if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
             return jsonify({'success': False, 'message': f'ID card: {error}'}), 400
         id_card_path = filename
-    elif id_card_file and allowed_file(id_card_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_id_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            id_card_file.save(filepath)
-            id_card_path = filename
-        except Exception as e:
+    elif id_card_file and id_card_file.filename:
+        filename, error = save_upload(id_card_file, UPLOAD_FOLDER, allowed_extensions=ALLOWED_EXTENSIONS)
+        if error:
             if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
             if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
-            return jsonify({'success': False, 'message': f'ID card: Error saving file: {str(e)}'}), 400
+            return jsonify({'success': False, 'message': f'ID card: {error}'}), 400
+        id_card_path = filename
     
     # Selfie Image
     if selfie_base64:
@@ -1861,18 +2040,14 @@ def submit_verification():
             if id_card_path: os.remove(os.path.join(UPLOAD_FOLDER, id_card_path))
             return jsonify({'success': False, 'message': f'Selfie: {error}'}), 400
         selfie_path = filename
-    elif selfie_file and allowed_file(selfie_file.filename):
-        # Direct file save - bypasses secure_upload to avoid file pointer issues
-        filename = f"{prefix}_selfie_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        try:
-            selfie_file.save(filepath)
-            selfie_path = filename
-        except Exception as e:
+    elif selfie_file and selfie_file.filename:
+        filename, error = save_upload(selfie_file, UPLOAD_FOLDER, allowed_extensions=ALLOWED_EXTENSIONS)
+        if error:
             if license_front_path: os.remove(os.path.join(UPLOAD_FOLDER, license_front_path))
             if license_back_path: os.remove(os.path.join(UPLOAD_FOLDER, license_back_path))
             if id_card_path: os.remove(os.path.join(UPLOAD_FOLDER, id_card_path))
-            return jsonify({'success': False, 'message': f'Selfie: Error saving file: {str(e)}'}), 400
+            return jsonify({'success': False, 'message': f'Selfie: {error}'}), 400
+        selfie_path = filename
     
     # ============================================================
     # OCR VALIDATION - Extract data for admin review
