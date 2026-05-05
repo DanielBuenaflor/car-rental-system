@@ -1,0 +1,85 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}My Invoices - CarRental Pro{% endblock %}
+
+{% block content %}
+    <h2 style="margin-bottom: 24px;">My Invoices</h2>
+
+    {% if invoices %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;">
+        {% for invoice in invoices %}
+        <div class="card" style="padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; transition: all 0.2s;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <div>
+                    <h3 style="margin: 0 0 2px 0; font-size: 14px; color: #0f3b6f;">{{ invoice.invoice_number }}</h3>
+                    <span style="font-size: 11px; color: #64748b;">{{ invoice.booking_reference }}</span>
+                </div>
+                <span class="badge badge-{{ invoice.status }}" style="padding: 3px 10px; border-radius: 16px; font-size: 11px; font-weight: 600; text-transform: uppercase;">
+                    {{ invoice.status if invoice.status else 'PENDING' }}
+                </span>
+            </div>
+
+            <div style="background: #f8fafc; border-radius: 8px; padding: 10px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <i class="fas fa-car" style="color: #0f3b6f; font-size: 18px;"></i>
+                    <div>
+                        <strong style="font-size: 13px; color: #1e293b;">{{ invoice.brand_name }} {{ invoice.model }}</strong>
+                        <span style="font-size: 11px; color: #64748b; display: block;">{{ invoice.year }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; font-size: 12px; color: #64748b;">
+                <div>
+                    <span style="display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;">Invoice Date</span>
+                    <strong style="color: #1e293b; font-size: 12px;">{{ invoice.invoice_date.strftime('%Y-%m-%d') if invoice.invoice_date else 'N/A' }}</strong>
+                </div>
+                <div>
+                    <span style="display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;">Due Date</span>
+                    <strong style="color: #1e293b; font-size: 12px;">{{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else 'N/A' }}</strong>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                <div>
+                    <span style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: #64748b;">Total Amount</span>
+                    <div style="font-size: 18px; font-weight: 700; color: #0f3b6f;">₱{{ "%.2f"|format(invoice.total_amount or 0) }}</div>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <a href="{{ url_for('user_bp.download_invoice', invoice_id=invoice.id) }}" class="btn-sm btn-primary" style="padding: 6px 12px; border-radius: 16px; font-size: 11px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                        <i class="fas fa-eye"></i> View
+                    </a>
+                    <a href="{{ url_for('user_bp.invoice_pdf', invoice_id=invoice.id) }}" class="btn-sm btn-success" style="padding: 6px 12px; border-radius: 16px; font-size: 11px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                        <i class="fas fa-download"></i> PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card" style="text-align: center; padding: 60px; border-radius: 16px;">
+        <i class="fas fa-file-invoice" style="font-size: 64px; color: #0f3b6f; margin-bottom: 20px;"></i>
+        <h3 style="margin-bottom: 8px;">No Invoices Yet</h3>
+        <p style="color: #64748b; margin-bottom: 20px;">Your invoices will appear here after you complete a booking.</p>
+        <a href="{{ url_for('base_bp.browse_fleet') }}" class="btn-primary" style="padding: 12px 28px; border-radius: 25px; text-decoration: none; display: inline-block;">Browse Vehicles</a>
+    </div>
+    {% endif %}
+
+<style>
+    .badge-pending { background: #fed7aa; color: #9b2c1d; }
+    .badge-completed { background: #d1fae5; color: #065f46; }
+    .badge-paid { background: #d1fae5; color: #065f46; }
+    .badge-overdue { background: #fee2e2; color: #991b1b; }
+    .btn-sm.btn-primary { background: #0f3b6f; color: white; border: none; cursor: pointer; }
+    .btn-sm.btn-success { background: #059669; color: white; border: none; cursor: pointer; }
+    .btn-sm.btn-primary:hover { background: #0a2d56; }
+    .btn-sm.btn-success:hover { background: #047857; }
+
+    @media (max-width: 480px) {
+        div[style*="grid-template-columns: repeat(auto-fill, minmax(360px, 1fr))"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,685 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Manage Verifications - CarRental Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .tab-btn {
+        padding: 10px 20px;
+        background: #e2e8f0;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .tab-btn.active {
+        background: #0f3b6f;
+        color: white;
+    }
+    .verification-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s;
+    }
+    .verification-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .verification-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+    .user-info {
+        font-weight: bold;
+        color: #0f3b6f;
+    }
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+    }
+    .status-pending { background: #fed7aa; color: #9b2c1d; }
+    .status-approved { background: #d1fae5; color: #065f46; }
+    .status-rejected { background: #fee2e2; color: #991b1b; }
+    .doc-thumb {
+        display: inline-block;
+        margin: 5px;
+        text-align: center;
+    }
+    .doc-thumb img {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    .btn-sm {
+        padding: 5px 12px;
+        font-size: 12px;
+        margin: 0 3px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .btn-success { background: #10b981; color: white; }
+    .btn-warning { background: #f59e0b; color: white; }
+    .btn-danger { background: #ef4444; color: white; }
+    .modal {
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+    }
+    .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 20px;
+        width: 90%;
+        max-width: 800px;
+        border-radius: 12px;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .close {
+        font-size: 28px;
+        cursor: pointer;
+    }
+    .reject-form {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #e2e8f0;
+        display: none;
+    }
+    .reject-form textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+    .ocr-section {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+        border-left: 4px solid #3b82f6;
+    }
+    .ocr-section h4 {
+        margin: 0 0 10px 0;
+        color: #0f3b6f;
+    }
+    .ocr-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 8px 0;
+        padding: 8px;
+        background: white;
+        border-radius: 4px;
+    }
+    .ocr-label {
+        font-weight: 600;
+        color: #64748b;
+    }
+    .ocr-value {
+        font-family: monospace;
+        font-weight: bold;
+    }
+    .ocr-match { color: #10b981; }
+    .ocr-mismatch { color: #ef4444; }
+    .ocr-missing { color: #f59e0b; }
+    .confidence-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .confidence-high { background: #d1fae5; color: #065f46; }
+    .confidence-medium { background: #fed7aa; color: #9b2c1d; }
+    .confidence-low { background: #fee2e2; color: #991b1b; }
+    
+    /* Dual Pane Layout */
+    .dual-pane-container {
+        display: flex;
+        gap: 30px;
+        min-height: 400px;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    .pane-left {
+        flex: 1;
+        min-width: 300px;
+        border-right: 1px solid #e2e8f0;
+        padding-right: 20px;
+    }
+    .pane-right {
+        flex: 1;
+        min-width: 300px;
+        padding-left: 10px;
+    }
+    .pane-left h4, .pane-right h4 {
+        margin: 0 0 15px 0;
+        color: #0f3b6f;
+        border-bottom: 2px solid #3b82f6;
+        padding-bottom: 8px;
+    }
+    
+    /* Priority Badge */
+    .priority-badge {
+        background: #ef4444;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: bold;
+        margin-left: 10px;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    /* Button variants */
+    .btn-secondary { background: #64748b; color: white; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-info { background: #06b6d4; color: white; }
+    .btn-xs {
+        padding: 3px 8px;
+        font-size: 11px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    /* Reject form dropdown */
+    .reject-form select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
+    
+    /* Manual expiry form */
+    #manualExpiryForm input {
+        padding: 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        margin-right: 5px;
+    }
+    
+    /* OCR mismatch highlighting - RED for license mismatch */
+    .ocr-mismatch {
+        color: #dc2626;
+        background: #fef2f2;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 2px solid #dc2626;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <h2 style="margin-bottom: 20px;">Manage User Verifications</h2>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="filterVerifications('pending')">Pending</button>
+        <button class="tab-btn" onclick="filterVerifications('approved')">Approved</button>
+        <button class="tab-btn" onclick="filterVerifications('rejected')">Rejected</button>
+        <button class="tab-btn" onclick="filterVerifications('all')">All</button>
+    </div>
+    
+    <div id="verificationsList">
+        {% for verification in verifications %}
+        <div class="verification-card" data-status="{{ verification.verification_status }}">
+            <div class="verification-header">
+                <div>
+                    <span class="user-info">{{ verification.user_name }}</span><br>
+                    <small>{{ verification.email }}</small><br>
+                    <small>Phone: {{ verification.phone or 'N/A' }}</small>
+                </div>
+                <span class="status-badge status-{{ verification.verification_status }}">{{ verification.verification_status }}</span>
+            </div>
+            <div><strong>License:</strong> {{ verification.license_number }} (Expires: {{ verification.license_expiry_date }})</div>
+            
+            {# OCR Data Display for Admins #}
+            {% if verification.ocr_confidence_score is not none %}
+            <div class="ocr-section">
+                <h4><i class="fas fa-eye"></i> OCR Analysis</h4>
+                <div class="ocr-row">
+                    <span class="ocr-label">Confidence Score:</span>
+                    <span class="confidence-badge confidence-{% if verification.ocr_confidence_score >= 0.8 %}high{% elif verification.ocr_confidence_score >= 0.5 %}medium{% else %}low{% endif %}">
+                        {{ "%.0f"|format(verification.ocr_confidence_score * 100) }}%
+                    </span>
+                </div>
+                {% if verification.ocr_extracted_license %}
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted License #:</span>
+                    <span class="ocr-value {% if verification.ocr_extracted_license == verification.license_number %}ocr-match{% else %}ocr-mismatch{% endif %}">
+                        {{ verification.ocr_extracted_license }}
+                    </span>
+                </div>
+                {% else %}
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted License #:</span>
+                    <span class="ocr-value ocr-missing">Not detected</span>
+                </div>
+                {% endif %}
+                {% if verification.ocr_extracted_expiry %}
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted Expiry:</span>
+                    <span class="ocr-value {% if verification.ocr_extracted_expiry == verification.license_expiry_date %}ocr-match{% else %}ocr-mismatch{% endif %}">
+                        {{ verification.ocr_extracted_expiry }}
+                    </span>
+                </div>
+                {% else %}
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted Expiry:</span>
+                    <span class="ocr-value ocr-missing">Not detected</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <div><strong>ID Type:</strong> {{ verification.id_card_type }} - {{ verification.id_card_number }}</div>
+            <div><strong>Submitted:</strong> {{ verification.created_at.strftime('%Y-%m-%d %H:%M') if verification.created_at else 'N/A' }}</div>
+            {% if verification.rejection_reason %}
+            <div><strong>Rejection Reason:</strong> {{ verification.rejection_reason }}</div>
+            {% endif %}
+            <div style="margin-top: 15px;">
+                <button class="btn-sm btn-primary" onclick="viewDocuments({{ verification.id }})">View Documents</button>
+            </div>
+        </div>
+        {% else %}
+        <div class="card" style="text-align: center; padding: 40px;">No verification requests found</div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- View Documents Modal -->
+<div id="docModal" class="modal">
+    <div class="modal-content" style="max-width: 1100px; width: 95%;">
+        <div class="modal-header">
+            <h3>Verification Documents</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <div class="dual-pane-container">
+            <div class="pane-left">
+                <h4>Document Images</h4>
+                <div id="documentsContent"></div>
+            </div>
+            <div class="pane-right">
+                <h4>OCR Analysis</h4>
+                <div id="ocrResults"></div>
+            </div>
+        </div>
+        <div class="form-actions" style="margin-top: 20px;">
+            <button class="btn-sm btn-success" id="approveBtn" onclick="approveVerification()">Approve</button>
+            <button class="btn-sm btn-warning" id="rejectBtn" onclick="showRejectForm()">Reject</button>
+            <button class="btn-sm btn-info" id="rescanBtn" onclick="rescanVerification()">Re-scan OCR</button>
+            <button class="btn-sm btn-secondary" onclick="closeModal()">Close</button>
+        </div>
+        <div id="rejectForm" class="reject-form">
+            <label for="rejectReason">Rejection Reason:</label>
+            <select id="rejectReasonSelect">
+                <option value="">-- Select a reason --</option>
+                <option value="Blurry Image">Blurry Image</option>
+                <option value="Expired License">Expired License</option>
+                <option value="Data Mismatch">Data Mismatch</option>
+                <option value="ID Not Readable">ID Not Readable</option>
+                <option value="Other">Other (specify below)</option>
+            </select>
+            <textarea id="rejectReason" rows="3" placeholder="Additional details..."></textarea>
+            <button class="btn-sm btn-danger" onclick="rejectVerification()">Submit Rejection</button>
+            <button class="btn-sm btn-secondary" onclick="hideRejectForm()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let allVerifications = {{ verifications|tojson }};
+let currentVerificationId = null;
+
+function filterVerifications(status) {
+    // Update active tab
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.toLowerCase() === status) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Filter verifications
+    let filtered = allVerifications;
+    if (status !== 'all') {
+        filtered = allVerifications.filter(v => v.verification_status === status);
+    }
+    
+    // Display filtered verifications
+    const container = document.getElementById('verificationsList');
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="card" style="text-align: center; padding: 40px;">No verification requests found</div>';
+        return;
+    }
+    
+    container.innerHTML = filtered.map(v => `
+        <div class="verification-card" data-status="${v.verification_status}">
+            <div class="verification-header">
+                <div>
+                    <span class="user-info">${escapeHtml(v.user_name)}</span><br>
+                    <small>${escapeHtml(v.email)}</small><br>
+                    <small>Phone: ${escapeHtml(v.phone || 'N/A')}</small>
+                </div>
+                <span class="status-badge status-${v.verification_status}">${v.verification_status}</span>
+            </div>
+            <div><strong>License:</strong> ${escapeHtml(v.license_number)} (Expires: ${v.license_expiry_date})</div>
+            ${v.ocr_confidence_score !== null && v.ocr_confidence_score !== undefined ? `
+            <div class="ocr-section">
+                <h4><i class="fas fa-eye"></i> OCR Analysis</h4>
+                <div class="ocr-row">
+                    <span class="ocr-label">Confidence Score:</span>
+                    <span class="confidence-badge confidence-${v.ocr_confidence_score >= 0.8 ? 'high' : v.ocr_confidence_score >= 0.5 ? 'medium' : 'low'}">
+                        ${Math.round(v.ocr_confidence_score * 100)}%
+                    </span>
+                </div>
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted License #:</span>
+                    <span class="ocr-value ${v.ocr_extracted_license === v.license_number ? 'ocr-match' : v.ocr_extracted_license ? 'ocr-mismatch' : 'ocr-missing'}">
+                        ${v.ocr_extracted_license || 'Not detected'}
+                    </span>
+                </div>
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted Expiry:</span>
+                    <span class="ocr-value ${v.ocr_extracted_expiry === v.license_expiry_date ? 'ocr-match' : v.ocr_extracted_expiry ? 'ocr-mismatch' : 'ocr-missing'}">
+                        ${v.ocr_extracted_expiry || 'Not detected'}
+                    </span>
+                </div>
+            </div>
+            ` : ''}
+            <div><strong>ID Type:</strong> ${escapeHtml(v.id_card_type)} - ${escapeHtml(v.id_card_number)}</div>
+            <div><strong>Submitted:</strong> ${new Date(v.created_at).toLocaleString()}</div>
+            ${v.rejection_reason ? `<div><strong>Rejection Reason:</strong> ${escapeHtml(v.rejection_reason)}</div>` : ''}
+            <div style="margin-top: 15px;">
+                <button class="btn-sm btn-primary" onclick="viewDocuments(${v.id})">View Documents</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function viewDocuments(verificationId) {
+    const verification = allVerifications.find(v => v.id === verificationId);
+    if (verification) {
+        currentVerificationId = verificationId;
+        
+        const images = {
+            'License Front': verification.license_front_image,
+            'License Back': verification.license_back_image,
+            'ID Card': verification.id_card_image,
+            'Selfie': verification.selfie_image
+        };
+        
+        let imagesHtml = '<div style="display: flex; flex-wrap: wrap; gap: 15px;">';
+        for (const [label, path] of Object.entries(images)) {
+            if (path) {
+                imagesHtml += `
+                    <div class="doc-thumb">
+                        <strong>${label}</strong><br>
+                        <img src="/uploads/verifications/${path}" onclick="window.open(this.src)" style="cursor: pointer;">
+                    </div>
+                `;
+            }
+        }
+        imagesHtml += '</div>';
+        
+        document.getElementById('documentsContent').innerHTML = imagesHtml;
+        
+        // Build OCR Results panel
+        let ocrHtml = '';
+        
+        // Confidence badge
+        const confidence = verification.ocr_confidence_score;
+        let confidenceClass = 'confidence-low';
+        let confidenceLabel = 'Low';
+        if (confidence >= 0.9) {
+            confidenceClass = 'confidence-high';
+            confidenceLabel = 'High';
+        } else if (confidence >= 0.7) {
+            confidenceClass = 'confidence-medium';
+            confidenceLabel = 'Medium';
+        }
+        
+        // High priority badge
+        const isHighPriority = confidence !== null && confidence < 0.75;
+        const priorityBadge = isHighPriority ? '<span class="priority-badge">HIGH PRIORITY REVIEW</span>' : '';
+        
+        ocrHtml += `
+            <div class="ocr-section">
+                <div class="ocr-row">
+                    <span class="ocr-label">Confidence Score:</span>
+                    <span class="confidence-badge ${confidenceClass}">${confidence ? Math.round(confidence * 100) + '% (' + confidenceLabel + ')' : 'N/A'}</span>
+                    ${priorityBadge}
+                </div>
+            </div>
+            <div class="ocr-section">
+                <h5><i class="fas fa-id-card"></i> License Comparison</h5>
+                <div class="ocr-row">
+                    <span class="ocr-label">User-Provided License #:</span>
+                    <span class="ocr-value">${escapeHtml(verification.license_number || 'N/A')}</span>
+                </div>
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted License #:</span>
+                    <span class="ocr-value ${verification.ocr_extracted_license === verification.license_number ? 'ocr-match' : verification.ocr_extracted_license ? 'ocr-mismatch' : 'ocr-missing'}">
+                        ${verification.ocr_extracted_license || 'Not detected'}
+                    </span>
+                </div>
+                <div class="ocr-row">
+                    <span class="ocr-label">User-Provided Expiry:</span>
+                    <span class="ocr-value">${verification.license_expiry_date || 'N/A'}</span>
+                </div>
+                <div class="ocr-row">
+                    <span class="ocr-label">Extracted Expiry:</span>
+                    <span class="ocr-value ${verification.ocr_extracted_expiry === verification.license_expiry_date ? 'ocr-match' : verification.ocr_extracted_expiry ? 'ocr-mismatch' : 'ocr-missing'}">
+                        ${verification.ocr_extracted_expiry || 'Not detected'}
+                    </span>
+                    ${!verification.ocr_extracted_expiry ? '<button class="btn-xs btn-primary" onclick="showManualExpiryEntry()" style="margin-left: 10px;">Enter Manually</button>' : ''}
+                </div>
+                <div id="manualExpiryForm" style="display: none; margin-top: 10px;">
+                    <input type="date" id="manualExpiryInput" value="${verification.license_expiry_date || ''}">
+                    <button class="btn-xs btn-success" onclick="saveManualExpiry()">Save</button>
+                    <button class="btn-xs btn-secondary" onclick="hideManualExpiryEntry()">Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('ocrResults').innerHTML = ocrHtml;
+        document.getElementById('rejectForm').style.display = 'none';
+        document.getElementById('docModal').style.display = 'flex';
+    }
+}
+
+function approveVerification() {
+    openConfirmModal({
+        title: 'Approve Verification',
+        message: 'Are you sure you want to approve this identity verification?',
+        confirmText: 'Approve',
+        confirmClass: 'confirm-btn-success',
+        onConfirm: function() {
+            fetch(`{{ url_for('admin_bp.api_approve_verification', verification_id=0) }}`.replace('0', currentVerificationId), {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Verification approved successfully');
+                    closeModal();
+                    location.reload();
+                } else {
+                    alert('Error approving verification: ' + (data.message || 'Unknown error'));
+                }
+            });
+        }
+    });
+}
+
+function showRejectForm() {
+    document.getElementById('rejectForm').style.display = 'block';
+}
+
+function hideRejectForm() {
+    document.getElementById('rejectForm').style.display = 'none';
+    document.getElementById('rejectReason').value = '';
+}
+
+function rejectVerification() {
+    const selectedReason = document.getElementById('rejectReasonSelect').value;
+    const additionalDetails = document.getElementById('rejectReason').value;
+    
+    let reason = selectedReason;
+    if (selectedReason === 'Other' && additionalDetails) {
+        reason = 'Other: ' + additionalDetails;
+    } else if (!selectedReason) {
+        alert('Please select a reason for rejection');
+        return;
+    }
+    
+    openConfirmModal({
+        title: 'Reject Verification',
+        message: 'Are you sure you want to reject this identity verification with reason: ' + reason + '?',
+        confirmText: 'Reject',
+        confirmClass: 'confirm-btn-danger',
+        onConfirm: function() {
+            fetch(`{{ url_for('admin_bp.api_reject_verification', verification_id=0) }}`.replace('0', currentVerificationId), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ reason: reason })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Verification rejected successfully');
+                    closeModal();
+                    location.reload();
+                } else {
+                    alert('Error rejecting verification: ' + (data.message || 'Unknown error'));
+                }
+            });
+        }
+    });
+}
+
+function closeModal() {
+    document.getElementById('docModal').style.display = 'none';
+    document.getElementById('rejectForm').style.display = 'none';
+    document.getElementById('rejectReason').value = '';
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function rescanVerification() {
+    const btn = document.getElementById('rescanBtn');
+    btn.disabled = true;
+    btn.textContent = 'Scanning...';
+    
+    fetch(`{{ url_for('admin_bp.api_rescan_verification', verification_id=0) }}`.replace('0', currentVerificationId), {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.textContent = 'Re-scan OCR';
+        
+        if (data.success) {
+            alert('Re-scan completed!\n\nNew confidence: ' + Math.round(data.new_confidence * 100) + '%');
+            
+            // Update local data
+            const verification = allVerifications.find(v => v.id === currentVerificationId);
+            if (verification) {
+                verification.ocr_confidence_score = data.new_confidence;
+                verification.ocr_extracted_license = data.extracted_license;
+                verification.ocr_extracted_expiry = data.extracted_expiry;
+            }
+            
+            // Refresh the modal view
+            viewDocuments(currentVerificationId);
+        } else {
+            alert('Error re-scanning: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.textContent = 'Re-scan OCR';
+        alert('Re-scan failed: ' + error);
+    });
+}
+
+function showManualExpiryEntry() {
+    document.getElementById('manualExpiryForm').style.display = 'block';
+}
+
+function hideManualExpiryEntry() {
+    document.getElementById('manualExpiryForm').style.display = 'none';
+}
+
+function saveManualExpiry() {
+    const manualExpiry = document.getElementById('manualExpiryInput').value;
+    if (!manualExpiry) {
+        alert('Please select a date');
+        return;
+    }
+    
+    fetch(`{{ url_for('admin_bp.api_approve_verification', verification_id=0) }}`.replace('0', currentVerificationId), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ manual_expiry: manualExpiry })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Manual expiry saved successfully');
+            
+            const verification = allVerifications.find(v => v.id === currentVerificationId);
+            if (verification) {
+                verification.ocr_extracted_expiry = manualExpiry;
+                verification.verification_status = 'approved';
+            }
+            
+            viewDocuments(currentVerificationId);
+        } else {
+            alert('Error saving: ' + (data.message || 'Unknown error'));
+        }
+    });
+}
+</script>
+{% endblock %}

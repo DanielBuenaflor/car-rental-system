@@ -1,0 +1,42 @@
+# Environment & Secrets
+.env
+.env.local
+.venv/
+__pycache__/
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+.claude/
+.codex/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (user data - don't commit)
+MyFlaskApp/base/uploads/
+MyFlaskApp/base/static/
+
+# Database
+*.db
+*.sqlite
+
+# Secrets (keys should never be committed)
+
+# Conductor (Internal planning and tool state)
+/conductor/

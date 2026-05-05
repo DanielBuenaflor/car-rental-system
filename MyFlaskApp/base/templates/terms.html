@@ -1,0 +1,121 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Terms & Conditions - CarRental Pro{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 40px auto; padding: 0 24px;">
+    <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+        <h1 style="text-align: center; margin-bottom: 32px; color: #1f3a5f; font-size: 36px;">Terms & Conditions</h1>
+        
+        <p style="color: #666; text-align: center; margin-bottom: 40px;">Last updated: April 2026</p>
+        
+        <div style="line-height: 1.8; color: #374151;">
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">1. Acceptance of Terms</h2>
+            <p style="margin-bottom: 20px;">
+                By accessing and using the CarRental Pro website and services, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by these terms, please do not use this service.
+            </p>
+            
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">2. Eligibility Requirements</h2>
+            <p style="margin-bottom: 15px;">
+                To rent a vehicle from CarRental Pro, you must:
+            </p>
+            <ul style="margin-left: 20px; margin-bottom: 20px;">
+                <li>Be at least 21 years of age (25 years for luxury vehicles)</li>
+                <li>Possess a valid driver's license with at least 1 year of driving experience</li>
+                <li>Provide a valid government-issued identification</li>
+                <li>Meet our insurance requirements</li>
+            </ul>
+            
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">3. Booking & Reservations</h2>
+            <p style="margin-bottom: 20px;">
+                All bookings are subject to availability. A reservation is confirmed only upon payment of the required deposit. The renter agrees to return the vehicle at the agreed time and location. Failure to return the vehicle on time may result in additional charges.
+            </p>
+            
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">4. Payment & Pricing</h2>
+            <p style="margin-bottom: 15px;">
+                All prices are listed in Philippine Peso (PHP) and include applicable taxes. Payment methods accepted include:
+            </p>
+            <ul style="margin-left: 20px; margin-bottom: 20px;">
+                <li>Credit/Debit Cards (Visa, Mastercard)</li>
+                <li>PayPal</li>
+                <li>GCash</li>
+                <li>PayMaya</li>
+                <li>Bank Transfer</li>
+            </ul>
+            <p style="margin-bottom: 20px;">
+                Prices are subject to change without notice. Special promotions and discounts are subject to specific terms and conditions.
+            </p>
+            
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">5. Security Deposit</h2>
+            <p style="margin-bottom: 20px;">
+                A security deposit is required at the time of vehicle pickup. The deposit amount varies depending on the vehicle type and will be refunded upon return of the vehicle in good condition, minus any applicable charges for damages or violations.
+            </p>
+            
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">6. Vehicle Usage Rules</h2>
+            <p style="margin-bottom: 15px;">
+                The rented vehicle shall only be used for personal transportation. The following are strictly prohibited:
+            </p>
+            <ul style="margin-left: 20px; margin-bottom: 20px;">
+                <li>Driving under the influence of alcohol or drugs</li>
+                <li>Racing or speed competitions</li>
+                <li>Transporting goods for commercial purposes</li>
+                <li>Subleasing or lending the vehicle</li>
+                <li>Using the vehicle for illegal activities</li>
+                <li>Driving outside authorized areas</li>
+            </ul>
+            
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">7. Damage & Liability</h2>
+            <p style="margin-bottom: 20px;">
+                The renter is responsible for any damage to the vehicle during the rental period, except for normal wear and tear. In case of an accident, the renter must immediately notify CarRental Pro and the relevant authorities. Failure to report an accident within 24 hours may result in liability denial.
+            </p>
+            
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">8. Cancellation Policy</h2>
+            <p style="margin-bottom: 15px;">
+                Cancellations made more than 24 hours before the pickup time will receive a full refund. Cancellations made less than 24 hours before pickup will be charged a cancellation fee equivalent to one day's rental rate. No-shows will not be eligible for refunds.
+            </p>
+            
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">9. Termination of Service</h2>
+            <p style="margin-bottom: 20px;">
+                CarRental Pro reserves the right to terminate or suspend service at any time for violations of these terms or for any illegal or inappropriate behavior. In such cases, no refunds will be provided.
+            </p>
+            
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">10. Governing Law</h2>
+            <p style="margin-bottom: 20px;">
+                These Terms & Conditions shall be governed by and construed in accordance with the laws of the Philippines. Any disputes arising from these terms shall be resolved through binding arbitration in Metro Manila, Philippines.
+            </p>
+            
+            <h2 style="color: #0f3b6f; font-size: 22px; margin: 30px 0 15px;">11. Contact Information</h2>
+            <p style="margin-bottom: 20px;">
+                For questions or concerns about these Terms & Conditions, please contact us at:<br>
+                <strong>Email:</strong> support@carrental.com<br>
+                <strong>Phone:</strong> +63 2 1234 5678<br>
+                <strong>Address:</strong> 123 Auto Avenue, Makati City, Metro Manila, Philippines
+            </p>
+        </div>
+        
+        <div style="margin-top: 40px; text-align: center; padding-top: 30px; border-top: 2px solid #e2e8f0;">
+            <a href="{{ url_for('base_bp.index') }}" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #0f3b6f, #1e4a7a); color: white; text-decoration: none; border-radius: 40px; font-weight: 600;">
+                <i class="fas fa-arrow-left"></i> Back to Home
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+@media (max-width: 768px) {
+    div[style*="max-width: 900px"] {
+        margin: 20px auto !important;
+        padding: 0 16px !important;
+    }
+    div[style*="padding: 40px"] {
+        padding: 24px !important;
+    }
+    h1 {
+        font-size: 28px !important;
+    }
+    h2 {
+        font-size: 20px !important;
+    }
+}
+</style>
+{% endblock %}

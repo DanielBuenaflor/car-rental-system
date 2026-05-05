@@ -1,0 +1,541 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Customer Reviews - CarRental Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       REVIEWS PAGE STYLES
+    ============================================ */
+    .testimonials-header {
+        text-align: center;
+        margin: 40px 0 60px;
+        position: relative;
+    }
+
+    .testimonials-header h2 {
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        margin-bottom:1rem;
+        background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        display: inline-block;
+    }
+
+    .testimonials-header h2:after {
+        content: '';
+        position: absolute;
+        bottom: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 4px;
+        background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
+        border-radius: 4px;
+    }
+
+    .testimonials-header p {
+        color: #64748b;
+        font-size: clamp(0.95rem, 2vw, 1.1rem);
+    }
+    
+    /* User Stats Bar */
+    .user-stats {
+        background: linear-gradient(135deg, #f8fafc, #ffffff);
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .user-stats-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .testimonial-count-badge {
+        background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+        color: white;
+        padding: 8px 16px;
+        min-height: 44px;
+        border-radius: 40px;
+        font-size: 14px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .testimonial-count-badge i {
+        margin-right: 8px;
+    }
+    
+    /* Testimonials Grid */
+    .testimonials-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 32px;
+        margin: 40px 0;
+    }
+
+    .container-full .testimonials-grid {
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 36px;
+    }
+    
+    .testimonial-card {
+        background: white;
+        border-radius: 24px;
+        padding: 32px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        border: 1px solid rgba(15, 59, 111, 0.1);
+        position: relative;
+    }
+    
+    .testimonial-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+    }
+    
+    .testimonial-quote {
+        position: absolute;
+        top: 24px;
+        right: 24px;
+        font-size: 48px;
+        color: #e0f2fe;
+        font-family: 'Georgia', serif;
+        line-height: 1;
+    }
+    
+    .testimonial-rating {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 4px;
+    }
+    
+    .testimonial-rating i {
+        font-size: 18px;
+        color: #f59e0b;
+    }
+    
+    .testimonial-comment {
+        font-size: clamp(0.875rem, 1.5vw, 1rem);
+        line-height: 1.7;
+        color: #334155;
+        margin-bottom: 24px;
+        font-style: italic;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .testimonial-image {
+        max-width: 200px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+    
+    .testimonial-vehicle {
+        font-size: 12px;
+        color: #0f3b6f;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .testimonial-author {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 2px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .testimonial-avatar {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #0f3b6f, #2c5a8c);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 18px;
+    }
+    
+    .testimonial-info {
+        flex: 1;
+    }
+    
+    .testimonial-info strong {
+        display: block;
+        color: #1e293b;
+        font-size: 16px;
+        margin-bottom: 4px;
+    }
+    
+    .testimonial-info small {
+        color: #94a3b8;
+        font-size: 12px;
+    }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 80px;
+        background: white;
+        border-radius: 24px;
+        margin: 40px 0;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        border: 1px solid rgba(15, 59, 111, 0.1);
+    }
+    
+    .empty-state i {
+        font-size: 80px;
+        color: #cbd5e1;
+        margin-bottom: 20px;
+    }
+    
+    .empty-state h3 {
+        font-size: 24px;
+        color: #1e293b;
+        margin-bottom: 12px;
+    }
+    
+    .empty-state p {
+        color: #64748b;
+        margin-bottom: 24px;
+    }
+    
+    /* Pagination */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 40px;
+        flex-wrap: wrap;
+    }
+    
+    .page-btn {
+        padding: 8px 16px;
+        min-height: 44px;
+        border: 1px solid #e2e8f0;
+        background: white;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-family: inherit;
+    }
+    
+    .page-btn:hover {
+        background: #0f3b6f;
+        color: white;
+        border-color: #0f3b6f;
+    }
+    
+    .page-btn.active {
+        background: #0f3b6f;
+        color: white;
+        border-color: #0f3b6f;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .testimonials-grid {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .testimonial-card {
+            padding: 20px;
+            border-radius: 16px;
+        }
+        
+        .testimonial-quote {
+            font-size: 32px;
+            top: 16px;
+            right: 16px;
+        }
+        
+        .empty-state {
+            padding: 40px 20px;
+            border-radius: 16px;
+        }
+        
+        .user-stats {
+            flex-direction: column;
+            text-align: center;
+            padding: 16px;
+        }
+        
+        .pagination {
+            gap: 8px;
+        }
+        
+        .page-btn {
+            padding: 10px 14px;
+            font-size: 14px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .testimonials-header {
+            margin: 24px 0 32px;
+        }
+        
+        .testimonials-header h2 {
+            font-size: clamp(1.25rem, 5vw, 1.5rem);
+        }
+        
+        .testimonial-card {
+            padding: 16px;
+            border-radius: 12px;
+        }
+        
+        .testimonial-quote {
+            font-size: 24px;
+            top: 12px;
+            right: 12px;
+        }
+        
+        .testimonial-comment {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        
+        .testimonial-author {
+            margin-top: 16px;
+            padding-top: 16px;
+        }
+        
+        .testimonial-avatar {
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+        }
+        
+        .testimonial-info strong {
+            font-size: 14px;
+        }
+        
+        .testimonial-info small {
+            font-size: 11px;
+        }
+        
+        .empty-state {
+            padding: 32px 16px;
+        }
+        
+        .empty-state i {
+            font-size: 60px;
+        }
+        
+        .empty-state h3 {
+            font-size: 20px;
+        }
+        
+        .pagination {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+        }
+        
+        .page-btn {
+            width: 100%;
+            text-align: center;
+            padding: 12px;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .testimonials-header h2 {
+            font-size: 1.125rem;
+        }
+        
+        .testimonials-header p {
+            font-size: 0.875rem;
+        }
+        
+        .testimonial-card {
+            padding: 12px;
+            border-radius: 10px;
+        }
+        
+        .testimonial-rating i {
+            font-size: 14px;
+        }
+        
+        .testimonial-comment {
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        
+        .testimonial-info strong {
+            font-size: 13px;
+        }
+        
+        .testimonial-info small {
+            font-size: 10px;
+        }
+        
+        .testimonial-image {
+            max-width: 150px;
+        }
+    }
+
+    @media (min-width: 1200px) {
+        .container-full .testimonials-grid {
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 40px;
+        }
+        
+        .testimonial-card {
+            padding: 36px;
+        }
+    }
+
+    /* Touch device styles */
+    @media (hover: none) {
+        .testimonial-card:hover {
+            transform: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        
+        .testimonial-card:active {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .page-btn:hover {
+            transform: none;
+        }
+        
+        .page-btn:active {
+            transform: translateY(1px);
+        }
+    }
+
+    /* Focus visible styles */
+    .page-btn:focus-visible {
+        outline: 2px solid #0f3b6f;
+        outline-offset: 2px;
+    }
+
+    .testimonial-card:focus-visible {
+        outline: 2px solid #0f3b6f;
+        outline-offset: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="testimonials-header">
+    <h2>Customer Reviews</h2>
+    <p>Real reviews from our valued customers</p>
+</div>
+
+<!-- User Stats Section (only shown when logged in) -->
+{% if session.loggedin and session.role != 'admin' %}
+<div class="user-stats">
+    <div class="user-stats-info">
+        <div class="testimonial-count-badge">
+            <i class="fas fa-pen-fancy"></i> My Reviews: {{ user_testimonial_count|default(0) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Testimonials Grid -->
+<div id="testimonialsContainer">
+    {% if testimonials %}
+    <div class="testimonials-grid" id="testimonialsGrid">
+        {% for testimonial in testimonials %}
+        <div class="testimonial-card">
+            <div class="testimonial-quote">"</div>
+            {% if testimonial.brand_name %}
+            <div class="testimonial-vehicle">
+                <i class="fas fa-car"></i> {{ testimonial.brand_name }} {{ testimonial.model }}
+            </div>
+            {% endif %}
+            <div class="testimonial-rating">
+                {% for i in range(testimonial.rating) %}
+                    <i class="fas fa-star"></i>
+                {% endfor %}
+                {% for i in range(5 - testimonial.rating) %}
+                    <i class="far fa-star"></i>
+                {% endfor %}
+            </div>
+            {% if testimonial.image_path %}
+            <img src="/uploads/{{ testimonial.image_path }}" alt="Review photo" class="testimonial-image">
+            {% endif %}
+            <p class="testimonial-comment">{{ testimonial.comment }}</p>
+            <div class="testimonial-author">
+                <div class="testimonial-avatar">
+                    {{ testimonial.name[0]|upper }}
+                </div>
+                <div class="testimonial-info">
+                    <strong>{{ testimonial.name }}</strong>
+                    <small>{{ testimonial.created_at.strftime('%B %d, %Y') if testimonial.created_at else 'Recent' }}</small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if current_page > 1 %}
+        <button class="page-btn" onclick="goToPage({{ current_page - 1 }})">&laquo; Previous</button>
+        {% endif %}
+        
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == current_page %}
+            <button class="page-btn active" onclick="goToPage({{ p }})">{{ p }}</button>
+            {% elif p <= current_page + 2 and p >= current_page - 2 %}
+            <button class="page-btn" onclick="goToPage({{ p }})">{{ p }}</button>
+            {% endif %}
+        {% endfor %}
+        
+        {% if current_page < total_pages %}
+        <button class="page-btn" onclick="goToPage({{ current_page + 1 }})">Next &raquo;</button>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-star"></i>
+        <h3>No reviews yet</h3>
+        <p>Be the first to share your experience with us!</p>
+{% if session.loggedin and session.role != 'admin' %}
+<div class="user-stats">
+    <div class="user-stats-info">
+        <div class="testimonial-count-badge">
+            <i class="fas fa-pen-fancy"></i> My Reviews: {{ user_testimonial_count|default(0) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function goToPage(page) {
+    window.location.href = `{{ url_for('base_bp.testimonials') }}?page=${page}`;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1209 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}My Dashboard - CarRental Pro{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    /* Simple, clean dashboard styles - responsive */
+    .dashboard-container {
+        margin: 30px 0;
+        font-size: 16px;
+        line-height: 1.6;
+        color: #1f3a5f;
+    }
+
+    /* User Info Header */
+    .user-info {
+        background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+        color: white;
+        padding: 28px 32px;
+        border-radius: 16px;
+        margin-bottom: 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .user-info h2 {
+        color: white;
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+
+    .user-info h2:after { display: none; }
+
+    .user-info p {
+        margin: 6px 0 0;
+        opacity: 0.95;
+        font-size: 16px;
+        line-height: 1.5;
+    }
+
+    .user-badge {
+        background: rgba(255,255,255,0.25);
+        padding: 10px 24px;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: 0.3px;
+    }
+
+    /* Stats Tabs - Single Line */
+    .stats-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .stat-tab {
+        background: white;
+        border-radius: 12px;
+        padding: 8px 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        flex: 1;
+        min-width: 90px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        overflow: hidden;
+    }
+
+    .stat-tab:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: #0f3b6f;
+    }
+
+    .stat-tab.active {
+        border-color: #0f3b6f;
+        background: #f8fafc;
+    }
+
+    .stat-tab-icon {
+        font-size: 16px;
+        color: #0f3b6f;
+    }
+
+    .stat-tab-number {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1f3a5f;
+        line-height: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .stat-tab-label {
+        font-size: 9px;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    /* Management Grid - Compact Single Line */
+    .management-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+
+    .management-card {
+        background: white;
+        border-radius: 12px;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 2px solid #e2e8f0;
+        flex: 1;
+        min-width: 140px;
+        overflow: hidden;
+    }
+
+    .management-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: #0f3b6f;
+    }
+
+    .card-icon {
+        width: 36px;
+        height: 36px;
+        background: #e0f2fe;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        color: #0f3b6f;
+        flex-shrink: 0;
+    }
+
+    .card-info {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .card-info h3 {
+        margin: 0 0 2px 0;
+        font-size: 13px;
+        color: #1f3a5f;
+        font-weight: 600;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .card-info p {
+        margin: 0;
+        color: #555;
+        font-size: 10px;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Table Section */
+    .table-section {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 2px solid #e2e8f0;
+    }
+
+    .table-section h3 {
+        padding: 24px 28px 0;
+        margin: 0;
+        color: #1f3a5f;
+        font-size: 18px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .table-section h3 i {
+        color: #0f3b6f;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 18px;
+    }
+
+    th, td {
+        padding: 16px 28px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #0f3b6f;
+        font-size: 14px;
+        letter-spacing: 0.3px;
+    }
+
+    td {
+        font-size: 15px;
+        color: #1f3a5f;
+        line-height: 1.5;
+    }
+
+    tr:hover {
+        background: #f8fafc;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Badges */
+    .badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .badge-pending { background: #fed7aa; color: #9b2c1d; }
+    .badge-confirmed { background: #d1fae5; color: #065f46; }
+    .badge-active { background: #dbeafe; color: #1e40af; }
+    .badge-completed { background: #e0e7ff; color: #3730a3; }
+    .badge-cancelled { background: #fee2e2; color: #991b1b; }
+
+    /* Verification Status */
+    .verification-status {
+        margin-bottom: 24px;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 24px;
+        min-height: 48px;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 500;
+        flex-wrap: wrap;
+        border-left: 4px solid transparent;
+        line-height: 1.4;
+    }
+
+    .status-message {
+        font-size: 14px;
+        margin-left: 12px;
+        line-height: 1.5;
+    }
+
+    .status-badge.verified {
+        background: #d1fae5;
+        color: #065f46;
+        border-left-color: #059669;
+    }
+
+    .status-badge.pending {
+        background: #fed7aa;
+        color: #9b2c1d;
+        border-left-color: #d97706;
+    }
+
+    .status-badge.rejected {
+        background: #fee2e2;
+        color: #991b1b;
+        border-left-color: #dc2626;
+    }
+
+    .status-badge.unverified {
+        background: #e2e8f0;
+        color: #1f3a5f;
+        border-left-color: #0f3b6f;
+    }
+
+    .btn-verify {
+        background: #0f3b6f;
+        color: white;
+        padding: 10px 20px;
+        min-height: 48px;
+        border-radius: 8px;
+        text-decoration: none;
+        margin-left: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.3px;
+    }
+
+    .btn-verify:hover {
+        background: #1e4a7a;
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Upcoming Bookings */
+    .upcoming-bookings {
+        margin-bottom: 24px;
+        background: linear-gradient(135deg, #eff6ff, #dbeafe);
+        border-left: 4px solid #1e40af;
+        padding: 16px 20px;
+        border-radius: 12px;
+    }
+
+    .upcoming-bookings h4 {
+        margin: 0 0 14px 0;
+        color: #1e40af;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .upcoming-booking-item {
+        padding: 12px 16px;
+        background: white;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #e0e7ff;
+        transition: all 0.2s ease;
+    }
+
+    .upcoming-booking-item:hover {
+        border-color: #bfdbfe;
+        background: #fafcff;
+    }
+
+    .upcoming-booking-item strong {
+        display: block;
+        margin-bottom: 8px;
+        color: #0f3b6f;
+        font-size: 15px;
+        font-weight: 600;
+    }
+
+    .upcoming-booking-item small {
+        color: #64748b;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    /* Active Rentals */
+    .active-rentals-card {
+        margin-bottom: 20px;
+    }
+
+    .active-rentals-card h3 {
+        font-size: 18px;
+        margin-bottom: 14px;
+        color: #1e293b;
+        font-weight: 600;
+    }
+
+    .rental-card {
+        border-radius: 8px;
+        margin-bottom: 8px;
+        border-left: 3px solid #059669;
+        background: #fafbfc;
+        padding: 12px 16px;
+        transition: background 0.2s ease;
+    }
+
+    .rental-card:hover {
+        background: #f1f5f9;
+    }
+
+    .rental-card-overdue { border-left-color: #dc2626; }
+    .rental-card-warning { border-left-color: #d97706; }
+
+    .rental-card-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .rental-card-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .rental-card-info h4 {
+        margin: 0;
+        color: #1e293b;
+        font-size: 15px;
+        font-weight: 600;
+        white-space: nowrap;
+        line-height: 1.3;
+    }
+
+    .rental-details {
+        color: #94a3b8;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.4;
+    }
+
+    .rental-card-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+
+    .rental-countdown {
+        font-size: 14px;
+        font-weight: 600;
+        color: #059669;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        letter-spacing: 0.3px;
+    }
+
+    .rental-buttons {
+        display: flex;
+        gap: 6px;
+    }
+
+    .rental-buttons .btn-secondary,
+    .rental-buttons .btn-primary {
+        padding: 6px 16px;
+        font-size: 12px;
+        min-height: 32px;
+        border-radius: 6px;
+        white-space: nowrap;
+        font-weight: 500;
+        letter-spacing: 0.3px;
+    }
+
+    /* Booking Locations */
+    .booking-location {
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .booking-location.pickup {
+        color: #059669;
+        margin-bottom: 2px;
+    }
+
+    .booking-location.return {
+        color: #dc2626;
+    }
+
+    .booking-actions {
+        white-space: nowrap;
+        font-size: 13px;
+    }
+
+    .btn-small {
+        padding: 6px 12px;
+        font-size: 12px;
+        min-height: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 6px;
+        font-weight: 500;
+        letter-spacing: 0.3px;
+    }
+
+    /* Notifications Card */
+    .notifications-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 2px solid #e2e8f0;
+        overflow: hidden;
+        margin-top: 24px;
+    }
+
+    .notifications-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    }
+
+    .notifications-card-header h3 {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f3b6f;
+        margin: 0;
+        letter-spacing: -0.3px;
+    }
+
+    .notifications-card-header h3 i {
+        margin-right: 8px;
+        color: #0f3b6f;
+    }
+
+    .notifications-card-mark-all {
+        background: none;
+        border: none;
+        color: #0f3b6f;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 8px 16px;
+        border-radius: 6px;
+        transition: all 0.2s;
+        letter-spacing: 0.3px;
+    }
+
+    .notifications-card-mark-all:hover {
+        background: rgba(15, 59, 111, 0.08);
+    }
+
+    .notifications-card-view-all {
+        color: #0f3b6f;
+        text-decoration: none;
+        font-size: 15px;
+        font-weight: 600;
+        transition: color 0.2s;
+        padding: 8px 16px;
+        border-radius: 6px;
+        letter-spacing: 0.3px;
+    }
+
+    .notifications-card-view-all:hover {
+        color: #1e4a7a;
+        text-decoration: underline;
+        background: rgba(15, 59, 111, 0.08);
+    }
+
+    .notifications-card-list {
+        overflow-y: auto;
+        max-height: 360px;
+    }
+
+    .notifications-card-list::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .notifications-card-list::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+
+    .notifications-card-list::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+
+    .notifications-card-item {
+        display: flex;
+        gap: 12px;
+        padding: 14px 20px;
+        border-bottom: 1px solid #f1f5f9;
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.2s;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .notifications-card-item:hover {
+        background: #f8fafc;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .notifications-card-item.unread {
+        background: linear-gradient(135deg, #ffffff, #f0f7ff);
+        border-left: 3px solid #2563eb;
+    }
+
+    .notifications-card-item.unread.notif-status { border-left-color: #059669; }
+    .notifications-card-item.unread.notif-payment { border-left-color: #059669; }
+    .notifications-card-item.unread.notif-fine { border-left-color: #dc2626; }
+    .notifications-card-item.unread.notif-review { border-left-color: #d97706; }
+    .notifications-card-item.unread.notif-promo { border-left-color: #7c3aed; }
+    .notifications-card-item.unread.notif-system { border-left-color: #4f46e5; }
+    .notifications-card-item.unread.notif-verify { border-left-color: #059669; }
+    .notifications-card-item.unread.notif-maint { border-left-color: #db2777; }
+    .notifications-card-item.unread.notif-default { border-left-color: #6b7280; }
+
+    .notifications-card-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #2563eb;
+        font-size: 15px;
+    }
+
+    .notifications-card-icon.icon-status { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669; }
+    .notifications-card-icon.icon-booking { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #2563eb; }
+    .notifications-card-icon.icon-payment { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669; }
+    .notifications-card-icon.icon-fine { background: linear-gradient(135deg, #fee2e2, #fecaca); color: #dc2626; }
+    .notifications-card-icon.icon-review { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #d97706; }
+    .notifications-card-icon.icon-promo { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #7c3aed; }
+    .notifications-card-icon.icon-system { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); color: #4f46e5; }
+    .notifications-card-icon.icon-verify { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669; }
+    .notifications-card-icon.icon-maint { background: linear-gradient(135deg, #fce7f3, #fbcfe8); color: #db2777; }
+    .notifications-card-icon.icon-default { background: linear-gradient(135deg, #f3f4f6, #e5e7eb); color: #6b7280; }
+
+    .notifications-card-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .notifications-card-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 6px;
+        line-height: 1.4;
+    }
+
+    .notifications-card-message {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 8px;
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .notifications-card-time {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 500;
+    }
+
+    .notifications-card-empty {
+        padding: 48px 24px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 14px;
+    }
+
+    .notifications-card-empty i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        display: block;
+        color: #cbd5e1;
+    }
+
+    .notifications-card-empty strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 15px;
+        color: #64748b;
+    }
+
+    .view-all-link {
+        text-align: center;
+        padding: 24px 28px;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .view-all-link a {
+        letter-spacing: 0.3px;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1200px) {
+        .stat-tab {
+            min-width: 80px;
+            padding: 8px 6px;
+        }
+        
+        .stat-tab-number {
+            font-size: 14px;
+        }
+        
+        .stat-tab-label {
+            font-size: 8px;
+        }
+        
+        .management-card {
+            min-width: 130px;
+            padding: 8px 10px;
+        }
+    }
+
+    @media (max-width: 992px) {
+        .stat-tab {
+            flex: 1 1 calc(25% - 8px);
+            min-width: 70px;
+        }
+        
+        .management-card {
+            flex: 1 1 calc(33.33% - 10px);
+            min-width: 120px;
+        }
+        
+        .card-info h3 {
+            font-size: 12px;
+        }
+        
+        .card-info p {
+            font-size: 9px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .management-grid {
+            gap: 8px;
+        }
+        
+        .management-card {
+            flex: 1 1 calc(50% - 8px);
+            min-width: 110px;
+            padding: 8px 10px;
+        }
+        
+        .card-icon {
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
+        }
+        
+        .card-info h3 {
+            font-size: 11px;
+        }
+        
+        .card-info p {
+            font-size: 9px;
+        }
+        
+        .user-info h2 {
+            font-size: 20px;
+        }
+        
+        .stat-tab {
+            flex: 1 1 calc(33.33% - 8px);
+            min-width: 60px;
+            padding: 6px 4px;
+        }
+        
+        .stat-tab-number {
+            font-size: 14px;
+        }
+        
+        .stat-tab-label {
+            font-size: 8px;
+        }
+        
+        .stat-tab-icon {
+            font-size: 14px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .stats-tabs {
+            gap: 4px;
+        }
+
+        .stat-tab {
+            flex: 1 1 calc(25% - 4px);
+            min-width: 50px;
+            padding: 5px 3px;
+            border-radius: 8px;
+        }
+        
+        .stat-tab-number {
+            font-size: 12px;
+        }
+        
+        .stat-tab-label {
+            font-size: 7px;
+        }
+        
+        .stat-tab-icon {
+            font-size: 12px;
+        }
+        
+        .management-card {
+            flex: 1 1 calc(50% - 4px);
+            padding: 6px 8px;
+            gap: 6px;
+            border-radius: 10px;
+            min-width: 100px;
+        }
+        
+        .card-icon {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+        
+        .card-info h3 {
+            font-size: 10px;
+        }
+        
+        .card-info p {
+            font-size: 8px;
+        }
+
+        .user-info {
+            padding: 20px;
+        }
+
+        th, td {
+            padding: 12px 16px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    
+    <!-- User Info Header -->
+    <div class="user-info">
+        <div>
+            <h2>Welcome, {{ session.get('username', 'User') }}!</h2>
+            <p>Manage your bookings, profile, and share your experience.</p>
+        </div>
+        <div class="user-badge">
+            <i class="fas fa-user"></i> User
+        </div>
+    </div>
+    
+    <!-- Verification Status Section -->
+    {% if not is_verified %}
+    <div class="verification-status">
+        {% if verification_status == 'approved' %}
+            <div class="status-badge verified">
+                <i class="fas fa-check-circle"></i> Identity Verified
+                <span class="status-message"> You can book vehicles</span>
+            </div>
+        {% elif verification_status == 'pending' %}
+            <div class="status-badge pending">
+                <i class="fas fa-clock"></i> Verification Pending
+                <span class="status-message">Your documents are being reviewed</span>
+                <a href="{{ url_for('user_bp.verification_page') }}" class="btn-verify">Check Status</a>
+            </div>
+        {% elif verification_status == 'rejected' %}
+            <div class="status-badge rejected">
+                <i class="fas fa-times-circle"></i> Verification Rejected
+                <span class="status-message">{{ rejection_reason|default('Please resubmit your documents') }}</span>
+                <a href="{{ url_for('user_bp.verification_page') }}" class="btn-verify">Resubmit</a>
+            </div>
+        {% else %}
+            <div class="status-badge unverified">
+                <i class="fas fa-shield-alt"></i> Identity Not Verified
+                <span class="status-message">Complete verification to book vehicles</span>
+                <a href="{{ url_for('user_bp.verification_page') }}" class="btn-verify">Verify Now</a>
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    <!-- Stats Tabs - Single Line -->
+    <div class="stats-tabs">
+        <div class="stat-tab">
+            <div class="stat-tab-icon"><i class="fas fa-calendar-check"></i></div>
+            <div class="stat-tab-number">{{ booking_count|default(0) }}</div>
+            <div class="stat-tab-label">Total Bookings</div>
+        </div>
+        <div class="stat-tab">
+            <div class="stat-tab-icon"><i class="fas fa-play-circle"></i></div>
+            <div class="stat-tab-number">{{ active_count|default(0) }}</div>
+            <div class="stat-tab-label">Active</div>
+        </div>
+        <div class="stat-tab">
+            <div class="stat-tab-icon"><i class="fas fa-clock"></i></div>
+            <div class="stat-tab-number">{{ pending_count|default(0) }}</div>
+            <div class="stat-tab-label">Pending</div>
+        </div>
+        <div class="stat-tab">
+            <div class="stat-tab-icon"><i class="fas fa-calendar-check"></i></div>
+            <div class="stat-tab-number">{{ confirmed_count|default(0) }}</div>
+            <div class="stat-tab-label">Confirmed</div>
+        </div>
+        <div class="stat-tab">
+            <div class="stat-tab-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-tab-number">{{ completed_count|default(0) }}</div>
+            <div class="stat-tab-label">Completed</div>
+        </div>
+        <div class="stat-tab">
+            <div class="stat-tab-icon"><i class="fas fa-ban"></i></div>
+            <div class="stat-tab-number">{{ cancelled_count|default(0) }}</div>
+            <div class="stat-tab-label">Cancelled</div>
+        </div>
+        <div class="stat-tab">
+            <div class="stat-tab-icon"><i class="fas fa-peso-sign"></i></div>
+            <div class="stat-tab-number">₱{{ "%.2f"|format(total_spent|default(0)) }}</div>
+            <div class="stat-tab-label">Total Spent</div>
+        </div>
+        <div class="stat-tab">
+            <div class="stat-tab-icon"><i class="fas fa-star"></i></div>
+            <div class="stat-tab-number">{{ testimonial_count|default(0) }}</div>
+            <div class="stat-tab-label">Reviews</div>
+        </div>
+    </div>
+    
+    <!-- Upcoming Bookings Alert -->
+    {% if upcoming_bookings %}
+    <div class="upcoming-bookings">
+        <h4><i class="fas fa-calendar-alt"></i> Upcoming Bookings (Next 7 Days)</h4>
+        {% for booking in upcoming_bookings %}
+        <div class="upcoming-booking-item">
+            <strong>{{ booking.brand_name }} {{ booking.model }}</strong><br>
+            <small>
+                <i class="fas fa-calendar"></i> {{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }} to {{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}
+                | <i class="fas fa-file-invoice"></i> {{ booking.booking_reference }}
+            </small>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Active Rentals Widget -->
+    {% if active_rentals %}
+    <div class="active-rentals-card">
+        <h3>Active Rentals</h3>
+        {% for rental in active_rentals %}
+        <div class="rental-card rental-card-{{ rental.countdown_type }}">
+            <div class="rental-card-content">
+                <div class="rental-card-info">
+                    <h4>{{ rental.brand_name }} {{ rental.model }}</h4>
+                    <span class="rental-details">
+                        {{ rental.license_plate }} | {{ rental.booking_reference }}
+                    </span>
+                </div>
+                <div class="rental-card-actions">
+                    <span class="rental-countdown">{{ rental.status_message }}</span>
+                    <div class="rental-buttons">
+                        <button onclick="showExtensionForm('{{ rental.id }}')" class="btn-secondary">Extend</button>
+                        <a href="{{ url_for('user_bp.active_rentals') }}" class="btn-primary">Return</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Management Grid - Compact Single Line -->
+    <div class="management-grid">
+        <div class="management-card" onclick="window.location.href='{{ url_for('base_bp.browse_fleet') }}'">
+            <div class="card-icon"><i class="fas fa-car"></i></div>
+            <div class="card-info">
+                <h3>Car Booking</h3>
+                <p>Browse available vehicles and make a reservation</p>
+            </div>
+        </div>
+        <div class="management-card" onclick="window.location.href='{{ url_for('user_bp.invoices') }}'">
+            <div class="card-icon"><i class="fas fa-file-invoice"></i></div>
+            <div class="card-info">
+                <h3>My Invoices</h3>
+                <p>View and download your invoices</p>
+            </div>
+        </div>
+
+        <div class="management-card" onclick="window.location.href='{{ url_for('user_bp.my_bookings') }}'">
+            <div class="card-icon"><i class="fas fa-history"></i></div>
+            <div class="card-info">
+                <h3>Booking History</h3>
+                <p>View and manage your past and current bookings</p>
+            </div>
+        </div>
+
+        <div class="management-card" onclick="window.location.href='{{ url_for('user_bp.profile') }}'">
+            <div class="card-icon"><i class="fas fa-user-edit"></i></div>
+            <div class="card-info">
+                <h3>Update Profile</h3>
+                <p>Edit your personal information and password</p>
+            </div>
+        </div>
+
+        <div class="management-card" onclick="window.location.href='{{ url_for('base_bp.testimonials') }}'">
+            <div class="card-icon"><i class="fas fa-star"></i></div>
+            <div class="card-info">
+                <h3>My Reviews</h3>
+                <p>See all your reviews</p>
+            </div>
+        </div>
+        <div class="management-card" onclick="window.location.href='{{ url_for('user_bp.active_rentals') }}'">
+            <div class="card-icon"><i class="fas fa-clock"></i></div>
+            <div class="card-info">
+                <h3>Active Rentals</h3>
+                <p>Track your current rentals with countdown timer</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notifications Card -->
+    <div class="notifications-card">
+        <div class="notifications-card-header">
+            <h3><i class="fas fa-bell"></i> Recent Notifications</h3>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                {% if notification_unread_count > 0 %}
+                <form method="POST" action="{{ url_for('user_bp.mark_all_notifications_read') }}">
+                    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+                    <button type="submit" class="notifications-card-mark-all">Mark all read</button>
+                </form>
+                {% endif %}
+                <a href="{{ url_for('user_bp.notifications') }}" class="notifications-card-view-all">View All</a>
+            </div>
+        </div>
+        <div class="notifications-card-list">
+            {% if recent_notifications %}
+                {% for notification in recent_notifications %}
+                    <a href="{{ url_for('user_bp.open_notification', notification_id=notification.id) }}"
+                       class="notifications-card-item {% if not notification.is_read %}unread{% endif %} {% if notification.type == 'status_update' %}notif-status{% elif notification.type == 'booking_confirmation' %}notif-booking{% elif notification.type == 'payment_confirmation' %}notif-payment{% elif notification.type == 'fine_notice' %}notif-fine{% elif notification.type == 'review' %}notif-review{% elif notification.type == 'promotion' %}notif-promo{% elif notification.type == 'system' %}notif-system{% elif notification.type == 'verification' %}notif-verify{% elif notification.type == 'maintenance' %}notif-maint{% else %}notif-default{% endif %}">
+                        <div class="notifications-card-icon {% if notification.type == 'status_update' %}icon-status{% elif notification.type == 'booking_confirmation' %}icon-booking{% elif notification.type == 'payment_confirmation' %}icon-payment{% elif notification.type == 'fine_notice' %}icon-fine{% elif notification.type == 'review' %}icon-review{% elif notification.type == 'promotion' %}icon-promo{% elif notification.type == 'system' %}icon-system{% elif notification.type == 'verification' %}icon-verify{% elif notification.type == 'maintenance' %}icon-maint{% else %}icon-default{% endif %}">
+                            <i class="fas {% if notification.type == 'status_update' %}fa-sync-alt{% elif notification.type == 'booking_confirmation' %}fa-calendar-check{% elif notification.type == 'payment_confirmation' %}fa-credit-card{% elif notification.type == 'fine_notice' %}fa-exclamation-triangle{% elif notification.type == 'review' %}fa-star{% elif notification.type == 'promotion' %}fa-tag{% elif notification.type == 'system' %}fa-cog{% elif notification.type == 'verification' %}fa-user-check{% elif notification.type == 'maintenance' %}fa-tools{% else %}fa-bell{% endif %}"></i>
+                        </div>
+                        <div class="notifications-card-content">
+                            <div class="notifications-card-title">{{ notification.title }}</div>
+                            <div class="notifications-card-message">{{ notification.message }}</div>
+                            <div class="notifications-card-time">
+                                {{ notification.created_at.strftime('%b %d, %I:%M %p') if notification.created_at else 'Just now' }}
+                            </div>
+                        </div>
+                    </a>
+                {% endfor %}
+            {% else %}
+                <div class="notifications-card-empty">
+                    <i class="fas fa-bell-slash"></i>
+                    <p><strong>No notifications yet</strong></p>
+                    <p>We'll notify you when something happens</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Recent Bookings -->
+    {% if recent_bookings %}
+    <div class="table-section">
+        <h3><i class="fas fa-clock"></i> Recent Bookings</h3>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Reference</th>
+                        <th>Vehicle</th>
+                        <th>Pickup</th>
+                        <th>Return</th>
+                        <th>Dates</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for booking in recent_bookings %}
+                    <tr>
+                        <td><strong>{{ booking.booking_reference or 'N/A' }}</strong></td>
+                        <td>{{ booking.brand_name }} {{ booking.model }}</td>
+                        <td>
+                            <div class="booking-location pickup">
+                                {% if booking.custom_pickup_address %}
+                                    (Custom) {{ booking.custom_pickup_address }}
+                                {% else %}
+                                    {{ booking.pickup_location }}
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="booking-location return">
+                                {% if booking.custom_return_address %}
+                                    (Custom) {{ booking.custom_return_address }}
+                                {% else %}
+                                    {{ booking.return_location }}
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>{{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }}<br>
+                            {{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}</td>
+                        <td>₱{{ "%.2f"|format(booking.total_amount) }}</td>
+                        <td><span class="badge badge-{{ booking.status }}">{{ booking.status }}</span></td>
+                        <td class="booking-actions">
+                            {% if booking.status == 'pending' or booking.status == 'confirmed' %}
+                            <form method="POST" action="{{ url_for('user_bp.cancel_booking', booking_id=booking.id) }}" id="cancelForm-{{ booking.id }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token_value or global_csrf_token }}">
+                                <button type="button"
+                                       class="btn-secondary btn-small"
+                                       onclick="handleCancelBooking('{{ booking.id }}')">Cancel</button>
+                            </form>
+                            {% elif booking.status == 'active' %}
+                            <button onclick="showExtensionForm('{{ booking.id }}')"
+                                   class="btn-secondary btn-small">Extend</button>
+                            <a href="{{ url_for('user_bp.active_rentals') }}"
+                               class="btn-primary btn-small">Return</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="view-all-link">
+            <a href="{{ url_for('user_bp.my_bookings') }}" class="btn-secondary">View All Bookings</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function handleCancelBooking(bookingId) {
+    openConfirmModal({
+        title: 'Cancel Booking',
+        message: 'Are you sure you want to cancel this booking? This action cannot be undone.',
+        confirmText: 'Cancel Booking',
+        confirmClass: 'confirm-btn-danger',
+        onConfirm: function() {
+            document.getElementById('cancelForm-' + bookingId).submit();
+        }});
+}
+
+function showExtensionForm(bookingId) {
+    const days = prompt('How many days would you like to extend? (Maximum 7 days)', '1');
+    
+    if (!days || days === null) {
+        return;
+    }
+    
+    const requestedDays = parseInt(days);
+    
+    if (isNaN(requestedDays) || requestedDays < 1 || requestedDays > 7) {
+        alert('Please enter a valid number of days between 1 and 7');
+        return;
+    }
+    
+    const reason = prompt('Reason for extension (optional)', '');
+    
+    openConfirmModal({
+        title: 'Request Extension',
+        message: 'Are you sure you want to request a ' + requestedDays + '-day extension? Additional charges may apply.',
+        confirmText: 'Submit Request',
+        confirmClass: 'confirm-btn-primary',
+        onConfirm: function() {
+            fetch('/user/request-extension/' + bookingId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ global_csrf_token }}'
+                },
+                body: JSON.stringify({
+                    requested_days: requestedDays,
+                    reason: reason || ''
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success) {
+                    alert('Extension request submitted successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }})
+            .catch(function(error) {
+                console.error('Error:', error);
+                alert('An error occurred while submitting your request');
+            });
+        }});
+}
+</script>
+{% endblock %}

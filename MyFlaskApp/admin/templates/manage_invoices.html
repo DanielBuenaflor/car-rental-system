@@ -1,0 +1,266 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Manage Invoices - CarRental Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .tab-btn {
+        padding: 10px 20px;
+        background: #e2e8f0;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .tab-btn.active {
+        background: #0f3b6f;
+        color: white;
+    }
+    .invoice-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e2e8f0;
+    }
+    .invoice-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .invoice-number {
+        font-weight: bold;
+        color: #0f3b6f;
+        font-size: 16px;
+    }
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .status-paid { background: #d1fae5; color: #065f46; }
+    .status-pending { background: #fed7aa; color: #9b2c1d; }
+    .status-overdue { background: #fee2e2; color: #991b1b; }
+    .invoice-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    .detail-item {
+        padding: 10px;
+        background: #f8fafc;
+        border-radius: 8px;
+    }
+    .detail-label {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+    .detail-value {
+        font-weight: 600;
+        color: #1f2937;
+    }
+    .amount {
+        font-size: 20px;
+        font-weight: bold;
+        color: #0f3b6f;
+    }
+    .search-box {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .search-box input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+    .search-box button {
+        padding: 10px 20px;
+        background: #0f3b6f;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-secondary { background: #64748b; color: white; }
+    .btn-xs { padding: 4px 8px; font-size: 11px; }
+    .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <h2 style="margin-bottom: 20px;">Manage Invoices</h2>
+    
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search by invoice number, customer name, or email..." value="{{ request.args.get('search', '') }}">
+        <button onclick="searchInvoices()">Search</button>
+    </div>
+    
+    <div class="tabs">
+        <button class="tab-btn {% if status_filter == 'all' %}active{% endif %}" onclick="filterInvoices('all')">All</button>
+        <button class="tab-btn {% if status_filter == 'paid' %}active{% endif %}" onclick="filterInvoices('paid')">Paid</button>
+        <button class="tab-btn {% if status_filter == 'pending' %}active{% endif %}" onclick="filterInvoices('pending')">Pending</button>
+        <button class="tab-btn {% if status_filter == 'overdue' %}active{% endif %}" onclick="filterInvoices('overdue')">Overdue</button>
+    </div>
+    
+    {% if invoices %}
+        {% for invoice in invoices %}
+        <div class="invoice-card">
+            <div class="invoice-header">
+                <span class="invoice-number">{{ invoice.invoice_number }}</span>
+                <span class="status-badge status-{{ invoice.status }}">{{ invoice.status|upper if invoice.status else 'PENDING' }}</span>
+            </div>
+            
+            <div class="invoice-details">
+                <div class="detail-item">
+                    <div class="detail-label">Customer</div>
+                    <div class="detail-value">{{ invoice.first_name }} {{ invoice.last_name }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Email</div>
+                    <div class="detail-value">{{ invoice.email }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Booking</div>
+                    <div class="detail-value">{{ invoice.booking_reference }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Vehicle</div>
+                    <div class="detail-value">{{ invoice.brand_name }} {{ invoice.model }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Rental Period</div>
+                    <div class="detail-value">
+                        {% if invoice.start_date %}
+                            {{ invoice.start_date.strftime('%Y-%m-%d') }} to {{ invoice.end_date.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Invoice Date</div>
+                    <div class="detail-value">
+                        {% if invoice.invoice_date %}
+                            {{ invoice.invoice_date.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Due Date</div>
+                    <div class="detail-value">
+                        {% if invoice.due_date %}
+                            {{ invoice.due_date.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Amount</div>
+                    <div class="detail-value amount">₱{{ "%.2f"|format(invoice.total_amount or 0) }}</div>
+                </div>
+            </div>
+            
+            <div class="actions">
+                <a href="{{ url_for('user_bp.download_invoice', invoice_id=invoice.id) }}" class="btn-sm btn-primary" target="_blank">
+                    <i class="fas fa-eye"></i> View
+                </a>
+                <a href="{{ url_for('user_bp.invoice_pdf', invoice_id=invoice.id) }}" class="btn-sm btn-success" target="_blank">
+                    <i class="fas fa-download"></i> PDF
+                </a>
+                <button class="btn-sm btn-secondary" onclick="resendInvoice({{ invoice.id }})">
+                    <i class="fas fa-envelope"></i> Resend Email
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card" style="text-align: center; padding: 60px;">
+            <i class="fas fa-file-invoice" style="font-size: 64px; color: #0f3b6f; margin-bottom: 20px;"></i>
+            <h3>No Invoices Found</h3>
+            <p>No invoices match your current filter or search criteria.</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+let currentStatus = '{{ status_filter }}';
+
+function filterInvoices(status) {
+    currentStatus = status;
+    const search = document.getElementById('searchInput').value;
+    let url = '{{ url_for("admin_bp.manage_invoices") }}?status=' + status;
+    if (search) {
+        url += '&search=' + encodeURIComponent(search);
+    }
+    window.location.href = url;
+}
+
+function searchInvoices() {
+    const search = document.getElementById('searchInput').value;
+    let url = '{{ url_for("admin_bp.manage_invoices") }}?status=' + currentStatus;
+    if (search) {
+        url += '&search=' + encodeURIComponent(search);
+    }
+    window.location.href = url;
+}
+
+function resendInvoice(invoiceId) {
+    if (!confirm('Are you sure you want to resend this invoice?')) {
+        return;
+    }
+    
+    fetch('{{ url_for("admin_bp.api_resend_invoice", invoice_id=0) }}'.replace('0', invoiceId), {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Invoice resent successfully!');
+        } else {
+            alert('Failed to resend invoice: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        alert('Error resending invoice: ' + error);
+    });
+}
+
+// Handle Enter key in search
+document.getElementById('searchInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        searchInvoices();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,19 @@
+# Flask and core dependencies
+Flask>=2.3.0
+Werkzeug>=2.3.0
+python-dotenv>=1.0.0
+
+# Database
+mysql-connector-python>=8.0.0
+
+# Email
+Flask-Mail>=0.9.0
+
+# OCR and Image Processing
+pytesseract>=0.3.10
+opencv-python>=4.8.0
+Pillow>=10.0.0
+requests>=2.31.0
+
+# Security (optional but recommended)
+pyopenssl>=23.0.0

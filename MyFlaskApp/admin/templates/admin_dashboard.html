@@ -1,0 +1,678 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Admin Dashboard - CarRental Pro{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    /* Simple, clean dashboard styles - responsive */
+    .dashboard-container {
+        margin: 30px 0;
+    }
+
+    /* User Info Header */
+    .user-info {
+        background: linear-gradient(135deg, #0f3b6f, #1e4a7a);
+        color: white;
+        padding: 24px 28px;
+        border-radius: 16px;
+        margin-bottom: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .user-info h2 {
+        color: white;
+        margin: 0;
+        font-size: 24px;
+    }
+
+    .user-info h2:after { display: none; }
+
+    .user-info p {
+        margin: 4px 0 0;
+        opacity: 0.9;
+        font-size: 15px;
+    }
+
+    .user-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 8px 20px;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    /* Stats Tabs */
+    .stats-tabs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .stat-tab {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .stat-tab:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: #0f3b6f;
+    }
+
+    .stat-tab.active {
+        border-color: #0f3b6f;
+        background: #f8fafc;
+    }
+
+    .stat-tab-icon {
+        font-size: 28px;
+        color: #0f3b6f;
+        margin-bottom: 8px;
+    }
+
+    .stat-tab-number {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1f3a5f;
+    }
+
+    .stat-tab-label {
+        font-size: 13px;
+        color: #666;
+        margin-top: 4px;
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+
+    .action-btn {
+        background: white;
+        border: 2px solid #e2e8f0;
+        padding: 10px 20px;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #1f3a5f;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: #0f3b6f;
+        color: #0f3b6f;
+    }
+
+    .action-btn i {
+        font-size: 14px;
+        color: #0f3b6f;
+    }
+
+    /* Management Grid */
+    .management-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    .management-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        border: 2px solid #e2e8f0;
+    }
+
+    .management-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: #0f3b6f;
+    }
+
+    .card-icon {
+        width: 56px;
+        height: 56px;
+        background: #e0f2fe;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: #0f3b6f;
+        flex-shrink: 0;
+    }
+
+    .card-info h3 {
+        margin: 0 0 4px 0;
+        font-size: 16px;
+        color: #1f3a5f;
+    }
+
+    .card-info p {
+        margin: 0;
+        color: #666;
+        font-size: 13px;
+    }
+
+    .card-count {
+        font-size: 24px;
+        font-weight: 700;
+        color: #0f3b6f;
+        flex-shrink: 0;
+    }
+
+    /* Charts Section */
+    .charts-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .chart-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 2px solid #e2e8f0;
+    }
+
+    .chart-card h3 {
+        margin-bottom: 20px;
+        color: #1f3a5f;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .chart-card h3 i {
+        color: #0f3b6f;
+    }
+
+    canvas {
+        max-height: 300px;
+        width: 100%;
+    }
+
+    /* Table Section */
+    .table-section {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 2px solid #e2e8f0;
+    }
+
+    .table-section h3 {
+        padding: 20px 24px 0;
+        margin: 0;
+        color: #1f3a5f;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .table-section h3 i {
+        color: #0f3b6f;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 16px;
+    }
+
+    th, td {
+        padding: 14px 24px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #0f3b6f;
+        font-size: 13px;
+    }
+
+    td {
+        font-size: 14px;
+        color: #1f3a5f;
+    }
+
+    tr:hover {
+        background: #f8fafc;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Badges */
+    .badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .badge-pending {
+        background: #fed7aa;
+        color: #9b2c1d;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 992px) {
+        .stats-tabs {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .charts-section {
+            grid-template-columns: 1fr;
+        }
+        
+        .management-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .user-info h2 {
+            font-size: 20px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .stats-tabs {
+            grid-template-columns: 1fr;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .action-btn {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .user-info {
+            padding: 20px;
+        }
+        
+        .management-card {
+            flex-direction: column;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            font-size: 20px;
+        }
+        
+        th, td {
+            padding: 12px 16px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    
+    <!-- ============================================================================
+         USER INFO HEADER
+         ============================================================================ -->
+    <div class="user-info">
+        <div>
+            <h2>Admin Dashboard</h2>
+            <p>Welcome back, {{ session.get('username', 'Admin') }}!</p>
+        </div>
+        <div class="user-badge">
+            <i class="fas fa-shield-alt"></i> Administrator
+        </div>
+    </div>
+    
+    <!-- ============================================================================
+         STATS TABS
+         ============================================================================ -->
+    <div class="stats-tabs">
+        <div class="stat-tab active" onclick="showTab('vehicles')">
+            <div class="stat-tab-icon"><i class="fas fa-car"></i></div>
+            <div class="stat-tab-number">{{ dashboard_stats.vehicle_count|default(0) }}</div>
+            <div class="stat-tab-label">Total Vehicles</div>
+        </div>
+        
+        <div class="stat-tab" onclick="showTab('bookings')">
+            <div class="stat-tab-icon"><i class="fas fa-calendar-check"></i></div>
+            <div class="stat-tab-number">{{ dashboard_stats.booking_count|default(0) }}</div>
+            <div class="stat-tab-label">Total Bookings</div>
+        </div>
+        
+        <div class="stat-tab" onclick="showTab('revenue')">
+            <div class="stat-tab-icon"><i class="fas fa-peso-sign"></i></div>
+            <div class="stat-tab-number">₱{{ "%.2f"|format(dashboard_stats.total_revenue|default(0)) }}</div>
+            <div class="stat-tab-label">Total Revenue</div>
+        </div>
+        
+        <div class="stat-tab" onclick="showTab('users')">
+            <div class="stat-tab-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-tab-number">{{ dashboard_stats.user_count|default(0) }}</div>
+            <div class="stat-tab-label">Total Users</div>
+        </div>
+    </div>
+    
+    <!-- ============================================================================
+         ACTION BUTTONS
+         ============================================================================ -->
+    <div class="action-buttons">
+        <button class="action-btn" onclick="window.location.href='{{ url_for('admin_bp.manage_bookings') }}'">
+            <i class="fas fa-chart-line"></i> Booking Statistics
+        </button>
+        
+        <button class="action-btn" onclick="window.location.href='{{ url_for('admin_bp.manage_bookings') }}'">
+            <i class="fas fa-chart-pie"></i> Revenue Breakdown
+        </button>
+        
+        <button class="action-btn" onclick="window.location.href='{{ url_for('admin_bp.manage_vehicles') }}'">
+            <i class="fas fa-plus"></i> Add New Vehicle
+        </button>
+    </div>
+    
+    <!-- ============================================================================
+         MANAGEMENT CARDS GRID
+         ============================================================================ -->
+    <div class="management-grid">
+        <!-- Vehicle Brands Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_brands') }}'">
+            <div class="card-icon"><i class="fas fa-trademark"></i></div>
+            <div class="card-info">
+                <h3>Vehicle Brands</h3>
+                <p>Create and manage brands</p>
+            </div>
+            <div class="card-count">{{ dashboard_stats.brand_count|default(0) }}</div>
+        </div>
+        
+        <!-- Manage Vehicles Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_vehicles') }}'">
+            <div class="card-icon"><i class="fas fa-car"></i></div>
+            <div class="card-info">
+                <h3>Manage Vehicles</h3>
+                <p>Add, edit, or remove vehicles</p>
+            </div>
+            <div class="card-count">{{ dashboard_stats.vehicle_count|default(0) }}</div>
+        </div>
+        
+        <!-- Manage Bookings Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_bookings') }}'">
+            <div class="card-icon"><i class="fas fa-calendar-check"></i></div>
+            <div class="card-info">
+                <h3>Manage Bookings</h3>
+                <p>View and manage bookings</p>
+            </div>
+            <div class="card-count">{{ dashboard_stats.booking_count|default(0) }}</div>
+        </div>
+        
+        <!-- Registered Users Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_users') }}'">
+            <div class="card-icon"><i class="fas fa-users"></i></div>
+            <div class="card-info">
+                <h3>Registered Users</h3>
+                <p>View and manage users</p>
+            </div>
+            <div class="card-count">{{ dashboard_stats.user_count|default(0) }}</div>
+        </div>
+        
+        <!-- Contact Queries Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_queries') }}'">
+            <div class="card-icon"><i class="fas fa-envelope"></i></div>
+            <div class="card-info">
+                <h3>Contact Queries</h3>
+                <p>Reply to inquiries</p>
+            </div>
+            <div class="card-count">{{ dashboard_stats.new_queries|default(0) }}</div>
+        </div>
+        
+        <!-- Subscribers Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_subscribers') }}'">
+            <div class="card-icon"><i class="fas fa-bell"></i></div>
+            <div class="card-info">
+                <h3>Subscribers</h3>
+                <p>Manage newsletter subscribers</p>
+            </div>
+            <div class="card-count">{{ dashboard_stats.subscriber_count|default(0) }}</div>
+        </div>
+        
+        <!-- Page Content Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_page_content') }}'">
+            <div class="card-icon"><i class="fas fa-file-alt"></i></div>
+            <div class="card-info">
+                <h3>Page Content</h3>
+                <p>Update website content</p>
+            </div>
+            <div class="card-count">-</div>
+        </div>
+        
+        <!-- Contact Details Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_contact_details') }}'">
+            <div class="card-icon"><i class="fas fa-address-card"></i></div>
+            <div class="card-info">
+                <h3>Contact Details</h3>
+                <p>Update contact information</p>
+            </div>
+            <div class="card-count">-</div>
+        </div>
+        
+        <!-- Extension Requests Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_extensions') }}'">
+            <div class="card-icon"><i class="fas fa-calendar-plus"></i></div>
+            <div class="card-info">
+                <h3>Extension Requests</h3>
+                <p>Manage rental extension requests</p>
+            </div>
+            <div class="card-count">{{ dashboard_stats.extension_count|default(0) }}</div>
+        </div>
+        
+        <!-- Vehicle Images Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_vehicle_images') }}'">
+            <div class="card-icon"><i class="fas fa-images"></i></div>
+            <div class="card-info">
+                <h3>Vehicle Images</h3>
+                <p>Manage vehicle photos</p>
+            </div>
+            <div class="card-count">-</div>
+        </div>
+        
+        <!-- Analytics Reports Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.reports') }}'">
+            <div class="card-icon"><i class="fas fa-chart-line"></i></div>
+            <div class="card-info">
+                <h3>Analytics Reports</h3>
+                <p>View detailed analytics</p>
+            </div>
+            <div class="card-count">-</div>
+        </div>
+        
+        <!-- Manage Verifications Card -->
+        <div class="management-card" onclick="window.location.href='{{ url_for('admin_bp.manage_verifications') }}'">
+            <div class="card-icon"><i class="fas fa-id-card"></i></div>
+            <div class="card-info">
+                <h3>Manage Verifications</h3>
+                <p>Review and approve identity verification requests</p>
+            </div>
+            <div class="card-count">
+                {% if pending_verifications > 0 %}
+                <span class="badge" style="background: #fed7aa; color: #9b2c1d; font-size: 14px;">
+                    {{ pending_verifications }} Pending
+                </span>
+                {% else %}
+                    {{ pending_verifications }}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- ============================================================================
+         CHARTS SECTION
+         ============================================================================ -->
+    <div class="charts-section">
+        <!-- Booking Statistics Chart -->
+        <div class="chart-card">
+            <h3><i class="fas fa-chart-line"></i> Booking Statistics</h3>
+            <canvas id="bookingChart"></canvas>
+        </div>
+        
+        <!-- Revenue Breakdown Chart -->
+        <div class="chart-card">
+            <h3><i class="fas fa-chart-pie"></i> Revenue Breakdown</h3>
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- ============================================================================
+         RECENT BOOKINGS TABLE
+         ============================================================================ -->
+    <div class="table-section">
+        <h3><i class="fas fa-clock"></i> Recent Bookings</h3>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Booking ID</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for booking in recent_bookings %}
+                    <tr>
+                        <td>#{{ booking.id }}</td>
+                        <td>{{ booking.user_name }}</td>
+                        <td>{{ booking.model }}</td>
+                        <td>{{ booking.created_at.strftime('%Y-%m-%d') if booking.created_at else 'N/A' }}</td>
+                        <td>₱{{ "%.2f"|format(booking.total_amount) }}</td>
+                        <td><span class="badge badge-{{ booking.status }}">{{ booking.status }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center;">No recent bookings</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================================
+     JAVASCRIPT
+     ============================================================================ -->
+<script>
+    let bookingsChart, revenueChart;
+    
+    function loadCharts() {
+        // Booking chart data from server
+        const bookingData = {{ booking_trend|tojson }};
+        if (bookingData && bookingData.labels && bookingData.labels.length > 0) {
+            const ctx = document.getElementById('bookingChart').getContext('2d');
+            if (bookingsChart) bookingsChart.destroy();
+            
+            bookingsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: bookingData.labels,
+                    datasets: [{
+                        label: 'Bookings',
+                        data: bookingData.data,
+                        borderColor: '#0f3b6f',
+                        backgroundColor: 'rgba(15, 59, 111, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+        
+        // Revenue chart data from server
+        const revenueData = {{ revenue_trend|tojson }};
+        if (revenueData && revenueData.labels && revenueData.labels.length > 0) {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            if (revenueChart) revenueChart.destroy();
+            
+            revenueChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: revenueData.labels,
+                    datasets: [{
+                        label: 'Revenue (₱)',
+                        data: revenueData.data,
+                        backgroundColor: '#10b981',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+    }
+    
+    function showTab(tab) {
+        // Update active tab styling
+        document.querySelectorAll('.stat-tab').forEach(t => t.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        
+        // You can add tab-specific data loading here
+    }
+    
+    // Load charts after page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCharts();
+    });
+</script>
+{% endblock %}

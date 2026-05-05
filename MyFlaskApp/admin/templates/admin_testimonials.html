@@ -1,0 +1,77 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Customer Reviews - CarRental Pro{% endblock %}
+
+{% block content %}
+<div style="margin: 40px 0;">
+    <h2 style="margin-bottom: 20px;"><i class="fas fa-star"></i> Customer Reviews</h2>
+    
+    <div class="card">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f8fafc;">
+                    <th style="padding: 12px; text-align: left;">User</th>
+                    <th style="padding: 12px; text-align: left;">Vehicle</th>
+                    <th style="padding: 12px; text-align: left;">Rating</th>
+                    <th style="padding: 12px; text-align: left;">Comment</th>
+                    <th style="padding: 12px; text-align: left;">Image</th>
+                    <th style="padding: 12px; text-align: left;">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in testimonials %}
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                        {{ t.user_name }}<br>
+                        <small style="color: #64748b;">{{ t.user_email }}</small>
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                        {{ t.brand_name }} {{ t.model }}
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                        {% for i in range(t.rating) %}<i class="fas fa-star" style="color: #f59e0b;"></i>{% endfor %}
+                        {% for i in range(5 - t.rating) %}<i class="far fa-star" style="color: #d1d5db;"></i>{% endfor %}
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                        {{ t.comment[:100] }}{% if t.comment|length > 100 %}...{% endif %}
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                        {% if t.image_path %}
+                        <a href="/uploads/{{ t.image_path }}" target="_blank">
+                            <img src="/uploads/{{ t.image_path }}" style="max-width: 80px; border-radius: 4px;">
+                        </a>
+                        {% else %}
+                        <span style="color: #94a3b8;">No image</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                        {{ t.created_at.strftime('%Y-%m-%d') if t.created_at else 'N/A' }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
+                        <i class="fas fa-star" style="font-size: 48px; color: #cbd5e1; margin-bottom: 16px; display: block;"></i>
+                        No reviews yet
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div style="text-align: center; margin-top: 20px;">
+        {% for p in range(1, total_pages + 1) %}
+            <a href="?page={{ p }}" 
+               style="padding: 8px 16px; margin: 0 4px; 
+                      background: {% if p == page %}#0f3b6f; color: white;{% else %}white;{% endif %}
+                      border: 1px solid #e2e8f0; border-radius: 8px; text-decoration: none; display: inline-block;">
+                {{ p }}
+            </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

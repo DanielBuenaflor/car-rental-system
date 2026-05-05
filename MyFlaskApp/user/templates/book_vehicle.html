@@ -1,0 +1,778 @@
+{% extends "base/templates/base.html" %}
+
+{% block title %}Book Vehicle - CarRental Pro{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+.location-tabs {
+    display: flex;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #e0e0e0;
+}
+.location-tab {
+    padding: 12px 20px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+.location-tab.active {
+    color: #0f3b6f;
+    border-bottom-color: #0f3b6f;
+}
+.location-section {
+    display: none;
+}
+.location-section.active {
+    display: block;
+}
+#pickupLocationMap, #returnLocationMap, #customPickupMap, #customReturnMap {
+    height: 350px;
+    width: 100%;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+.location-markers {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.location-card {
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.location-card:hover {
+    border-color: #0f3b6f;
+    background: #f8fafc;
+}
+.location-card.selected {
+    border-color: #0f3b6f;
+    background: #e8f4fd;
+}
+.location-card .branch-type {
+    font-size: 12px;
+    color: #888;
+    text-transform: uppercase;
+}
+.location-card .name {
+    font-weight: 600;
+    margin: 5px 0;
+}
+.location-card .address {
+    font-size: 13px;
+    color: #666;
+}
+.selected-location {
+    padding: 12px;
+    background: #e8f4fd;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+.selected-location .label {
+    font-size: 12px;
+    color: #0f3b6f;
+    font-weight: 600;
+}
+.selected-location .name {
+    font-size: 16px;
+    font-weight: 600;
+}
+.custom-address-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+#customPickupMap {
+    height: 250px;
+    width: 100%;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+.fee-breakdown {
+    font-size: 13px;
+    color: #666;
+    margin-top: 5px;
+}
+.fee-breakdown .one-way-fee {
+    color: #e74c3c;
+    font-weight: 600;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 40px auto;">
+    <div class="card">
+        <h2 style="margin-bottom: 20px;">Book This Vehicle</h2>
+        
+        {% if vehicle %}
+        <div style="margin-bottom: 30px;">
+            <h3>{{ vehicle.brand_name }} {{ vehicle.model }}</h3>
+            <p><strong>Daily Rate:</strong> ₱{{ vehicle.daily_rate }}/day</p>
+            <p><strong>Transmission:</strong> {{ vehicle.transmission }}</p>
+            <p><strong>Fuel Type:</strong> {{ vehicle.fuel_type }}</p>
+            <p><strong>Seating Capacity:</strong> {{ vehicle.seating_capacity }} seats</p>
+        </div>
+        
+        {% if verification_status == 'approved' %}
+            <form id="bookingForm">
+                <div class="form-group">
+                    <label for="start_date">Start Date *</label>
+                    <input type="date" id="start_date" name="start_date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="end_date">End Date *</label>
+                    <input type="date" id="end_date" name="end_date" required>
+                </div>
+                
+                <div id="timeSection" style="display: none; margin-top: 20px; padding: 15px; background: #f0f9ff; border-radius: 8px; border: 1px solid #0f3b6f;">
+                    <div style="margin-bottom: 12px; font-weight: 600; color: #0f3b6f;">
+                        <i class="fas fa-clock"></i> Same-Day Rental Times
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label for="pickup_time">Pickup Time *</label>
+                        <select id="pickup_time" name="pickup_time" onchange="updateReturnTime()">
+                            <option value="">Select pickup time</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="return_time">Return Time *</label>
+                        <select id="return_time" name="return_time">
+                            <option value="">Select return time</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Pickup Location *</label>
+                    <div class="location-tabs">
+                        <button type="button" class="location-tab active" data-tab="pickup-map">Select from Map</button>
+                        <button type="button" class="location-tab" data-tab="pickup-custom">Custom Address</button>
+                    </div>
+                    
+                    <div id="pickup-map" class="location-section active">
+                        <div id="pickupLocationMap"></div>
+                        <div id="pickupLocationCards" class="location-markers"></div>
+                        <div id="pickupSelectedLocation" class="selected-location" style="display: none;">
+                            <div class="label">Selected Pickup Location:</div>
+                            <div class="name" id="pickupSelectedName">-</div>
+                        </div>
+                        <input type="hidden" id="pickup_location_id" name="pickup_location_id" value="">
+                        <input type="hidden" id="pickup_location_name" name="pickup_location" value="">
+                    </div>
+                    
+                    <div id="pickup-custom" class="location-section">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <select id="pickup_region" class="form-control">
+                                <option value="">Select Region</option>
+                            </select>
+                            <select id="pickup_province" class="form-control" disabled>
+                                <option value="">Select Province</option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <select id="pickup_city" class="form-control" disabled>
+                                <option value="">Select City/Municipality</option>
+                            </select>
+                            <select id="pickup_barangay" class="form-control" disabled>
+                                <option value="">Select Barangay</option>
+                            </select>
+                        </div>
+                        <input type="hidden" id="pickup_region_name">
+                        <input type="hidden" id="pickup_province_name">
+                        <input type="hidden" id="pickup_city_name">
+                        <input type="hidden" id="pickup_barangay_name">
+                        
+                        <input type="text" id="custom_pickup_street" class="custom-address-input" placeholder="House No., Street, Building">
+                        <input type="hidden" id="custom_pickup_address" name="custom_pickup_address">
+                        
+                        <div id="customPickupMap"></div>
+                        <input type="hidden" id="custom_pickup_lat" name="custom_pickup_lat" value="">
+                        <input type="hidden" id="custom_pickup_lng" name="custom_pickup_lng" value="">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Return Location *</label>
+                    <div class="location-tabs">
+                        <button type="button" class="location-tab active" data-tab="return-map">Select from Map</button>
+                        <button type="button" class="location-tab" data-tab="return-custom">Custom Address</button>
+                    </div>
+                    
+                    <div id="return-map" class="location-section active">
+                        <div id="returnLocationMap"></div>
+                        <div id="returnLocationCards" class="location-markers"></div>
+                        <div id="returnSelectedLocation" class="selected-location" style="display: none;">
+                            <div class="label">Selected Return Location:</div>
+                            <div class="name" id="returnSelectedName">-</div>
+                        </div>
+                        <input type="hidden" id="return_location_id" name="return_location_id" value="">
+                        <input type="hidden" id="return_location_name" name="return_location" value="">
+                    </div>
+                    
+                    <div id="return-custom" class="location-section">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <select id="return_region" class="form-control">
+                                <option value="">Select Region</option>
+                            </select>
+                            <select id="return_province" class="form-control" disabled>
+                                <option value="">Select Province</option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <select id="return_city" class="form-control" disabled>
+                                <option value="">Select City/Municipality</option>
+                            </select>
+                            <select id="return_barangay" class="form-control" disabled>
+                                <option value="">Select Barangay</option>
+                            </select>
+                        </div>
+                        <input type="hidden" id="return_region_name">
+                        <input type="hidden" id="return_province_name">
+                        <input type="hidden" id="return_city_name">
+                        <input type="hidden" id="return_barangay_name">
+                        
+                        <input type="text" id="custom_return_street" class="custom-address-input" placeholder="House No., Street, Building">
+                        <input type="hidden" id="custom_return_address" name="custom_return_address">
+                        
+                        <div id="customReturnMap"></div>
+                        <input type="hidden" id="custom_return_lat" name="custom_return_lat" value="">
+                        <input type="hidden" id="custom_return_lng" name="custom_return_lng" value="">
+                    </div>
+                </div>
+                
+                <div id="bookingSummary" style="display: none; margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                    <h4>Booking Summary</h4>
+                    <p id="rateInfo"><strong>Daily Rate:</strong> ₱{{ vehicle.daily_rate }}</p>
+                    <p><strong>Duration:</strong> <span id="rentalDuration">0</span></p>
+                    <p><strong>Subtotal:</strong> ₱<span id="subtotal">0.00</span></p>
+                    <p id="oneWayFeeRow" style="display: none;"><strong>One-Way Fee:</strong> ₱<span id="oneWayFee">0.00</span></p>
+                    <p id="deliveryFeeRow" style="display: none;"><strong>Delivery Fee:</strong> ₱<span id="deliveryFee">0.00</span></p>
+                    <p><strong>Tax (10%):</strong> ₱<span id="tax">0.00</span></p>
+                    <p><strong>Total:</strong> ₱<span id="total">0.00</span></p>
+                </div>
+                
+                <div id="loadingIndicator" style="display: none; text-align: center; margin: 20px 0;">
+                    <i class="fas fa-spinner fa-spin"></i> Processing...
+                </div>
+                
+                <button type="submit" class="btn-primary" style="width: 100%; margin-top: 20px; padding: 14px 20px; font-size: 16px;">
+                    <i class="fas fa-calendar-check"></i> Proceed to Payment
+                </button>
+            </form>
+            
+        {% elif verification_status == 'pending' %}
+            <div class="alert alert-info">
+                <i class="fas fa-clock"></i>
+                <strong>Verification Pending</strong><br>
+                Your identity verification is currently being reviewed. You'll be able to book vehicles once verification is approved.
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="{{ url_for('user_bp.verification_page') }}" class="btn-primary">Check Verification Status</a>
+            </div>
+            
+        {% elif verification_status == 'rejected' %}
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <strong>Verification Rejected</strong><br>
+                {{ rejection_reason|default('Your verification was rejected. Please submit new documents.') }}
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="{{ url_for('user_bp.verification_page') }}" class="btn-primary">Submit New Documents</a>
+            </div>
+            
+        {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-shield-alt"></i>
+                <strong>Identity Verification Required</strong><br>
+                Please complete identity verification before booking a vehicle. This helps ensure a safe and secure experience for all customers.
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="{{ url_for('user_bp.verification_page') }}" class="btn-primary">Verify Identity Now</a>
+            </div>
+        {% endif %}
+        
+        {% else %}
+        <p>Vehicle not found.</p>
+        {% endif %}
+        
+        <div style="margin-top: 20px; text-align: center;">
+            <a href="{{ url_for('base_bp.browse_fleet') }}" class="btn-secondary">Back to Fleet</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #1f3a5f;
+    }
+    
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+    }
+    
+    .form-group select {
+        cursor: pointer;
+    }
+    
+    .form-group select:focus,
+    .form-group input:focus {
+        outline: none;
+        border-color: #0f3b6f;
+        box-shadow: 0 0 0 3px rgba(15, 59, 111, 0.1);
+    }
+    
+    .btn-primary {
+        background: #0f3b6f;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 40px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.2s;
+    }
+    
+    .btn-primary:hover {
+        background: #1e4a7a;
+    }
+    
+    .btn-primary:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+    }
+    
+    .btn-secondary {
+        background: #e2e8f0;
+        color: #1f3a5f;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 40px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-secondary:hover {
+        background: #cbd5e1;
+        text-decoration: none;
+    }
+    
+    .alert {
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border-left: 4px solid;
+    }
+    
+    .alert-info {
+        background: #dbeafe;
+        color: #1e40af;
+        border-left-color: #3b82f6;
+    }
+    
+    .alert-error {
+        background: #fee2e2;
+        color: #991b1b;
+        border-left-color: #ef4444;
+    }
+    
+    .alert-warning {
+        background: #fed7aa;
+        color: #9b2c1d;
+        border-left-color: #f97316;
+    }
+    
+    .alert i {
+        margin-right: 10px;
+        font-size: 18px;
+    }
+</style>
+
+<script>
+    const vehicleId = {{ vehicle.id }};
+    const dailyRate = {{ vehicle.daily_rate }};
+    const hourlyRate = dailyRate / 5;
+    const closingHour = 22;
+    
+    function generateTimeOptions(selectElement, minHour, maxHour, defaultHour) {
+        if (!selectElement) return;
+        if (minHour > maxHour) {
+            selectElement.innerHTML = '<option value="">No times available</option>';
+            return;
+        }
+        
+        selectElement.innerHTML = '';
+        
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select time';
+        defaultOption.disabled = true;
+        defaultOption.selected = true;
+        selectElement.appendChild(defaultOption);
+        
+        for (let h = minHour; h <= maxHour; h++) {
+            const hour12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const timeStr = `${hour12}:00 ${ampm}`;
+            const value = `${String(h).padStart(2, '0')}:00`;
+            
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = timeStr;
+            if (h === defaultHour) option.selected = true;
+            selectElement.appendChild(option);
+        }
+    }
+    
+    function setTodayDate() {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const todayDate = `${yyyy}-${mm}-${dd}`;
+        
+        const startDateInput = document.getElementById('start_date');
+        if (startDateInput) {
+            startDateInput.value = todayDate;
+            startDateInput.min = todayDate;
+        }
+        
+        const endDateInput = document.getElementById('end_date');
+        if (endDateInput) {
+            endDateInput.min = todayDate;
+            endDateInput.value = '';
+        }
+    }
+    
+    function isSameDay(date1, date2) {
+        if (!date1 || !date2) return false;
+        const d1 = new Date(date1);
+        const d2 = new Date(date2);
+        return d1.toDateString() === d2.toDateString();
+    }
+    
+    function calculateDuration(startDate, endDate, pickupTime, returnTime) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        
+        if (days === 1 && pickupTime && returnTime) {
+            const [pickupH, pickupM] = pickupTime.split(':').map(Number);
+            const [returnH, returnM] = returnTime.split(':').map(Number);
+            let hours = (returnH + (returnM/60)) - (pickupH + (pickupM/60));
+            if (hours < 0) hours += 24;
+            return { type: 'hourly', hours: hours, days: 0 };
+        } else if (days > 1) {
+            return { type: 'daily', days: days, hours: 0 };
+        } else if (days === 1) {
+            return { type: 'daily', days: 1, hours: 0 };
+        }
+        
+        return { type: 'none', days: 0, hours: 0 };
+    }
+    
+    function calculatePrice(duration, oneWayFee = 0, deliveryFee = 0) {
+        let subtotal = 0;
+        if (duration.type === 'hourly') {
+            const rawSubtotal = duration.hours * hourlyRate;
+            subtotal = Math.min(rawSubtotal, dailyRate);
+            var isCapped = rawSubtotal > dailyRate;
+        } else if (duration.type === 'daily') {
+            subtotal = duration.days * dailyRate;
+            var isCapped = false;
+        }
+        
+        const totalBeforeTax = subtotal + oneWayFee + deliveryFee;
+        const tax = totalBeforeTax * 0.10;
+        const total = totalBeforeTax + tax;
+        
+        return { subtotal, oneWayFee, deliveryFee, tax, total, rate: duration.type === 'hourly' ? hourlyRate : dailyRate, isCapped: isCapped || false };
+    }
+    
+    function updateReturnTime() {
+        const pickupSelect = document.getElementById('pickup_time');
+        const returnSelect = document.getElementById('return_time');
+        if (pickupSelect && returnSelect && pickupSelect.value) {
+            const pickupHour = parseInt(pickupSelect.value.split(':')[0]);
+            const returnMin = Math.max(pickupHour + 1, 9);
+            const returnMax = 22;
+            generateTimeOptions(returnSelect, returnMin, returnMax, Math.min(pickupHour + 5, returnMax));
+        }
+        calculateSummary();
+    }
+    
+    function calculateSummary() {
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+        const pickupTime = document.getElementById('pickup_time')?.value;
+        const returnTime = document.getElementById('return_time')?.value;
+        
+        const timeSection = document.getElementById('timeSection');
+        const rateInfo = document.getElementById('rateInfo');
+        
+        if (startDate && endDate) {
+            if (isSameDay(startDate, endDate) && timeSection) {
+                timeSection.style.display = 'block';
+                
+                const pickupSelect = document.getElementById('pickup_time');
+                const returnSelect = document.getElementById('return_time');
+                
+                const now = new Date();
+                const currentHour = now.getHours();
+                const earliestPickup = currentHour < 8 ? 8 : (currentHour + 1 > 21 ? 21 : currentHour + 1);
+                
+                generateTimeOptions(pickupSelect, earliestPickup, 21, earliestPickup);
+                generateTimeOptions(returnSelect, earliestPickup + 1, 22, Math.min(earliestPickup + 5, 22));
+            } else if (timeSection) {
+                timeSection.style.display = 'none';
+            }
+            
+            const duration = calculateDuration(startDate, endDate, pickupTime, returnTime);
+            const oneWayFee = window.currentOneWayFee || currentOneWayFee;
+            const deliveryFee = window.currentDeliveryFee || currentDeliveryFee;
+            const price = calculatePrice(duration, oneWayFee, deliveryFee);
+            
+            const rentalDurationEl = document.getElementById('rentalDuration');
+            const bookingSummary = document.getElementById('bookingSummary');
+            
+            if (duration.type !== 'none') {
+                if (duration.type === 'hourly') {
+                    rentalDurationEl.textContent = `${duration.hours} hour(s)`;
+                    rateInfo.innerHTML = `<strong>Hourly Rate:</strong> ₱${hourlyRate}/hr${price.isCapped ? ' <span style="color: #f59e0b;">(capped to daily rate)</span>' : ''}`;
+                } else {
+                    rentalDurationEl.textContent = `${duration.days} day(s)`;
+                    rateInfo.innerHTML = `<strong>Daily Rate:</strong> ₱${dailyRate}/day`;
+                }
+                
+                document.getElementById('subtotal').textContent = (price.subtotal + price.oneWayFee + price.deliveryFee).toFixed(2);
+                document.getElementById('oneWayFee').textContent = price.oneWayFee.toFixed(2);
+                document.getElementById('deliveryFee').textContent = price.deliveryFee.toFixed(2);
+                document.getElementById('tax').textContent = price.tax.toFixed(2);
+                document.getElementById('total').textContent = price.total.toFixed(2);
+                
+                document.getElementById('oneWayFeeRow').style.display = price.oneWayFee > 0 ? 'block' : 'none';
+                document.getElementById('deliveryFeeRow').style.display = price.deliveryFee > 0 ? 'block' : 'none';
+                
+                bookingSummary.style.display = 'block';
+            } else {
+                bookingSummary.style.display = 'none';
+            }
+        }
+    }
+    
+    // Fee variables - values populated by location-map.js via window object
+    var currentOneWayFee = window.currentOneWayFee || 0;
+    var currentDeliveryFee = window.currentDeliveryFee || 0;
+    
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    
+    if (startDateInput && endDateInput) {
+        startDateInput.addEventListener('change', function() {
+            endDateInput.min = this.value;
+            if (endDateInput.value && endDateInput.value < this.value) {
+                endDateInput.value = '';
+            }
+            calculateSummary();
+        });
+        
+        endDateInput.addEventListener('change', calculateSummary);
+        
+        document.getElementById('return_time')?.addEventListener('change', calculateSummary);
+    }
+    
+    document.getElementById('bookingForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+        const pickupTime = document.getElementById('pickup_time')?.value;
+        const returnTime = document.getElementById('return_time')?.value;
+        const pickupLocationEl = document.getElementById('pickup_location_name');
+        const returnLocationEl = document.getElementById('return_location_name');
+        const pickupLocation = pickupLocationEl ? pickupLocationEl.value : '';
+        const returnLocation = returnLocationEl ? returnLocationEl.value : '';
+        const pickupLocationId = document.getElementById('pickup_location_id')?.value;
+        const returnLocationId = document.getElementById('return_location_id')?.value;
+        
+        if (!startDate || !endDate) {
+            alert('Please select both start and end dates');
+            return;
+        }
+        
+        const duration = calculateDuration(startDate, endDate, pickupTime, returnTime);
+        
+        if (duration.type === 'hourly' && (!pickupTime || !returnTime)) {
+            alert('Please select pickup and return times for same-day booking');
+            return;
+        }
+        
+        if (duration.type === 'none') {
+            alert('End date must be after start date');
+            return;
+        }
+        
+        if (duration.type === 'daily' && duration.days > 30) {
+            alert('Maximum rental period is 30 days');
+            return;
+        }
+        
+        if (!pickupLocation || !returnLocation) {
+            alert('Please select both pickup and return locations');
+            return;
+        }
+        
+        const isCustomPickup = document.querySelector('#pickup-map')?.classList.contains('active') === false;
+        const isCustomReturn = document.querySelector('#return-map')?.classList.contains('active') === false;
+        
+        let customPickupAddress = null;
+        if (isCustomPickup) {
+            customPickupAddress = concatenateAddress('pickup');
+        }
+        
+        let customReturnAddress = null;
+        if (isCustomReturn) {
+            customReturnAddress = concatenateAddress('return');
+        }
+        
+        const bookingData = {
+            vehicle_id: vehicleId,
+            start_date: startDate,
+            end_date: endDate,
+            pickup_time: pickupTime || null,
+            return_time: returnTime || null,
+            pickup_location: isCustomPickup ? customPickupAddress : pickupLocation,
+            return_location: isCustomReturn ? customReturnAddress : returnLocation,
+            pickup_location_id: pickupLocationId || null,
+            return_location_id: returnLocationId || null,
+            is_custom_pickup: isCustomPickup,
+            is_custom_return: isCustomReturn,
+            custom_pickup_address: customPickupAddress,
+            custom_return_address: customReturnAddress,
+            custom_pickup_lat: document.getElementById('custom_pickup_lat')?.value || null,
+            custom_pickup_lng: document.getElementById('custom_pickup_lng')?.value || null,
+            one_way_fee: window.currentOneWayFee || currentOneWayFee,
+            delivery_fee: window.currentDeliveryFee || currentDeliveryFee
+        };
+        
+        const submitBtn = document.querySelector('#bookingForm button[type="submit"]');
+        const originalBtnText = submitBtn.innerHTML;
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        loadingIndicator.style.display = 'block';
+        
+        try {
+            const response = await fetch('{{ url_for("user_bp.book_vehicle") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token_value or global_csrf_token }}'
+                },
+                body: JSON.stringify(bookingData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.status === 403 && data.redirect) {
+                alert(data.message);
+                window.location.href = data.redirect;
+                return;
+            }
+            
+            if (data.success) {
+                alert(data.message);
+                window.location.href = data.redirect;
+            } else {
+                alert(data.message || 'Failed to create booking. Please try again.');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                loadingIndicator.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred. Please check your connection and try again.');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+            loadingIndicator.style.display = 'none';
+         }
+     });
+    
+    setTodayDate();
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/location-map.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ph-address-selector.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof PhAddressSelector !== 'undefined') {
+        // Initialize Address Selectors
+        PhAddressSelector.init({
+            regionId: 'pickup_region',
+            provinceId: 'pickup_province',
+            cityId: 'pickup_city',
+            barangayId: 'pickup_barangay'
+        });
+        
+        PhAddressSelector.init({
+            regionId: 'return_region',
+            provinceId: 'return_province',
+            cityId: 'return_city',
+            barangayId: 'return_barangay'
+        });
+    } else {
+        console.error('PhAddressSelector utility not loaded');
+    }
+});
+
+function concatenateAddress(prefix) {
+    const street = document.getElementById(`custom_${prefix}_street`).value.trim();
+    const brgy = document.getElementById(`${prefix}_barangay_name`).value;
+    const city = document.getElementById(`${prefix}_city_name`).value;
+    const prov = document.getElementById(`${prefix}_province_name`).value;
+    const region = document.getElementById(`${prefix}_region_name`).value;
+    
+    let full = street;
+    if (brgy) full += `, Brgy. ${brgy}`;
+    if (city) full += `, ${city}`;
+    if (prov) full += `, ${prov}`;
+    if (region) full += `, ${region}`;
+    
+    return full;
+}
+</script>
+{% endblock %}
