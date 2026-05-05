@@ -458,6 +458,11 @@
 <div style="margin-top: 40px; margin-bottom: 40px;">
     <h2 style="margin-bottom: 30px; font-size: clamp(2rem, 5vw, 3.5rem);">My Bookings</h2>
     
+    <!-- Debug info -->
+    <div style="background: #f0f0f0; padding: 10px; margin-bottom: 20px; font-size: 12px;">
+        Bookings count: {{ bookings|length if bookings else 0 }}
+    </div>
+    
     {% if bookings %}
     <div style="background: white; border-radius: 0; padding: 24px 0; box-shadow: none; border: none; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
         <div style="overflow-x: auto;">
@@ -479,8 +484,8 @@
                     <tr>
                         <td><strong>{{ booking.booking_reference or 'N/A' }}</strong></td>
                         <td>{{ booking.brand_name }} {{ booking.model }} ({{ booking.year }})</td>
-                        <td>{{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }}</td>
-                        <td>{{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}</td>
+                        <td>{{ booking.start_date[:10] if booking.start_date else 'N/A' }}</td>
+                        <td>{{ booking.end_date[:10] if booking.end_date else 'N/A' }}</td>
                         <td>{{ booking.rental_days }}</td>
                         <td>₱{{ "%.2f"|format(booking.total_amount) }}</td>
                         <td>
@@ -531,10 +536,10 @@
                     <span class="booking-card-label">Vehicle:</span>
                     <span class="booking-card-value">{{ booking.brand_name }} {{ booking.model }}</span>
                 </div>
-                <div class="booking-card-row">
-                    <span class="booking-card-label">Dates:</span>
-                    <span class="booking-card-value">{{ booking.start_date.strftime('%Y-%m-%d') if booking.start_date else 'N/A' }} to {{ booking.end_date.strftime('%Y-%m-%d') if booking.end_date else 'N/A' }}</span>
-                </div>
+                    <div class="booking-card-row">
+                        <span class="booking-card-label">Dates:</span>
+                        <span class="booking-card-value">{{ booking.start_date[:10] if booking.start_date else 'N/A' }} to {{ booking.end_date[:10] if booking.end_date else 'N/A' }}</span>
+                    </div>
                 <div class="booking-card-row">
                     <span class="booking-card-label">Total:</span>
                     <span class="booking-card-value">₱{{ "%.2f"|format(booking.total_amount) }}</span>

@@ -2,18 +2,127 @@
 
 {% block title %}Payment Failed - CarRental Pro{% endblock %}
 
+{% block extra_css %}
+<style>
+    .failed-container {
+        max-width: 550px;
+        margin: 80px auto;
+        padding: 0 20px;
+    }
+    
+    .failed-card {
+        background: white;
+        border-radius: 16px;
+        padding: 48px 40px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e2e8f0;
+    }
+    
+    .failed-icon {
+        font-size: 72px;
+        color: #ef4444;
+        margin-bottom: 24px;
+        display: block;
+    }
+    
+    .failed-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 12px 0;
+    }
+    
+    .failed-message {
+        font-size: 15px;
+        color: #64748b;
+        margin-bottom: 32px;
+        line-height: 1.6;
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .btn-retry {
+        padding: 14px 32px;
+        background: #0f3b6f;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 15px;
+        transition: all 0.2s;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-retry:hover {
+        background: #1e4a7a;
+        color: white;
+        text-decoration: none;
+    }
+    
+    .btn-outline {
+        padding: 14px 32px;
+        background: white;
+        color: #0f3b6f;
+        border: 2px solid #0f3b6f;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 15px;
+        transition: all 0.2s;
+    }
+    
+    .btn-outline:hover {
+        background: #f8fafc;
+        color: #0f3b6f;
+        text-decoration: none;
+    }
+    
+    .help-text {
+        margin-top: 24px;
+        font-size: 13px;
+        color: #94a3b8;
+    }
+    
+    .help-text a {
+        color: #0f3b6f;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    
+    .help-text a:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="max-width: 600px; margin: 80px auto; text-align: center;">
-    <div class="card" style="padding: 40px;">
-        <i class="fas fa-times-circle" style="font-size: 80px; color: #ef4444; margin-bottom: 20px;"></i>
-        <h2 style="margin-bottom: 15px;">Payment Failed</h2>
-        <p style="margin-bottom: 30px; color: #666;">
+<div class="failed-container">
+    <div class="failed-card">
+        <i class="fas fa-times-circle failed-icon"></i>
+        <h2 class="failed-title">Payment Failed</h2>
+        <p class="failed-message">
             We couldn't process your payment. Please try again or use a different payment method.
         </p>
-        <div style="display: flex; gap: 15px; justify-content: center;">
-            <a href="javascript:history.back()" class="btn-primary">Try Again</a>
-            <a href="{{ url_for('user_bp.my_bookings') }}" class="btn-secondary">View My Bookings</a>
+        
+        <div class="button-group">
+            <a href="javascript:history.back()" class="btn-retry">
+                <i class="fas fa-redo"></i> Try Again
+            </a>
+            <a href="{{ url_for('user_bp.my_bookings') }}" class="btn-outline">
+                <i class="fas fa-list"></i> View My Bookings
+            </a>
         </div>
+        
+        <p class="help-text">
+            Need help? <a href="mailto:support@carrentalpro.com">Contact Support</a>
+        </p>
     </div>
 </div>
 {% endblock %}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booking Confirmed</title>
+    <title>Payment Receipt</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -57,20 +57,33 @@
             margin-bottom: 12px;
             color: #0f3b6f;
         }
-        .details-card { 
+        .receipt-card { 
             background: #f8fafc; 
-            padding: 24px; 
+            padding: 20px; 
             border-radius: 10px; 
             margin: 20px 0; 
             border: 1px solid #e2e8f0;
         }
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #0f3b6f;
+        }
+        .receipt-header h3 {
+            color: #0f3b6f;
+            font-size: 18px;
+            margin-bottom: 4px;
+        }
+        .receipt-header p {
+            color: #64748b;
+            font-size: 13px;
+        }
         .detail-row { 
             display: flex; 
             justify-content: space-between; 
-            align-items: flex-start;
-            padding: 12px 0; 
+            padding: 10px 0; 
             border-bottom: 1px solid #e2e8f0; 
-            gap: 20px;
         }
         .detail-row:last-child { 
             border-bottom: none; 
@@ -78,23 +91,30 @@
         .detail-label {
             color: #64748b;
             font-size: 13px;
-            flex-shrink: 0;
         }
         .detail-value {
             font-weight: 600;
             color: #1e293b;
             font-size: 13px;
             text-align: right;
-            word-break: break-all;
+        }
+        .total-row {
+            background: white;
+            padding: 14px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f3b6f;
+            border: 2px solid #0f3b6f;
         }
         .message {
             color: #475569;
             line-height: 1.7;
             font-size: 14px;
             margin: 20px 0;
-        }
-        .message strong {
-            color: #0f3b6f;
         }
         .button { 
             display: inline-block; 
@@ -111,6 +131,15 @@
         .button:hover {
             background: #1e4a7a;
         }
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid #0f3b6f;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-size: 13px;
+            color: #1e40af;
+        }
         .footer { 
             text-align: center; 
             padding: 20px; 
@@ -126,8 +155,6 @@
         @media (max-width: 600px) {
             .content { padding: 25px 20px; }
             .header h1 { font-size: 22px; }
-            .detail-row { flex-direction: column; gap: 4px; }
-            .detail-value { text-align: left; }
         }
     </style>
 </head>
@@ -135,42 +162,57 @@
     <div class="email-container">
         <div class="header">
             <h1>CarRental Pro</h1>
-            <p>Booking Confirmation</p>
+            <p>Payment Receipt</p>
         </div>
         <div class="content">
-            <div class="status-badge">✅ Booking Confirmed!</div>
+            <div class="status-badge">✅ Payment Successful</div>
             
             <div class="greeting">Dear {{ username }},</div>
             
             <p class="message">
-                Your booking has been successfully confirmed. Here are your booking details:
+                Your payment has been successfully processed. Thank you for choosing CarRental Pro!
             </p>
             
-            <div class="details-card">
+            <div class="receipt-card">
+                <div class="receipt-header">
+                    <h3>PAYMENT RECEIPT</h3>
+                    <p>Receipt #{{ payment.payment_reference if payment else 'N/A' }}</p>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Payment Reference</span>
+                    <strong class="detail-value">{{ payment.payment_reference if payment else 'N/A' }}</strong>
+                </div>
                 <div class="detail-row">
                     <span class="detail-label">Booking Reference</span>
-                    <strong class="detail-value">{{ booking.booking_reference }}</strong>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Start Date</span>
-                    <strong class="detail-value">{{ booking.start_date.strftime('%B %d, %Y') if booking.start_date else 'N/A' }}</strong>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">End Date</span>
-                    <strong class="detail-value">{{ booking.end_date.strftime('%B %d, %Y') if booking.end_date else 'N/A' }}</strong>
+                    <strong class="detail-value">{{ booking.booking_reference if booking else 'N/A' }}</strong>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Vehicle</span>
                     <strong class="detail-value">{{ vehicle.brand_name }} {{ vehicle.model }}</strong>
                 </div>
+                <div class="detail-row">
+                    <span class="detail-label">Payment Method</span>
+                    <strong class="detail-value">{{ payment.payment_method if payment else 'GCash' }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Transaction ID</span>
+                    <strong class="detail-value" style="font-size: 12px;">{{ payment.transaction_id if payment else 'N/A' }}</strong>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Payment Date</span>
+                    <strong class="detail-value">{{ payment.paid_at.strftime('%B %d, %Y %I:%M %p') if payment and payment.paid_at else 'Just now' }}</strong>
+                </div>
+                
+                <div class="total-row">
+                    <span>Total Amount</span>
+                    <span>₱{{ "%.2f"|format(payment.amount if payment else booking.total_amount if booking else 0) }}</span>
+                </div>
             </div>
             
-            <p class="message">
-                <strong>What's next?</strong><br>
-                • Bring a valid driver's license for pickup<br>
-                • Arrive at the pickup location on time<br>
-                • Keep this confirmation for your records
-            </p>
+            <div class="info-box">
+                <strong>Note:</strong> This is an automated receipt. Please keep this for your records.
+            </div>
             
             <center>
                 <a href="{{ url_for('user_bp.my_bookings', _external=True) }}" class="button">View Booking Details</a>

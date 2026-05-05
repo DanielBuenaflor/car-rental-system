@@ -22,6 +22,17 @@ from MyFlaskApp.utils.csrf import generate_csrf_token, validate_csrf_token, clea
 
 
 # ============================================================================
+# BUSINESS HOURS CONFIGURATION
+# ============================================================================
+BUSINESS_START = 8      # 8:00AM
+BUSINESS_END = 22       # 10:00PM
+SAME_DAY_CUTOFF = 15    # 3:00PM (same-day booking window)
+ADVANCE_HRS = 3         # 3-hour advance notice for same-day bookings
+MIN_RENTAL_HOURS = 2    # Minimum rental duration for hourly bookings
+MAX_BOOKING_DAYS = 60   # Maximum booking duration in days
+
+
+# ============================================================================
 # NOTIFICATION HELPER
 # ============================================================================
 def create_notification(user_id, title, message, notif_type, link=None):
@@ -720,16 +731,63 @@ def book_vehicle_page(vehicle_id):
         conn.close()
 
 
+@user_bp.route('/check-session')
+def check_session():
+    """Debug route to check session data"""
+    return {
+        'user_id': session.get('user_id'),
+        'user_id_type': str(type(session.get('user_id'))),
+        'loggedin': session.get('loggedin'),
+        'role': session.get('role'),
+        'email': session.get('email')
+    }
+
+@user_bp.route('/test-bookings')
+def test_bookings():
+    """Debug route to test booking query directly"""
+    from MyFlaskApp import get_db_connection
+    conn = get_db_connection()
+    if not conn:
+        return {'error': 'No database connection'}
+    cursor = conn.cursor(dictionary=True)
+    try:
+        user_id = int(session.get('user_id', 3))
+        cursor.execute("""
+            SELECT b.*, v.model, vb.name as brand_name
+            FROM bookings b
+            JOIN vehicles v ON b.vehicle_id = v.id
+            JOIN vehicle_brands vb ON v.brand_id = vb.id
+            WHERE b.user_id = %s
+            ORDER BY b.created_at DESC
+        """, (user_id,))
+        bookings = cursor.fetchall()
+        return {
+            'user_id': user_id,
+            'count': len(bookings),
+            'first_booking': bookings[0] if bookings else None
+        }
+    finally:
+        cursor.close()
+        conn.close()
+
 @user_bp.route('/bookings')
 @login_required
 def my_bookings():
     """View user's booking history"""
+    print(f"DEBUG: my_bookings route hit, user_id={session.get('user_id')}")
+    
     conn = get_db_connection()
     if not conn:
+        print("DEBUG: No database connection")
         return render_template('my_bookings.html', bookings=[], session=session)
     
     cursor = conn.cursor(dictionary=True)
     try:
+        print(f"DEBUG: Executing query for user_id={session['user_id']}")
+        # Ensure user_id is integer for proper comparison
+        user_id = int(session['user_id'])
+        print(f"DEBUG: Querying bookings for user_id={user_id} (type: {type(user_id)})")
+        
         cursor.execute("""
             SELECT b.*, v.model, v.year, v.license_plate, v.daily_rate, v.transmission,
                    vb.name as brand_name, vb.id as brand_id,
@@ -740,8 +798,24 @@ def my_bookings():
             JOIN users u ON b.user_id = u.id
             WHERE b.user_id = %s
             ORDER BY b.created_at DESC
-        """, (session['user_id'],))
+        """, (user_id,))
         bookings = cursor.fetchall()
+        
+        print(f"DEBUG: Found {len(bookings)} bookings for user_id={session.get('user_id')}")
+        
+        # Convert timedelta and datetime objects to strings for JSON serialization
+        for booking in bookings:
+            for key, value in list(booking.items()):
+                if isinstance(value, timedelta):
+                    # Convert timedelta to string (HH:MM:SS format)
+                    total_seconds = int(value.total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    seconds = total_seconds % 60
+                    booking[key] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                elif isinstance(value, datetime):
+                    # Convert datetime to string
+                    booking[key] = value.strftime('%Y-%m-%d %H:%M:%S')
         
         # Get all bookings user has already reviewed
         cursor.execute("""
@@ -757,6 +831,8 @@ def my_bookings():
         return render_template('my_bookings.html', bookings=bookings, session=session)
     except Exception as e:
         print(f"My bookings error: {e}")
+        import traceback
+        traceback.print_exc()
         return render_template('my_bookings.html', bookings=[], session=session)
     finally:
         cursor.close()
@@ -1135,38 +1211,70 @@ def book_vehicle():
         if not vehicle:
             return jsonify({'success': False, 'message': 'Vehicle is not available'})
         
+        # Parse dates
         start = datetime.strptime(start_date, '%Y-%m-%d')
         end = datetime.strptime(end_date, '%Y-%m-%d')
         days = (end - start).days
 
+        # Check start date not in past
         if start.date() < datetime.now().date():
             return jsonify({'success': False, 'message': 'Start date cannot be in the past'})
-        
-        if days <= 0:
-            return jsonify({'success': False, 'message': 'End date must be after start date'})
-        
+
+        # FIX: Check for same-day (hourly) booking FIRST before days validation
         is_same_day = start_date == end_date
         is_hourly = is_same_day and pickup_time and return_time
-        
+
         if is_hourly:
+            # Process hourly booking
             pickup_h = int(pickup_time.split(':')[0])
             return_h = int(return_time.split(':')[0])
+            now = datetime.now()
+            
+            # Same-day booking validation
+            if start.date() == now.date():
+                # Rule 1: 3PM cutoff - no same-day bookings after 3:00PM
+                if now.hour >= SAME_DAY_CUTOFF:
+                    return jsonify({'success': False, 'message': 'Same-day bookings are not available after 3:00 PM. Please select a future date.'}), 400
+                
+                # Rule 2: 3-hour advance notice
+                earliest_pickup = now.hour + ADVANCE_HRS
+                if earliest_pickup >= BUSINESS_END:
+                    return jsonify({'success': False, 'message': 'No same-day bookings available. Please select a future date.'}), 400
+                if pickup_h < earliest_pickup:
+                    return jsonify({'success': False, 'message': f'Same-day bookings require {ADVANCE_HRS}hrs advance. Earliest pickup: {earliest_pickup}:00'}), 400
+            
+            # Normal business hours check (all hourly bookings)
+            if pickup_h < BUSINESS_START or pickup_h >= BUSINESS_END:
+                return jsonify({'success': False, 'message': f'Pickup time must be between {BUSINESS_START}:00AM and {BUSINESS_END-12}:00PM'}), 400
+            if return_h <= pickup_h or return_h > BUSINESS_END:
+                return jsonify({'success': False, 'message': f'Return time must be after pickup and by {BUSINESS_END-12}:00PM'}), 400
+            
             hours = return_h - pickup_h
-            if hours < 0: hours += 24
+            if hours < 0:
+                hours += 24
+            
+            # Validate minimum rental duration
+            if hours < MIN_RENTAL_HOURS:
+                return jsonify({'success': False, 'message': f'Minimum rental duration is {MIN_RENTAL_HOURS} hours.'}), 400
             
             hourly_rate = float(vehicle['daily_rate']) / 5
             subtotal = hours * hourly_rate
             subtotal = min(subtotal, float(vehicle['daily_rate']))
             rental_days = 1
         else:
-            if days > 30:
-                return jsonify({'success': False, 'message': 'Maximum rental period is 30 days'})
+            # Daily booking validation - only runs for multi-day bookings
+            if days <= 0:
+                return jsonify({'success': False, 'message': 'End date must be after start date'})
+            
+            if days > MAX_BOOKING_DAYS:
+                return jsonify({'success': False, 'message': f'Maximum rental period is {MAX_BOOKING_DAYS} days.'}), 400
             
             daily_rate = float(vehicle['daily_rate'])
             subtotal = daily_rate * days
             rental_days = days
             hours = 0
-        
+
+        # Continue with tax, total, booking creation...
         tax_amount = subtotal * 0.10
         total_amount = subtotal + tax_amount
         

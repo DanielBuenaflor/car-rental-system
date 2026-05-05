@@ -161,13 +161,13 @@ def testimonials():
 @base_bp.route('/terms')
 def terms():
     """Terms and Conditions page"""
-    return render_template('terms.html', session=session)
+    return render_template('base/templates/terms.html', session=session)
 
 
 @base_bp.route('/privacy')
 def privacy():
     """Privacy Policy page"""
-    return render_template('privacy.html', session=session)
+    return render_template('base/templates/privacy.html', session=session)
 
 
 @base_bp.route('/api/vehicles/filter', methods=['POST'])

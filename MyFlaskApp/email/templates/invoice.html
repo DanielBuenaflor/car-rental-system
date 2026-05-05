@@ -2,25 +2,151 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Invoice</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice #{{ invoice.invoice_number }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #0f3b6f; color: white; padding: 20px; text-align: center; }
-        .content { padding: 30px; background: #f9f9f9; }
-        .invoice-header { text-align: center; margin-bottom: 20px; }
-        .invoice-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-        .total { font-size: 18px; font-weight: bold; color: #0f3b6f; margin-top: 15px; }
-        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Inter', Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #1e293b;
+            background: #f8fafc;
+            padding: 20px;
+        }
+        .email-container { 
+            max-width: 550px; 
+            margin: 0 auto; 
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        .header { 
+            background: #0f3b6f; 
+            color: white; 
+            padding: 30px 25px; 
+            text-align: center; 
+        }
+        .header h1 { 
+            font-weight: 800; 
+            font-size: 26px; 
+            letter-spacing: -0.02em;
+            margin: 0 0 4px 0;
+        }
+        .header p {
+            font-size: 13px;
+            opacity: 0.85;
+        }
+        .content { 
+            padding: 35px 30px; 
+        }
+        .invoice-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #0f3b6f;
+        }
+        .invoice-header h3 {
+            font-size: 22px;
+            color: #0f3b6f;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .invoice-header p {
+            color: #64748b;
+            font-size: 13px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 18px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 20px;
+            background: #d1fae5; 
+            color: #065f46; 
+        }
+        .invoice-details { 
+            background: #f8fafc; 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin: 20px 0; 
+            border: 1px solid #e2e8f0;
+        }
+        .detail-row { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 10px 0; 
+            border-bottom: 1px solid #e2e8f0; 
+        }
+        .detail-row:last-child { 
+            border-bottom: none; 
+        }
+        .detail-label {
+            color: #64748b;
+            font-size: 13px;
+        }
+        .detail-value {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 13px;
+            text-align: right;
+        }
+        .total-row {
+            background: white;
+            padding: 14px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f3b6f;
+            border: 2px solid #0f3b6f;
+        }
+        .button { 
+            display: inline-block; 
+            padding: 14px 32px; 
+            background: #0f3b6f; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 8px; 
+            font-weight: 600;
+            font-size: 15px;
+            margin: 10px 0;
+            transition: all 0.2s;
+        }
+        .button:hover {
+            background: #1e4a7a;
+        }
+        .footer { 
+            text-align: center; 
+            padding: 20px; 
+            font-size: 12px; 
+            color: #94a3b8; 
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer a {
+            color: #0f3b6f;
+            text-decoration: none;
+        }
+        @media (max-width: 600px) {
+            .content { padding: 25px 20px; }
+            .header h1 { font-size: 22px; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="email-container">
         <div class="header">
-            <h2>CarRental Pro</h2>
+            <h1>CarRental Pro</h1>
+            <p>Invoice Details</p>
         </div>
         <div class="content">
+            <div class="status-badge">✅ Payment Completed</div>
+            
             <div class="invoice-header">
                 <h3>INVOICE</h3>
                 <p>Invoice #{{ invoice.invoice_number }}</p>
@@ -28,53 +154,56 @@
             
             <div class="invoice-details">
                 <div class="detail-row">
-                    <span>Invoice Date:</span>
-                    <strong>{{ invoice.invoice_date.strftime('%B %d, %Y') }}</strong>
+                    <span class="detail-label">Invoice Date</span>
+                    <strong class="detail-value">{{ invoice.invoice_date.strftime('%B %d, %Y') if invoice.invoice_date else 'N/A' }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Due Date:</span>
-                    <strong>{{ invoice.due_date.strftime('%B %d, %Y') }}</strong>
+                    <span class="detail-label">Due Date</span>
+                    <strong class="detail-value">{{ invoice.due_date.strftime('%B %d, %Y') if invoice.due_date else 'N/A' }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Booking Reference:</span>
-                    <strong>{{ booking.booking_reference }}</strong>
+                    <span class="detail-label">Booking Reference</span>
+                    <strong class="detail-value">{{ booking.booking_reference if booking else 'N/A' }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Vehicle:</span>
-                    <strong>{{ vehicle.brand_name }} {{ vehicle.model }}</strong>
+                    <span class="detail-label">Vehicle</span>
+                    <strong class="detail-value">{{ vehicle.brand_name }} {{ vehicle.model }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Subtotal:</span>
-                    <strong>${{ "%.2f"|format(invoice.subtotal) }}</strong>
+                    <span class="detail-label">Subtotal</span>
+                    <strong class="detail-value">₱{{ "%.2f"|format(invoice.subtotal) if invoice.subtotal else '0.00' }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Tax (10%):</span>
-                    <strong>${{ "%.2f"|format(invoice.tax_amount) }}</strong>
+                    <span class="detail-label">Tax (10%)</span>
+                    <strong class="detail-value">₱{{ "%.2f"|format(invoice.tax_amount) if invoice.tax_amount else '0.00' }}</strong>
                 </div>
-                {% if invoice.discount_amount > 0 %}
+                {% if invoice.discount_amount and invoice.discount_amount > 0 %}
                 <div class="detail-row">
-                    <span>Discount:</span>
-                    <strong>-${{ "%.2f"|format(invoice.discount_amount) }}</strong>
+                    <span class="detail-label">Discount</span>
+                    <strong class="detail-value" style="color: #059669;">-₱{{ "%.2f"|format(invoice.discount_amount) }}</strong>
                 </div>
                 {% endif %}
-                <div class="detail-row total">
-                    <span>Total Amount:</span>
-                    <strong>${{ "%.2f"|format(invoice.amount) }}</strong>
+                <div class="total-row">
+                    <span>Total Amount</span>
+                    <span>₱{{ "%.2f"|format(invoice.amount) if invoice.amount else '0.00' }}</span>
                 </div>
                 <div class="detail-row">
-                    <span>Amount Paid:</span>
-                    <strong>${{ "%.2f"|format(invoice.amount_paid) }}</strong>
+                    <span class="detail-label">Amount Paid</span>
+                    <strong class="detail-value" style="color: #059669;">₱{{ "%.2f"|format(invoice.amount) if invoice.amount else '0.00' }}</strong>
                 </div>
                 <div class="detail-row">
-                    <span>Balance Due:</span>
-                    <strong>${{ "%.2f"|format(invoice.balance_due) }}</strong>
+                    <span class="detail-label">Balance Due</span>
+                    <strong class="detail-value" style="color: #059669;">₱0.00</strong>
                 </div>
             </div>
             
-            <a href="{{ url_for('user_bp.my_bookings', _external=True) }}" style="display: inline-block; padding: 10px 20px; background: #0f3b6f; color: white; text-decoration: none; border-radius: 5px;">View Details</a>
+            <center>
+                <a href="{{ url_for('user_bp.my_bookings', _external=True) }}" class="button">View Booking Details</a>
+            </center>
         </div>
         <div class="footer">
             <p>&copy; 2025 CarRental Pro. All rights reserved.</p>
+            <p>Need help? <a href="mailto:support@carrentalpro.com">Contact Support</a></p>
         </div>
     </div>
 </body>
