@@ -443,19 +443,23 @@
         const start = new Date(startDate);
         const end = new Date(endDate);
         const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-        
-        if (days === 1 && pickupTime && returnTime) {
+
+        if ((days === 0 || days === 1) && pickupTime && returnTime) {
             const [pickupH, pickupM] = pickupTime.split(':').map(Number);
             const [returnH, returnM] = returnTime.split(':').map(Number);
             let hours = (returnH + (returnM/60)) - (pickupH + (pickupM/60));
-            if (hours < 0) hours += 24;
-            return { type: 'hourly', hours: hours, days: 0 };
-        } else if (days > 1) {
+            if (hours <= 0) hours += 24;
+            if (hours > 0) {
+                return { type: 'hourly', hours: hours, days: 0 };
+            }
+        }
+
+        if (days > 1) {
             return { type: 'daily', days: days, hours: 0 };
         } else if (days === 1) {
             return { type: 'daily', days: 1, hours: 0 };
         }
-        
+
         return { type: 'none', days: 0, hours: 0 };
     }
     
@@ -571,72 +575,71 @@
     
     document.getElementById('bookingForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
+
         const startDate = document.getElementById('start_date').value;
         const endDate = document.getElementById('end_date').value;
         const pickupTime = document.getElementById('pickup_time')?.value;
         const returnTime = document.getElementById('return_time')?.value;
-        const pickupLocationEl = document.getElementById('pickup_location_name');
-        const returnLocationEl = document.getElementById('return_location_name');
-        const pickupLocation = pickupLocationEl ? pickupLocationEl.value : '';
-        const returnLocation = returnLocationEl ? returnLocationEl.value : '';
+
+        const isCustomPickup = document.querySelector('#pickup-map')?.classList.contains('active') === false;
+        const isCustomReturn = document.querySelector('#return-map')?.classList.contains('active') === false;
+
+        let pickupLocation, returnLocation;
+        if (isCustomPickup) {
+            pickupLocation = concatenateAddress('pickup');
+        } else {
+            pickupLocation = document.getElementById('pickup_location_name')?.value || '';
+        }
+        if (isCustomReturn) {
+            returnLocation = concatenateAddress('return');
+        } else {
+            returnLocation = document.getElementById('return_location_name')?.value || '';
+        }
+
         const pickupLocationId = document.getElementById('pickup_location_id')?.value;
         const returnLocationId = document.getElementById('return_location_id')?.value;
-        
+
         if (!startDate || !endDate) {
             alert('Please select both start and end dates');
             return;
         }
-        
+
         const duration = calculateDuration(startDate, endDate, pickupTime, returnTime);
-        
+
         if (duration.type === 'hourly' && (!pickupTime || !returnTime)) {
             alert('Please select pickup and return times for same-day booking');
             return;
         }
-        
+
         if (duration.type === 'none') {
             alert('End date must be after start date');
             return;
         }
-        
+
         if (duration.type === 'daily' && duration.days > 30) {
             alert('Maximum rental period is 30 days');
             return;
         }
-        
+
         if (!pickupLocation || !returnLocation) {
             alert('Please select both pickup and return locations');
             return;
         }
-        
-        const isCustomPickup = document.querySelector('#pickup-map')?.classList.contains('active') === false;
-        const isCustomReturn = document.querySelector('#return-map')?.classList.contains('active') === false;
-        
-        let customPickupAddress = null;
-        if (isCustomPickup) {
-            customPickupAddress = concatenateAddress('pickup');
-        }
-        
-        let customReturnAddress = null;
-        if (isCustomReturn) {
-            customReturnAddress = concatenateAddress('return');
-        }
-        
+
         const bookingData = {
             vehicle_id: vehicleId,
             start_date: startDate,
             end_date: endDate,
             pickup_time: pickupTime || null,
             return_time: returnTime || null,
-            pickup_location: isCustomPickup ? customPickupAddress : pickupLocation,
-            return_location: isCustomReturn ? customReturnAddress : returnLocation,
+            pickup_location: pickupLocation,
+            return_location: returnLocation,
             pickup_location_id: pickupLocationId || null,
             return_location_id: returnLocationId || null,
             is_custom_pickup: isCustomPickup,
             is_custom_return: isCustomReturn,
-            custom_pickup_address: customPickupAddress,
-            custom_return_address: customReturnAddress,
+            custom_pickup_address: isCustomPickup ? pickupLocation : null,
+            custom_return_address: isCustomReturn ? returnLocation : null,
             custom_pickup_lat: document.getElementById('custom_pickup_lat')?.value || null,
             custom_pickup_lng: document.getElementById('custom_pickup_lng')?.value || null,
             one_way_fee: window.currentOneWayFee || currentOneWayFee,
